@@ -1,10 +1,11 @@
 using UnityEngine.Rendering;
+using UnityEngine.Experimental.Rendering;
 using System.Collections.Generic;
 using System;
 
 using UnityEditor;
 
-namespace UnityEngine.ScriptableRenderLoop
+namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [ExecuteInEditMode]
     // This HDRenderLoop assume linear lighting. Don't work with gamma.
@@ -17,17 +18,19 @@ namespace UnityEngine.ScriptableRenderLoop
         {
             Depth = 1,
             TexCoord0 = 2,
-            VertexNormalWS = 3,
-            VertexTangentWS = 4,
-            VertexBitangentWS = 5,
-            VertexColor = 6,
+            TexCoord1 = 3,
+            TexCoord2 = 4,
+            VertexTangentWS = 5,
+            VertexBitangentWS = 6,
+            VertexNormalWS = 7,
+            VertexColor = 8,
         }
 
         // Must be in sync with DebugViewMaterial.hlsl
         public enum DebugViewGbufferMode
         {
-            Depth = 7,
-            BakeDiffuseLighting = 8,
+            Depth = 9,
+            BakeDiffuseLighting = 10,
         }
 
         public class DebugParameters
@@ -323,7 +326,7 @@ namespace UnityEngine.ScriptableRenderLoop
 
                 Shader.SetGlobalInt("_DebugViewMaterial", (int)debugParameters.debugViewMaterial);
 
-                RenderOpaqueRenderList(cull, camera, renderLoop, "DebugView");
+                RenderOpaqueRenderList(cull, camera, renderLoop, "DebugViewMaterial");
             }
 
             // Render GBUffer opaque
@@ -410,6 +413,20 @@ namespace UnityEngine.ScriptableRenderLoop
 
             RenderTransparentRenderList(cullResults, camera, renderLoop, "Forward");
         }
+
+        void RenderForwardUnlit(CullResults cullResults, Camera camera, RenderLoop renderLoop)
+        {
+            // Bind material data
+            m_LitRenderLoop.Bind();
+
+            var cmd = new CommandBuffer { name = "Forward Unlit Pass" };
+            cmd.SetRenderTarget(new RenderTargetIdentifier(s_CameraColorBuffer), new RenderTargetIdentifier(s_CameraDepthBuffer));
+            renderLoop.ExecuteCommandBuffer(cmd);
+            cmd.Dispose();
+
+            RenderOpaqueRenderList(cullResults, camera, renderLoop, "ForwardUnlit");
+            RenderTransparentRenderList(cullResults, camera, renderLoop, "ForwardUnlit");
+        }        
 
         void FinalPass(RenderLoop renderLoop)
         {
@@ -620,6 +637,7 @@ namespace UnityEngine.ScriptableRenderLoop
                     RenderDeferredLighting(camera, renderLoop);
 
                     RenderForward(cullResults, camera, renderLoop);
+                    RenderForwardUnlit(cullResults, camera, renderLoop);
 
                     FinalPass(renderLoop);
                 }

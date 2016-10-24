@@ -15,41 +15,66 @@
 // For example if we require view vector in shader graph, the output must contain positionWS and we calcualte the view vector with it.
 // Still some input are mandatory depends on the type of loop. positionWS is mandatory in this current framework. So the ShaderGraph should always generate it.
 
+
+#define PROP_DECL(type, name) type name, name##0, name##1, name##2, name##3;
+#define PROP_DECL_TEX2D(name)\
+    UNITY_DECLARE_TEX2D(name##0);\
+    UNITY_DECLARE_TEX2D_NOSAMPLER(name##1);\
+    UNITY_DECLARE_TEX2D_NOSAMPLER(name##2);\
+    UNITY_DECLARE_TEX2D_NOSAMPLER(name##3);
+#define PROP_SAMPLE(name, textureName, texcoord, swizzle)\
+    name##0 = UNITY_SAMPLE_TEX2D_SAMPLER(textureName##0, textureName##0, texcoord).##swizzle; \
+    name##1 = UNITY_SAMPLE_TEX2D_SAMPLER(textureName##1, textureName##0, texcoord).##swizzle; \
+    name##2 = UNITY_SAMPLE_TEX2D_SAMPLER(textureName##2, textureName##0, texcoord).##swizzle; \
+    name##3 = UNITY_SAMPLE_TEX2D_SAMPLER(textureName##3, textureName##0, texcoord).##swizzle;
+#define PROP_MUL(name, multiplier, swizzle)\
+    name##0 *= multiplier##0.##swizzle; \
+    name##1 *= multiplier##1.##swizzle; \
+    name##2 *= multiplier##2.##swizzle; \
+    name##3 *= multiplier##3.##swizzle;
+#define PROP_ASSIGN(name, input, swizzle)\
+    name##0 = input##0.##swizzle; \
+    name##1 = input##1.##swizzle; \
+    name##2 = input##2.##swizzle; \
+    name##3 = input##3.##swizzle;
+#define PROP_ASSIGN_VALUE(name, input)\
+    name##0 = input; \
+    name##1 = input; \
+    name##2 = input; \
+    name##3 = input;
+#define PROP_BLEND_COLOR(name, mask) name = BlendLayeredColor(name##0, name##1, name##2, name##3, mask);
+#define PROP_BLEND_SCALAR(name, mask) name = BlendLayeredScalar(name##0, name##1, name##2, name##3, mask);
+
+#define _MAX_LAYER 4
+
+#if defined(_LAYEREDLIT_4_LAYERS)
+#   define _LAYER_COUNT 4
+#elif defined(_LAYEREDLIT_3_LAYERS)
+#   define _LAYER_COUNT 3
+#else
+#   define _LAYER_COUNT 2
+#endif
+
 //-------------------------------------------------------------------------------------
 // variable declaration
 //-------------------------------------------------------------------------------------
 
 // Set of users variables
-float4 _BaseColor;
-UNITY_DECLARE_TEX2D(_BaseColorMap);
-
-float _Metalic;
-float _Smoothness;
-UNITY_DECLARE_TEX2D(_MaskMap);
-UNITY_DECLARE_TEX2D(_SpecularOcclusionMap);
-
-UNITY_DECLARE_TEX2D(_NormalMap);
-UNITY_DECLARE_TEX2D(_Heightmap);
-float _HeightScale;
-float _HeightBias;
-
-UNITY_DECLARE_TEX2D(_DiffuseLightingMap);
-float4 _EmissiveColor;
-UNITY_DECLARE_TEX2D(_EmissiveColorMap);
-float _EmissiveIntensity;
-
-float _SubSurfaceRadius;
-UNITY_DECLARE_TEX2D(_SubSurfaceRadiusMap);
-// float _Thickness;
-// UNITY_DECLARE_TEX2D(_ThicknessMap);
-
-// float _CoatCoverage;
-// UNITY_DECLARE_TEX2D(_CoatCoverageMap);
-
-// float _CoatRoughness;
-// UNITY_DECLARE_TEX2D(_CoatRoughnessMap);
+PROP_DECL(float4, _BaseColor);
+PROP_DECL_TEX2D(_BaseColorMap);
+PROP_DECL(float, _Metallic);
+PROP_DECL(float, _Smoothness);
+PROP_DECL_TEX2D(_MaskMap);
+PROP_DECL_TEX2D(_SpecularOcclusionMap);
+PROP_DECL_TEX2D(_NormalMap);
+PROP_DECL_TEX2D(_Heightmap);
+PROP_DECL(float, _HeightScale);
+PROP_DECL(float, _HeightBias);
+PROP_DECL(float4, _EmissiveColor);
+PROP_DECL(float, _EmissiveIntensity);
 
 float _AlphaCutoff;
+UNITY_DECLARE_TEX2D(_LayerMaskMap);
 
 //-------------------------------------------------------------------------------------
 // Lighting architecture
@@ -64,6 +89,7 @@ struct Attributes
     float3 normalOS     : NORMAL;
     float2 uv0          : TEXCOORD0;
     float4 tangentOS    : TANGENT;
+    float4 color        : TANGENT;
 };
 
 struct Varyings
@@ -71,7 +97,8 @@ struct Varyings
     float4 positionHS;
     float3 positionWS;
     float2 texCoord0;
-    float4 tangentToWorld[3]; // [3x3:tangentToWorld | 1x3:viewDirForParallax]
+    float3 tangentToWorld[3];
+    float4 vertexColor;
 
 #ifdef SHADER_STAGE_FRAGMENT
     #if defined(_DOUBLESIDED_LIGHTING_FLIP) || defined(_DOUBLESIDED_LIGHTING_MIRROR)
@@ -83,7 +110,7 @@ struct Varyings
 struct PackedVaryings
 {
     float4 positionHS : SV_Position;
-    float4 interpolators[5] : TEXCOORD0;
+    float4 interpolators[6] : TEXCOORD0;
 
 #ifdef SHADER_STAGE_FRAGMENT
     #if defined(_DOUBLESIDED_LIGHTING_FLIP) || defined(_DOUBLESIDED_LIGHTING_MIRROR)
@@ -99,11 +126,12 @@ PackedVaryings PackVaryings(Varyings input)
     output.positionHS = input.positionHS;
     output.interpolators[0].xyz = input.positionWS.xyz;
     output.interpolators[0].w = input.texCoord0.x;
-    output.interpolators[1] = input.tangentToWorld[0];
-    output.interpolators[2] = input.tangentToWorld[1];
-    output.interpolators[3] = input.tangentToWorld[2];
+    output.interpolators[1].xyz = input.tangentToWorld[0];
+    output.interpolators[2].xyz = input.tangentToWorld[1];
+    output.interpolators[3].xyz = input.tangentToWorld[2];
     output.interpolators[4].x = input.texCoord0.y;
     output.interpolators[4].yzw = float3(0.0, 0.0, 0.0);
+    output.interpolators[5] = input.vertexColor;
 
     return output;
 }
@@ -115,9 +143,10 @@ Varyings UnpackVaryings(PackedVaryings input)
     output.positionWS.xyz = input.interpolators[0].xyz;
     output.texCoord0.x = input.interpolators[0].w;
     output.texCoord0.y = input.interpolators[4].x;
-    output.tangentToWorld[0] = input.interpolators[1];
-    output.tangentToWorld[1] = input.interpolators[2];
-    output.tangentToWorld[2] = input.interpolators[3];
+    output.tangentToWorld[0] = input.interpolators[1].xyz;
+    output.tangentToWorld[1] = input.interpolators[2].xyz;
+    output.tangentToWorld[2] = input.interpolators[3].xyz;
+    output.vertexColor = input.interpolators[5];
 
 #ifdef SHADER_STAGE_FRAGMENT
     #if defined(_DOUBLESIDED_LIGHTING_FLIP) || defined(_DOUBLESIDED_LIGHTING_MIRROR)
@@ -148,9 +177,7 @@ PackedVaryings VertDefault(Attributes input)
     output.tangentToWorld[1].xyz = tangentToWorld[1];
     output.tangentToWorld[2].xyz = tangentToWorld[2];
 
-    output.tangentToWorld[0].w = 0;
-    output.tangentToWorld[1].w = 0;
-    output.tangentToWorld[2].w = 0;
+    output.vertexColor = input.color;
 
     return PackVaryings(output);
 }
@@ -160,44 +187,134 @@ PackedVaryings VertDefault(Attributes input)
 // Fill SurfaceData/Lighting data function
 //-------------------------------------------------------------------------------------
 
-float3 TransformTangentToWorld(float3 normalTS, float4 tangentToWorld[3])
+#if SHADER_STAGE_FRAGMENT
+
+float3 BlendLayeredColor(float3 rgb0, float3 rgb1, float3 rgb2, float3 rgb3, float weight[4])
 {
-    // TODO check: do we need to normalize ?
-    return normalize(mul(normalTS, float3x3(tangentToWorld[0].xyz, tangentToWorld[1].xyz, tangentToWorld[2].xyz)));
+    float3 result = float3(0.0, 0.0, 0.0);
+
+    result = rgb0 * weight[0] + rgb1 * weight[1];
+#if _LAYER_COUNT >= 3
+    result += (rgb2 * weight[2]);
+#endif
+#if _LAYER_COUNT >= 4
+    result += rgb3 * weight[3];
+#endif
+
+    return result;
 }
 
-#if SHADER_STAGE_FRAGMENT
+float3 BlendLayeredNormal(float3 normal0, float3 normal1, float3 normal2, float3 normal3, float weight[4])
+{
+    float3 result = float3(0.0, 0.0, 0.0);
+
+    // TODO : real normal map blending function
+    result = normal0 * weight[0] + normal1 * weight[1];
+#if _LAYER_COUNT >= 3
+    result += normal2 * weight[2];
+#endif
+#if _LAYER_COUNT >= 4
+    result += normal3 * weight[3];
+#endif
+
+    return result;
+}
+
+float BlendLayeredScalar(float x0, float x1, float x2, float x3, float weight[4])
+{
+    float result = 0.0;
+
+    result = x0 * weight[0] + x1 * weight[1];
+#if _LAYER_COUNT >= 3
+    result += x2 * weight[2];
+#endif
+#if _LAYER_COUNT >= 4
+    result += x3 * weight[3];
+#endif
+
+    return result;
+}
+
+void ComputeMaskWeights(float4 inputMasks, out float outWeights[_MAX_LAYER])
+{
+    float masks[_MAX_LAYER];
+    masks[0] = inputMasks.r;
+    masks[1] = inputMasks.g;
+    masks[2] = inputMasks.b;
+    masks[3] = inputMasks.a;
+
+    // calculate weight of each layers
+    float left = 1.0f;
+
+    // ATTRIBUTE_UNROLL
+    for (int i = _LAYER_COUNT - 1; i > 0; --i)
+    {
+        outWeights[i] = masks[i] * left;
+        left -= outWeights[i];
+    }
+    outWeights[0] = left;
+}
 
 void GetSurfaceAndBuiltinData(Varyings input, out SurfaceData surfaceData, out BuiltinData builtinData)
 {
-    surfaceData.baseColor = UNITY_SAMPLE_TEX2D(_BaseColorMap, input.texCoord0).rgb * _BaseColor.rgb;
-#ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
-    float alpha = _BaseColor.a;
-#else
-    float alpha = UNITY_SAMPLE_TEX2D(_BaseColorMap, input.texCoord0).a * _BaseColor.a;
+    float4 maskValues = float4(1.0, 1.0, 1.0, 1.0);// input.vertexColor;
+
+#ifdef _LAYERMASKMAP
+    float4 maskMap = UNITY_SAMPLE_TEX2D(_LayerMaskMap, input.texCoord0);
+    maskValues *= maskMap;
 #endif
+
+    float weights[_MAX_LAYER];
+    ComputeMaskWeights(maskValues, weights);
+
+    PROP_DECL(float3, baseColor);
+    PROP_SAMPLE(baseColor, _BaseColorMap, input.texCoord0, rgb);
+    PROP_MUL(baseColor, _BaseColor, rgb);
+    PROP_BLEND_COLOR(baseColor, weights);
+
+    surfaceData.baseColor = baseColor;
+
+    PROP_DECL(float, alpha);
+#ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+    PROP_ASSIGN(alpha, _BaseColor, a);
+#else
+    PROP_SAMPLE(alpha, _BaseColorMap, input.texCoord0, a);
+    PROP_MUL(alpha, _BaseColor, a);
+#endif
+    PROP_BLEND_SCALAR(alpha, weights);
 
 #ifdef _ALPHATEST_ON
     clip(alpha - _AlphaCutoff);
 #endif
 
+    builtinData.opacity = alpha;
+
+    PROP_DECL(float, specularOcclusion);
 #ifdef _SPECULAROCCLUSIONMAP
     // TODO: Do something. For now just take alpha channel
-    surfaceData.specularOcclusion = UNITY_SAMPLE_TEX2D(_SpecularOcclusionMap, input.texCoord0).a;
+    PROP_SAMPLE(specularOcclusion, _SpecularOcclusionMap, input.texCoord0, a);
 #else
     // Horizon Occlusion for Normal Mapped Reflections: http://marmosetco.tumblr.com/post/81245981087
     //surfaceData.specularOcclusion = saturate(1.0 + horizonFade * dot(r, input.tangentToWorld[2].xyz);
     // smooth it
     //surfaceData.specularOcclusion *= surfaceData.specularOcclusion;
-    surfaceData.specularOcclusion = 1.0;
+    PROP_ASSIGN_VALUE(specularOcclusion, 1.0);
 #endif
+    PROP_BLEND_SCALAR(specularOcclusion, weights);
+    surfaceData.specularOcclusion = specularOcclusion;
 
     // TODO: think about using BC5
     float3 vertexNormalWS = input.tangentToWorld[2].xyz;
 
 #ifdef _NORMALMAP
     #ifdef _NORMALMAP_TANGENT_SPACE
-    float3 normalTS = UnpackNormalAG(UNITY_SAMPLE_TEX2D(_NormalMap, input.texCoord0));
+    float3 normalTS0 = UnpackNormalAG(UNITY_SAMPLE_TEX2D_SAMPLER(_NormalMap0, _NormalMap0, input.texCoord0));
+    float3 normalTS1 = UnpackNormalAG(UNITY_SAMPLE_TEX2D_SAMPLER(_NormalMap1, _NormalMap0, input.texCoord0));
+    float3 normalTS2 = UnpackNormalAG(UNITY_SAMPLE_TEX2D_SAMPLER(_NormalMap2, _NormalMap0, input.texCoord0));
+    float3 normalTS3 = UnpackNormalAG(UNITY_SAMPLE_TEX2D_SAMPLER(_NormalMap3, _NormalMap0, input.texCoord0));
+
+    float3 normalTS = BlendLayeredNormal(normalTS0, normalTS1, normalTS2, normalTS3, weights);
+
     surfaceData.normalWS = TransformTangentToWorld(normalTS, input.tangentToWorld);
     #else // Object space (TODO: We need to apply the world rotation here!)
     surfaceData.normalWS = UNITY_SAMPLE_TEX2D(_NormalMap, input.texCoord0).rgb;
@@ -212,34 +329,46 @@ void GetSurfaceAndBuiltinData(Varyings input, out SurfaceData surfaceData, out B
     #else
     // Mirror the normal with the plane define by vertex normal
     float3 oppositeNormalWS = reflect(surfaceData.normalWS, vertexNormalWS);
-#endif
-    // TODO : Test if GetOdddNegativeScale() is necessary here in case of normal map, as GetOdddNegativeScale is take into account in CreateTangentToWorld();
+    #endif
+        // TODO : Test if GetOdddNegativeScale() is necessary here in case of normal map, as GetOdddNegativeScale is take into account in CreateTangentToWorld();
     surfaceData.normalWS = IS_FRONT_VFACE(input.cullFace, GetOdddNegativeScale() >= 0.0 ? surfaceData.normalWS : oppositeNormalWS, -GetOdddNegativeScale() >= 0.0 ? surfaceData.normalWS : oppositeNormalWS);
 #endif
 
+
+    PROP_DECL(float, perceptualSmoothness);
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
-    surfaceData.perceptualSmoothness = UNITY_SAMPLE_TEX2D(_BaseColorMap, input.texCoord0).a;
+    PROP_SAMPLE(perceptualSmoothness, _BaseColorMap, input.texCoord0, a);
 #elif defined(_MASKMAP)
-    surfaceData.perceptualSmoothness = UNITY_SAMPLE_TEX2D(_MaskMap, input.texCoord0).a;
+    PROP_SAMPLE(perceptualSmoothness, _MaskMap, input.texCoord0, a);
 #else
-    surfaceData.perceptualSmoothness = 1.0;
+    PROP_ASSIGN_VALUE(perceptualSmoothness, 1.0);
 #endif
-    surfaceData.perceptualSmoothness *= _Smoothness;
+    PROP_MUL(perceptualSmoothness, _Smoothness, r);
+    PROP_BLEND_SCALAR(perceptualSmoothness, weights);
+
+    surfaceData.perceptualSmoothness = perceptualSmoothness;
 
     surfaceData.materialId = 0;
 
-    // MaskMap is Metalic, Ambient Occlusion, (Optional) - emissive Mask, Optional - Smoothness (in alpha)
+    // MaskMap is Metallic, Ambient Occlusion, (Optional) - emissive Mask, Optional - Smoothness (in alpha)
+    PROP_DECL(float, metallic);
+    PROP_DECL(float, ambientOcclusion);
 #ifdef _MASKMAP
-    surfaceData.metalic = UNITY_SAMPLE_TEX2D(_MaskMap, input.texCoord0).r;
-    surfaceData.ambientOcclusion = UNITY_SAMPLE_TEX2D(_MaskMap, input.texCoord0).g;
+    PROP_SAMPLE(metallic, _MaskMap, input.texCoord0, a);
+    PROP_SAMPLE(ambientOcclusion, _MaskMap, input.texCoord0, g);
 #else
-    surfaceData.metalic = 1.0;
-    surfaceData.ambientOcclusion = 1.0;
+    PROP_ASSIGN_VALUE(metallic, 1.0);
+    PROP_ASSIGN_VALUE(ambientOcclusion, 1.0);
 #endif
-    surfaceData.metalic *= _Metalic;
+    PROP_MUL(metallic, _Metallic, r);
 
+    PROP_BLEND_SCALAR(metallic, weights);
+    PROP_BLEND_SCALAR(ambientOcclusion, weights);
 
-    surfaceData.tangentWS = input.tangentToWorld[0].xyz;
+    surfaceData.metallic = metallic;
+    surfaceData.ambientOcclusion = ambientOcclusion;
+
+    surfaceData.tangentWS = float3(1.0, 0.0, 0.0);
     surfaceData.anisotropy = 0;
     surfaceData.specular = 0.04;
 
@@ -251,29 +380,34 @@ void GetSurfaceAndBuiltinData(Varyings input, out SurfaceData surfaceData, out B
     surfaceData.coatPerceptualSmoothness = 1.0;
     surfaceData.specularColor = float3(0.0, 0.0, 0.0);
 
-
     // Builtin Data
-    builtinData.opacity = alpha;
 
     // TODO: Sample lightmap/lightprobe/volume proxy
     // This should also handle projective lightmap
     // Note that data input above can be use to sample into lightmap (like normal)
-    builtinData.bakeDiffuseLighting = UNITY_SAMPLE_TEX2D(_DiffuseLightingMap, input.texCoord0).rgb;
+    builtinData.bakeDiffuseLighting = float3(0.0, 0.0, 0.0);// tex2D(_DiffuseLightingMap, input.texCoord0).rgb;
 
     // If we chose an emissive color, we have a dedicated texture for it and don't use MaskMap
+    PROP_DECL(float3, emissiveColor);
 #ifdef _EMISSIVE_COLOR
     #ifdef _EMISSIVE_COLOR_MAP
-    builtinData.emissiveColor = UNITY_SAMPLE_TEX2D(_EmissiveColorMap, input.texCoord0).rgb * _EmissiveColor;
+        PROP_SAMPLE(emissiveColor, _EmissiveColorMap, input.texCoord0, rgb);
     #else
-    builtinData.emissiveColor = _EmissiveColor;
+        PROP_ASSIGN(emissiveColor, _EmissiveColor, rgb);
     #endif
 #elif defined(_MASKMAP) // If we have a MaskMap, use emissive slot as a mask on baseColor
-    builtinData.emissiveColor = surfaceData.baseColor * UNITY_SAMPLE_TEX2D(_MaskMap, input.texCoord0).bbb;
+    PROP_SAMPLE(emissiveColor, _MaskMap, input.texCoord0, bbb);
+    PROP_MUL(emissiveColor, baseColor, rgb);
 #else
-    builtinData.emissiveColor = float3(0.0, 0.0, 0.0);
+    PROP_ASSIGN_VALUE(emissiveColor, float3(0.0, 0.0, 0.0));
 #endif
+    PROP_BLEND_COLOR(emissiveColor, weights);
+    builtinData.emissiveColor = emissiveColor;
 
-    builtinData.emissiveIntensity = _EmissiveIntensity;
+    PROP_DECL(float, emissiveIntensity);
+    PROP_ASSIGN(emissiveIntensity, _EmissiveIntensity, r);
+    PROP_BLEND_SCALAR(emissiveIntensity, weights);
+    builtinData.emissiveIntensity = emissiveIntensity;
 
     builtinData.velocity = float2(0.0, 0.0);
 
@@ -302,6 +436,9 @@ void GetVaryingsDataDebug(uint paramId, Varyings input, inout float3 result, ino
         break;
     case DEBUGVIEW_VARYING_VERTEXBITANGENTWS:
         result = input.tangentToWorld[1].xyz * 0.5 + 0.5;
+        break;
+    case DEBUGVIEW_VARYING_VERTEXCOLOR:
+        result = input.vertexColor.xyz;
         break;
     }
 }

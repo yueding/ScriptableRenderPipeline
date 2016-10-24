@@ -5,7 +5,7 @@ using System;
 //-----------------------------------------------------------------------------
 // structure definition
 //-----------------------------------------------------------------------------
-namespace UnityEngine.ScriptableRenderLoop
+namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     namespace Lit
     {
@@ -49,8 +49,8 @@ namespace UnityEngine.ScriptableRenderLoop
             public Vector3 tangentWS;
             [SurfaceDataAttributes("Anisotropy")]
             public float anisotropy; // anisotropic ratio(0->no isotropic; 1->full anisotropy in tangent direction)
-            [SurfaceDataAttributes("Metalic")]
-            public float metalic;
+            [SurfaceDataAttributes("Metallic")]
+            public float metallic;
             [SurfaceDataAttributes("Specular")]
             public float specular; // 0.02, 0.04, 0.16, 0.2
 
@@ -246,7 +246,7 @@ namespace UnityEngine.ScriptableRenderLoop
                 isInit = false;
             }
 
-            public void RenderInit(UnityEngine.Rendering.RenderLoop renderLoop)
+            public void RenderInit(UnityEngine.Experimental.Rendering.RenderLoop renderLoop)
             {
                 var cmd = new CommandBuffer();
                 cmd.name = "Init PreFGD";

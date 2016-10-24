@@ -3,7 +3,7 @@ using UnityEngine;
 //-----------------------------------------------------------------------------
 // structure definition
 //-----------------------------------------------------------------------------
-namespace UnityEngine.ScriptableRenderLoop
+namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     namespace Builtin
     {
@@ -40,6 +40,17 @@ namespace UnityEngine.ScriptableRenderLoop
             public Vector2 distortion;
             [SurfaceDataAttributes("Distortion Blur")]
             public float distortionBlur;           // Define the color buffer mipmap level to use
+        };
+
+        //-----------------------------------------------------------------------------
+        // LighTransportData
+        // This struct is use to store information for Enlighten/Progressive light mapper. both at runtime or off line.
+        //-----------------------------------------------------------------------------
+        [GenerateHLSL(PackingRules.Exact, false, true, 120)]
+        public struct LighTransportData
+        {
+            public Vector3 diffuseColor;
+            public Vector3 emissiveColor;
         };
     }
 }
