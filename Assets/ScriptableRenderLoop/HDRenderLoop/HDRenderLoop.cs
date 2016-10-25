@@ -2,11 +2,50 @@ using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 using System.Collections.Generic;
 using System;
-
+using System.Linq;
 using UnityEditor;
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
+    public class HDRenderLoopNodeProvider : UnityEngine.MaterialGraphInterface.IMasterNodeDescProvider
+    {
+        public UnityEngine.MaterialGraphInterface.MasterNodeDesc[] Nodes
+        {
+            get
+            {
+                var materials = new string[] { "Lit", "Unlit" }; //TODO : List Folder
+                var masterNodeDesc = new UnityEngine.MaterialGraphInterface.MasterNodeDesc[materials.Length];
+
+                for (int i = 0; i < masterNodeDesc.Length; ++i)
+                {
+                    var surfaceType = Type.GetType(string.Format("UnityEngine.Experimental.ScriptableRenderLoop.{0}.SurfaceData", materials[i]));
+
+                    if (surfaceType != null)
+                    {
+                        masterNodeDesc[i].name = "HDRenderLoop/" + materials[i];
+                        masterNodeDesc[i].templateShader = "todo.template";
+                        var fieldsSurface = surfaceType.GetFields();
+                        var fieldsBuiltIn = typeof(Builtin.BuiltinData).GetFields();
+                        masterNodeDesc[i].slots = fieldsSurface.Concat(fieldsBuiltIn).Select(field =>
+                        {
+                            var attribute = (SurfaceDataAttributes[])field.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
+                            return new UnityEngine.MaterialGraphInterface.MaterialSlotDesc()
+                            {
+                                displayName = attribute.Length > 0 ? attribute[0].displayName : field.Name,
+                                shaderOutputName = field.Name,
+                                valueType = UnityEngine.MaterialGraphInterface.SlotValueType.Vector1 //TODO
+                        };
+                        }).ToArray();
+                    }
+
+                    masterNodeDesc[i].slots = masterNodeDesc[i].slots.OrderBy(o => o.displayName).ToArray();
+                }
+
+                return masterNodeDesc;
+            }
+        }
+    }
+
     [ExecuteInEditMode]
     // This HDRenderLoop assume linear lighting. Don't work with gamma.
     public class HDRenderLoop : ScriptableRenderLoop
