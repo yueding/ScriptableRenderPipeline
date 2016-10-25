@@ -29,18 +29,34 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                         masterNodeDesc[i].slots = fieldsSurface.Concat(fieldsBuiltIn).Select(field =>
                         {
                             var attribute = (SurfaceDataAttributes[])field.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
+                            var valueType = UnityEngine.MaterialGraphInterface.SlotValueType.Dynamic;
+                            var fieldType = field.FieldType;
+                            if (fieldType == typeof(float))
+                            {
+                                valueType = MaterialGraphInterface.SlotValueType.Vector1;
+                            }
+                            else if (fieldType == typeof(Vector2))
+                            {
+                                valueType = MaterialGraphInterface.SlotValueType.Vector2;
+                            }
+                            else if (fieldType == typeof(Vector3))
+                            {
+                                valueType = MaterialGraphInterface.SlotValueType.Vector3;
+                            }
+                            else if (fieldType == typeof(Vector2))
+                            {
+                                valueType = MaterialGraphInterface.SlotValueType.Vector4;
+                            }
+
                             return new UnityEngine.MaterialGraphInterface.MaterialSlotDesc()
                             {
                                 displayName = attribute.Length > 0 ? attribute[0].displayName : field.Name,
                                 shaderOutputName = field.Name,
-                                valueType = UnityEngine.MaterialGraphInterface.SlotValueType.Vector1 //TODO
-                        };
-                        }).ToArray();
+                                valueType = valueType
+                            };
+                        }).Where(o => o.valueType != MaterialGraphInterface.SlotValueType.Dynamic).ToArray(); //For now, ignore materialID type
                     }
-
-                    masterNodeDesc[i].slots = masterNodeDesc[i].slots.OrderBy(o => o.displayName).ToArray();
                 }
-
                 return masterNodeDesc;
             }
         }
