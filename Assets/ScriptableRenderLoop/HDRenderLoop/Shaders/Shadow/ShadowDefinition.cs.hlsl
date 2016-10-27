@@ -1,7 +1,9 @@
 //
-// This file was automatically generated from Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Lighting/ShadowDefinition.cs.  Please don't edit by hand.
+// This file was automatically generated from Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Shadow/ShadowDefinition.cs.  Please don't edit by hand.
 //
 
+#ifndef SHADOWDEFINITION_CS_HLSL
+#define SHADOWDEFINITION_CS_HLSL
 //
 // UnityEngine.Experimental.ScriptableRenderLoop.ShadowType:  static fields
 //
@@ -35,3 +37,4 @@ float3 GetUnused(PunctualShadowData value)
 }
 
 
+#endif
