@@ -27,7 +27,7 @@ StructuredBuffer<SFiniteLightBound> g_data : register( t3 );
 #define NR_THREADS			64
 
 // output buffer
-RWStructuredBuffer<uint> g_vLightList : register( u0 );
+RWBuffer<uint> g_vLightList : register( u0 );
 
 
 // 2kB (room for roughly 30 wavefronts)
@@ -90,7 +90,7 @@ void BigTileLightListGen(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_Gro
 
 	if(t==0) lightOffs = 0;
 
-#if !defined(XBONE) && !defined(PLAYSTATION4)
+#if !defined(SHADER_API_XBOXONE) && !defined(SHADER_API_PSSL)
 	GroupMemoryBarrierWithGroupSync();
 #endif
 
@@ -116,11 +116,11 @@ void BigTileLightListGen(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_Gro
 		}
 	}
 
-#if !defined(XBONE) && !defined(PLAYSTATION4)
+#if !defined(SHADER_API_XBOXONE) && !defined(SHADER_API_PSSL)
 	GroupMemoryBarrierWithGroupSync();
 #endif
 
-	int iNrCoarseLights = lightOffs<MAX_NR_BIGTILE_LIGHTS ? lightOffs : MAX_NR_BIGTILE_LIGHTS;
+	int iNrCoarseLights = min(lightOffs,MAX_NR_BIGTILE_LIGHTS);
 
 #ifdef PERFORM_SPHERICAL_INTERSECTION_TESTS
 	SphericalIntersectionTests( t, iNrCoarseLights, float2(min(viTilLL.xy+uint2(64/2,64/2), uint2(iWidth-1, iHeight-1))) );
@@ -167,7 +167,7 @@ void SphericalIntersectionTests(uint threadID, int iNrCoarseLights, float2 scree
 			lightsListLDS[l]=0xffffffff;
 	}
 
-#if !defined(XBONE) && !defined(PLAYSTATION4)
+#if !defined(SHADER_API_XBOXONE) && !defined(SHADER_API_PSSL)
 		GroupMemoryBarrierWithGroupSync();
 #endif
 }
@@ -260,7 +260,7 @@ void CullByExactEdgeTests(uint threadID, int iNrCoarseLights, uint2 viTilLL, uin
 			}
 		}
 	}
-#if !defined(XBONE) && !defined(PLAYSTATION4)
+#if !defined(SHADER_API_XBOXONE) && !defined(SHADER_API_PSSL)
 		GroupMemoryBarrierWithGroupSync();
 #endif
 }
