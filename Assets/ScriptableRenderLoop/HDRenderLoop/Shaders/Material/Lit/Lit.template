@@ -1,0 +1,114 @@
+Shader "Unity/Lit/${ShaderName}"
+{
+    Properties
+    {
+        ${ShaderPropertiesHeader}
+    }
+
+    HLSLINCLUDE
+
+    #pragma target 5.0
+    #pragma only_renderers d3d11 // TEMP: unitl we go futher in dev
+    #define UNITY_MATERIAL_LIT // Need to be define before including Material.hlsl
+
+    //-------------------------------------------------------------------------------------
+    // Include
+    //-------------------------------------------------------------------------------------
+
+    #include "common.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/ShaderPass/ShaderPass.cs.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/ShaderVariables.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Debug/DebugViewMaterial.hlsl"
+
+    //-------------------------------------------------------------------------------------
+    // variable declaration
+    //-------------------------------------------------------------------------------------
+
+    // Set of users variables
+    ${LightingFunction}
+    ${ShaderFunctions}
+    ${ShaderPropertyUsages}
+
+    ENDHLSL
+
+    SubShader
+    {
+        Tags { "RenderType"="Opaque" "PerformanceChecks"="False" }
+        LOD 300
+
+        // ------------------------------------------------------------------
+        //  Deferred pass
+        // ------------------------------------------------------------------
+        Pass
+        {
+            Name "GBuffer"  // Name is not used
+            Tags { "LightMode" = "GBuffer" } // This will be only for opaque object based on the RenderQueue index
+
+            Cull  [_CullMode]
+
+            HLSLPROGRAM
+
+            #pragma vertex VertDefault
+            #pragma fragment Frag
+
+            #define SHADERPASS SHADERPASS_GBUFFER
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Material.hlsl"
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitData.template"
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitShare.template"
+            
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/ShaderPass/ShaderPassGBuffer.hlsl"
+            ENDHLSL
+        }
+
+        // ------------------------------------------------------------------
+        //  Debug pass
+        // ------------------------------------------------------------------
+        //TODO
+
+        // ------------------------------------------------------------------
+        // Extracts information for lightmapping, GI (emission, albedo, ...)
+        // This pass it not used during regular rendering.
+        // ------------------------------------------------------------------
+        //TODO
+
+        // ------------------------------------------------------------------
+        //  Depth only
+        // ------------------------------------------------------------------
+        //TODO
+
+        // ------------------------------------------------------------------
+        //  forward pass
+        // ------------------------------------------------------------------
+        /* //Preview doesn't work for now
+        Pass
+        {
+            Name "Forward" // Name is not used
+            Tags{ "LightMode" = "Forward" } // This will be only for transparent object based on the RenderQueue index
+
+            Blend[_SrcBlend][_DstBlend]
+            ZWrite[_ZWrite]
+            Cull[_CullMode]
+
+            HLSLPROGRAM
+
+            #pragma vertex VertDefault
+            #pragma fragment Frag
+
+            #define SHADERPASS SHADERPASS_FORWARD
+            // TEMP until pragma work in include
+            // #include "../../Lighting/Forward.hlsl"
+            #pragma multi_compile LIGHTLOOP_SINGLE_PASS
+            #pragma multi_compile SHADOWFILTERING_FIXED_SIZE_PCF
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Lighting/Lighting.hlsl"
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitData.template"
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitShare.template"
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/ShaderPass/ShaderPassForward.hlsl"
+
+            ENDHLSL
+        }*/
+    }
+}

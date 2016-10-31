@@ -4,64 +4,208 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 using UnityEditor;
+using UnityEngine.MaterialGraph;
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
-    public class HDRenderLoopNodeProvider : UnityEngine.MaterialGraphInterface.IMasterNodeDescProvider
+    [Serializable]
+    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
     {
-        public UnityEngine.MaterialGraphInterface.MasterNodeDesc[] Nodes
+        public override void GenerateLightFunction(ShaderGenerator lightFunction)
+        {
+            //TODO
+        }
+
+        public override void GenerateSurfaceOutput(ShaderGenerator surfaceOutput)
+        {
+            //TODO
+        }
+
+        public override string shaderTemplate
         {
             get
             {
-                var materials = new string[] { "Lit", "Unlit" }; //TODO : List Folder
-                var masterNodeDesc = new UnityEngine.MaterialGraphInterface.MasterNodeDesc[materials.Length];
+                var path = "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/Lit.template";
+                if (!System.IO.File.Exists(path))
+                    return "";
+                var content = System.IO.File.ReadAllText(path);
 
-                for (int i = 0; i < masterNodeDesc.Length; ++i)
+                var regex = new System.Text.RegularExpressions.Regex("#include {1,}\"Assets/.*.template\"");
+                var innerRegex = new System.Text.RegularExpressions.Regex("\".*\"");
+                while (regex.IsMatch(content))
                 {
-                    var surfaceType = Type.GetType(string.Format("UnityEngine.Experimental.ScriptableRenderLoop.{0}.SurfaceData", materials[i]));
+                    var match = regex.Match(content);
+                    var includePath = innerRegex.Match(match.Value).Value;
+                    includePath = includePath.Substring(1, includePath.Length - 2);
 
-                    if (surfaceType != null)
+                    if (!System.IO.File.Exists(includePath))
                     {
-                        masterNodeDesc[i].name = "HDRenderLoop/" + materials[i];
-                        masterNodeDesc[i].templateShader = "todo.template";
-                        var fieldsSurface = surfaceType.GetFields();
-                        var fieldsBuiltIn = typeof(Builtin.BuiltinData).GetFields();
-                        masterNodeDesc[i].slots = fieldsSurface.Concat(fieldsBuiltIn).Select(field =>
-                        {
-                            var attribute = (SurfaceDataAttributes[])field.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
-                            var valueType = UnityEngine.MaterialGraphInterface.SlotValueType.Dynamic;
-                            var fieldType = field.FieldType;
-                            if (fieldType == typeof(float))
-                            {
-                                valueType = MaterialGraphInterface.SlotValueType.Vector1;
-                            }
-                            else if (fieldType == typeof(Vector2))
-                            {
-                                valueType = MaterialGraphInterface.SlotValueType.Vector2;
-                            }
-                            else if (fieldType == typeof(Vector3))
-                            {
-                                valueType = MaterialGraphInterface.SlotValueType.Vector3;
-                            }
-                            else if (fieldType == typeof(Vector2))
-                            {
-                                valueType = MaterialGraphInterface.SlotValueType.Vector4;
-                            }
-
-                            return new UnityEngine.MaterialGraphInterface.MaterialSlotDesc()
-                            {
-                                displayName = attribute.Length > 0 ? attribute[0].displayName : field.Name,
-                                shaderOutputName = field.Name,
-                                valueType = valueType
-                            };
-                        }).Where(o => o.valueType != MaterialGraphInterface.SlotValueType.Dynamic).ToArray(); //For now, ignore materialID type
+                        Debug.Log("Cannot unroll Lit.template file");
+                        return "";
                     }
+
+                    var includeContent = string.Format("//Begin include : {0}\n{1}\n//End include : {0}", includePath, System.IO.File.ReadAllText(includePath));
+                    content = content.Replace(match.Value, includeContent);
                 }
-                return masterNodeDesc;
+                return content;
+            }
+        }
+
+        public AbstractHDRenderLoopMasterNode()
+        {
+            name = GetName();
+            UpdateNodeAfterDeserialization();
+        }
+
+        protected abstract Type GetSurfaceType();
+        protected abstract string GetName();
+        protected abstract int GetMatchingMaterialID();
+
+        public sealed override void UpdateNodeAfterDeserialization()
+        {
+            var surfaceType = GetSurfaceType();
+
+            if (surfaceType != null)
+            {
+                var fieldsBuiltIn = typeof(Builtin.BuiltinData).GetFields();
+                var fieldsSurface = surfaceType.GetFields();
+                var slots = fieldsSurface.Concat(fieldsBuiltIn).Select((field, index) =>
+                {
+                    var attribute = (SurfaceDataAttributes[])field.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
+                    var materialAttribute = (MaterialIdAttributes_WIP[])field.GetCustomAttributes(typeof(MaterialIdAttributes_WIP), false);
+
+                    var valueType = SlotValueType.Dynamic;
+                    var fieldType = field.FieldType;
+                    if (fieldType == typeof(float))
+                    {
+                        valueType = SlotValueType.Vector1;
+                    }
+                    else if (fieldType == typeof(Vector2))
+                    {
+                        valueType = SlotValueType.Vector2;
+                    }
+                    else if (fieldType == typeof(Vector3))
+                    {
+                        valueType = SlotValueType.Vector3;
+                    }
+                    else if (fieldType == typeof(Vector2))
+                    {
+                        valueType = SlotValueType.Vector4;
+                    }
+
+                    return new
+                    {
+                        index = index,
+                        displayName = attribute.Length > 0 ? attribute[0].displayName : field.Name,
+                        materialID = materialAttribute.Length > 0 ? materialAttribute[0].materialID : new int[] { },
+                        shaderOutputName = field.Name,
+                        valueType = valueType
+                    };
+                }).Where(o => o.materialID.Contains(GetMatchingMaterialID())).ToArray();
+
+                foreach (var slot in slots)
+                {
+                    AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
+                }
             }
         }
     }
 
+    [AttributeUsage(AttributeTargets.Field)]
+    public class MaterialIdAttributes_WIP : System.Attribute
+    {
+        public int[] materialID;
+
+        public MaterialIdAttributes_WIP(int[] materialID)
+        {
+            this.materialID = materialID;
+        }
+    }
+
+    [Serializable]
+    [Title("HDRenderLoop/StandardLit")]
+    public class StandardtLit : AbstractHDRenderLoopMasterNode
+    {
+        protected override string GetName()
+        {
+            return "MasterNodeStandardLit";
+        }
+
+        protected override Type GetSurfaceType()
+        {
+            return typeof(Lit.SurfaceData);
+        }
+
+        protected override int GetMatchingMaterialID()
+        {
+            return (int)Lit.MaterialId.LitStandard;
+        }
+    }
+
+    [Serializable]
+    [Title("HDRenderLoop/SubsurfaceScatteringLit")]
+    public class SubsurfaceScatteringLit : AbstractHDRenderLoopMasterNode
+    {
+        protected override string GetName()
+        {
+            return "MasterNodeSubsurfaceScatteringLit";
+        }
+
+        protected override Type GetSurfaceType()
+        {
+            return typeof(Lit.SurfaceData);
+        }
+
+        protected override int GetMatchingMaterialID()
+        {
+            return (int)Lit.MaterialId.LitSSS;
+        }
+    }
+
+    [Serializable]
+    [Title("HDRenderLoop/SubsurfaceClearCoatLit")]
+    public class SubsurfaceClearCoatLit : AbstractHDRenderLoopMasterNode
+    {
+        protected override string GetName()
+        {
+            return "MasterNodeSubsurfaceClearCoatLit";
+        }
+
+        protected override Type GetSurfaceType()
+        {
+            return typeof(Lit.SurfaceData);
+        }
+
+        protected override int GetMatchingMaterialID()
+        {
+            return (int)Lit.MaterialId.LitClearCoat;
+        }
+    }
+
+    [Serializable]
+    [Title("HDRenderLoop/SpecularColorLit")]
+    public class SpecularColorLit : AbstractHDRenderLoopMasterNode
+    {
+        protected override string GetName()
+        {
+            return "MasterNodeSpecularColorLit";
+        }
+
+        protected override Type GetSurfaceType()
+        {
+            return typeof(Lit.SurfaceData);
+        }
+
+        protected override int GetMatchingMaterialID()
+        {
+            return (int)Lit.MaterialId.LitSpecular;
+        }
+    }
+
+}
+
+namespace UnityEngine.Experimental.ScriptableRenderLoop
+{
     [ExecuteInEditMode]
     // This HDRenderLoop assume linear lighting. Don't work with gamma.
     public class HDRenderLoop : ScriptableRenderLoop

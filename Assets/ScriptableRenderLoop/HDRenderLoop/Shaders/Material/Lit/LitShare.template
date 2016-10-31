@@ -1,0 +1,93 @@
+//-------------------------------------------------------------------------------------
+// Attribute/Varying
+//-------------------------------------------------------------------------------------
+struct Attributes
+{
+	float3 positionOS   : POSITION;
+	float3 normalOS     : NORMAL;
+	float2 uv0          : TEXCOORD0;
+	float2 uv1		    : TEXCOORD1;
+	float2 uv2		    : TEXCOORD2;
+	float4 tangentOS    : TANGENT;
+};
+
+struct Varyings
+{
+	float4 positionHS;
+	float3 positionWS;
+	float2 meshUV0;
+	float2 meshUV1;
+	float2 meshUV2;
+	float3 tangentToWorld[3];
+};
+
+struct PackedVaryings
+{
+	float4 positionHS : SV_Position;
+	float4 interpolators[5] : TEXCOORD0;
+};
+
+// Function to pack data to use as few interpolator as possible, the ShaderGraph should generate these functions
+PackedVaryings PackVaryings(Varyings input)
+{
+	PackedVaryings output;
+	output.positionHS = input.positionHS;
+	output.interpolators[0].xyz = input.positionWS.xyz;
+	output.interpolators[1].xyz = input.tangentToWorld[0];
+	output.interpolators[2].xyz = input.tangentToWorld[1];
+	output.interpolators[3].xyz = input.tangentToWorld[2];
+
+	output.interpolators[0].w = input.meshUV0.x;
+	output.interpolators[1].w = input.meshUV0.y;
+	output.interpolators[2].w = input.meshUV1.x;
+	output.interpolators[3].w = input.meshUV1.y;
+
+	output.interpolators[4] = float4(input.meshUV1.xy, 0.0, 0.0);
+
+	return output;
+}
+
+FragInput UnpackVaryings(PackedVaryings input)
+{
+	FragInput output;
+	ZERO_INITIALIZE(FragInput, output);
+
+	output.positionHS = input.positionHS;
+	output.positionWS.xyz = input.interpolators[0].xyz;
+	output.tangentToWorld[0] = input.interpolators[1].xyz;
+	output.tangentToWorld[1] = input.interpolators[2].xyz;
+	output.tangentToWorld[2] = input.interpolators[3].xyz;
+
+	output.meshUV0.xy = float2(input.interpolators[0].w, input.interpolators[1].w);
+	output.meshUV1.xy = float2(input.interpolators[2].w, input.interpolators[3].w);
+	output.meshUV2 = input.interpolators[4].xy;
+	
+	return output;
+}
+
+//-------------------------------------------------------------------------------------
+// Vertex shader
+//-------------------------------------------------------------------------------------
+
+// TODO: Here we will also have all the vertex deformation (GPU skinning, vertex animation, morph target...) or we will need to generate a compute shaders instead (better! but require work to deal with unpacking like fp16)
+PackedVaryings VertDefault(Attributes input)
+{
+	Varyings output;
+
+	output.positionWS = TransformObjectToWorld(input.positionOS);
+	output.positionHS = TransformWorldToHClip(output.positionWS);
+
+	float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+	output.meshUV0 = input.uv0;
+	output.meshUV1 = input.uv1;
+	output.meshUV2 = input.uv2;
+
+	float4 tangentWS = float4(TransformObjectToWorldDir(input.tangentOS.xyz), input.tangentOS.w);
+
+	float3x3 tangentToWorld = CreateTangentToWorld(normalWS, tangentWS.xyz, tangentWS.w);
+	output.tangentToWorld[0] = tangentToWorld[0];
+	output.tangentToWorld[1] = tangentToWorld[1];
+	output.tangentToWorld[2] = tangentToWorld[2];
+
+	return PackVaryings(output);
+}
