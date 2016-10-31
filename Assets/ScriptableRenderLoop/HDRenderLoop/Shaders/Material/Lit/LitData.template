@@ -1,6 +1,6 @@
 struct FragInput
 {
-	float4 positionHS;
+	float4 unPositionSS;
 	float3 positionWS;
 	float2 meshUV0;
 	float2 meshUV1;
