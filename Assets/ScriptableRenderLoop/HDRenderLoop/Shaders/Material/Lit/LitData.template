@@ -1,19 +1,12 @@
 struct FragInput
 {
 	float4 unPositionSS;
-	float3 positionWS;
-	float2 meshUV0;
-	float2 meshUV1;
-	float2 meshUV2;
-	float3 tangentToWorld[3];
-	bool isFrontFace;
+${VaryingAttributes}
 };
 
 void GetSurfaceAndBuiltinData(FragInput IN, out SurfaceData o, out BuiltinData builtinData)
 {
 	o = (SurfaceData)0;
 	builtinData = (BuiltinData)0;
-	float3 vertexNormalWS = IN.tangentToWorld[2].xyz;
-	o.normalWS = vertexNormalWS;
 ${PixelShaderBody}
 }

@@ -28,11 +28,15 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     [AttributeUsage(AttributeTargets.Field)]
     public class SurfaceDataAttributes : System.Attribute
     {
-        public string displayName;
+        public string displayName { get; private set; }
+        public int priority { get; private set; }
+        public int[] filter { get; private set; }
 
-        public SurfaceDataAttributes(string displayName = "")
+        public SurfaceDataAttributes(string displayName = "", int priority = 0, int[] filter = null)
         {
             this.displayName = displayName;
+            this.priority = priority;
+            this.filter = filter;
         }
     }
 }

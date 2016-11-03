@@ -25,73 +25,56 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         [GenerateHLSL(PackingRules.Exact, false, true, 1000)]
         public struct SurfaceData
         {
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard, (int)MaterialId.LitSSS, (int)MaterialId.LitClearCoat, (int)MaterialId.LitSpecular })]
             [SurfaceDataAttributes("Base Color")]
             public Vector3 baseColor;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard, (int)MaterialId.LitSSS, (int)MaterialId.LitClearCoat, (int)MaterialId.LitSpecular })]
             [SurfaceDataAttributes("Specular Occlusion")]
             public float specularOcclusion;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard, (int)MaterialId.LitSSS, (int)MaterialId.LitClearCoat, (int)MaterialId.LitSpecular })]
             [SurfaceDataAttributes("Normal")]
             public Vector3 normalWS;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard, (int)MaterialId.LitSSS, (int)MaterialId.LitClearCoat, (int)MaterialId.LitSpecular })]
             [SurfaceDataAttributes("Smoothness")]
             public float perceptualSmoothness;
 
             [SurfaceDataAttributes("Material ID")]
             public MaterialId materialId;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard, (int)MaterialId.LitSSS, (int)MaterialId.LitClearCoat, (int)MaterialId.LitSpecular })]
             [SurfaceDataAttributes("Ambient Occlusion")]
             public float ambientOcclusion;
 
-            // MaterialId dependent attribute
-
             // standard
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard })]
-            [SurfaceDataAttributes("Tangent")]
+            [SurfaceDataAttributes("Tangent", 0, new int[] { (int)MaterialId.LitStandard })]
             public Vector3 tangentWS;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard })]
-            [SurfaceDataAttributes("Anisotropy")]
+            [SurfaceDataAttributes("Anisotropy", 0, new int[] { (int)MaterialId.LitStandard })]
             public float anisotropy; // anisotropic ratio(0->no isotropic; 1->full anisotropy in tangent direction)
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard })]
-            [SurfaceDataAttributes("Metallic")]
+            [SurfaceDataAttributes("Metallic", 0, new int[] { (int)MaterialId.LitStandard })]
             public float metallic;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitStandard })]
-            [SurfaceDataAttributes("Specular")]
+            [SurfaceDataAttributes("Specular", 0, new int[] { (int)MaterialId.LitStandard })]
             public float specular; // 0.02, 0.04, 0.16, 0.2
 
             // SSS
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitSSS })]
-            [SurfaceDataAttributes("SubSurface Radius")]
+            [SurfaceDataAttributes("SubSurface Radius", 0, new int[] { (int)MaterialId.LitSSS })]
             public float subSurfaceRadius;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitSSS })]
-            [SurfaceDataAttributes("Thickness")]
+            [SurfaceDataAttributes("Thickness", 0, new int[] { (int)MaterialId.LitSSS })]
             public float thickness;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitSSS })]
-            [SurfaceDataAttributes("SubSurface Profile")]
+            [SurfaceDataAttributes("SubSurface Profile", 0, new int[] { (int)MaterialId.LitSSS })]
             public int subSurfaceProfile;
 
             // Clearcoat
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitClearCoat })]
-            [SurfaceDataAttributes("Coat Normal")]
+            [SurfaceDataAttributes("Coat Normal", 0, new int[] { (int)MaterialId.LitClearCoat })]
             public Vector3 coatNormalWS;
 
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitClearCoat })]
-            [SurfaceDataAttributes("Coat Smoothness")]
+            [SurfaceDataAttributes("Coat Smoothness", 0, new int[] { (int)MaterialId.LitClearCoat })]
             public float coatPerceptualSmoothness;
 
             // SpecColor
-            [MaterialIdAttributes_WIP(new int[] { (int)MaterialId.LitSpecular })]
-            [SurfaceDataAttributes("Specular Color")]
+            [SurfaceDataAttributes("Specular Color", 0, new int[] { (int)MaterialId.LitSpecular })]
             public Vector3 specularColor;
         };
 

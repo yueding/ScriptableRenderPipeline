@@ -9,7 +9,7 @@ using UnityEngine.MaterialGraph;
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [Serializable]
-    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
+    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IGeneratesVertexToFragmentBlock
     {
         public override void GenerateLightFunction(ShaderGenerator lightFunction)
         {
@@ -64,15 +64,14 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         public sealed override void UpdateNodeAfterDeserialization()
         {
             var surfaceType = GetSurfaceType();
-
             if (surfaceType != null)
             {
                 var fieldsBuiltIn = typeof(Builtin.BuiltinData).GetFields();
                 var fieldsSurface = surfaceType.GetFields();
                 var slots = fieldsSurface.Concat(fieldsBuiltIn).Select((field, index) =>
                 {
-                    var attribute = (SurfaceDataAttributes[])field.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
-                    var materialAttribute = (MaterialIdAttributes_WIP[])field.GetCustomAttributes(typeof(MaterialIdAttributes_WIP), false);
+                    var attributes = (SurfaceDataAttributes[])field.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
+                    var attribute = attributes.Length > 0 ? attributes[0] : new SurfaceDataAttributes();
 
                     var valueType = SlotValueType.Dynamic;
                     var fieldType = field.FieldType;
@@ -96,12 +95,17 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     return new
                     {
                         index = index,
-                        displayName = attribute.Length > 0 ? attribute[0].displayName : field.Name,
-                        materialID = materialAttribute.Length > 0 ? materialAttribute[0].materialID : new int[] { },
+                        priority = attribute.priority,
+                        displayName = attribute.displayName,
+                        materialID = attribute.filter,
                         shaderOutputName = field.Name,
                         valueType = valueType
                     };
-                }).Where(o => o.materialID.Contains(GetMatchingMaterialID())).ToArray();
+                })
+                .Where(o => (o.materialID == null || o.materialID.Contains(GetMatchingMaterialID())) && o.valueType != SlotValueType.Dynamic)
+                .OrderBy(o => o.priority)
+                .ThenBy(o => o.displayName)
+                .ToArray();
 
                 foreach (var slot in slots)
                 {
@@ -109,16 +113,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 }
             }
         }
-    }
 
-    [AttributeUsage(AttributeTargets.Field)]
-    public class MaterialIdAttributes_WIP : System.Attribute
-    {
-        public int[] materialID;
-
-        public MaterialIdAttributes_WIP(int[] materialID)
+        public void GenerateVertexToFragmentBlock(ShaderFragmentInputGenerator visitor, ShaderGenerator visitor_deprecated, GenerationMode generationMode)
         {
-            this.materialID = materialID;
+            visitor.AddInput(OutputPrecision.@float, SlotValueType.Vector3, "positionWS");
         }
     }
 
