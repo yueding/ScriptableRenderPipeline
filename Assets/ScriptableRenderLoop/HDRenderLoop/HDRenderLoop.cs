@@ -6,6 +6,8 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine.MaterialGraph;
 
+#if ___DEPRECATED___
+//New iteration is wip
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [Serializable]
@@ -201,6 +203,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
 }
+#endif
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
@@ -250,7 +253,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             get { return m_DebugParameters; }
         }
 
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         [MenuItem("Renderloop/CreateHDRenderLoop")]
         static void CreateHDRenderLoop()
         {
@@ -258,7 +261,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             UnityEditor.AssetDatabase.CreateAsset(instance, k_HDRenderLoopPath);
         }
 
-        #endif
+#endif
 
         public class GBufferManager
         {
@@ -895,7 +898,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // Post effects
         }
 
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         public override UnityEditor.SupportedRenderingFeatures GetSupportedRenderingFeatures()
         {
             var features = new UnityEditor.SupportedRenderingFeatures
@@ -906,6 +909,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             return features;
         }
 
-        #endif
+#endif
     }
 }
