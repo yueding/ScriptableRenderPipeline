@@ -6,24 +6,12 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine.MaterialGraph;
 
-#if ___DEPRECATED___
-//New iteration is wip
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [Serializable]
-    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IGeneratesVertexToFragmentBlock
+    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
     {
-        public override void GenerateLightFunction(ShaderGenerator lightFunction)
-        {
-            //TODO
-        }
-
-        public override void GenerateSurfaceOutput(ShaderGenerator surfaceOutput)
-        {
-            //TODO
-        }
-
-        public override string shaderTemplate
+        public string shaderTemplate
         {
             get
             {
@@ -116,9 +104,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
         }
 
-        public void GenerateVertexToFragmentBlock(ShaderFragmentInputGenerator visitor, ShaderGenerator visitor_deprecated, GenerationMode generationMode)
+        public override string GetShader(MaterialOptions options, GenerationMode mode, out List<PropertyGenerator.TextureInfo> configuredTextures)
         {
-            visitor.AddInput(OutputPrecision.@float, SlotValueType.Vector3, "positionWS");
+            configuredTextures = new List<PropertyGenerator.TextureInfo>();
+            return "TODO";
         }
     }
 
@@ -203,7 +192,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
 }
-#endif
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
