@@ -10,7 +10,7 @@ using UnityEngine.Graphing;
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [Serializable]
-    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
+    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IRequiresWorldPosition
     {
         public AbstractHDRenderLoopMasterNode()
         {
@@ -118,7 +118,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 };
             });
 
-            vayrings.Concat(activeNodeList.Where(x => x is IRequiresNormal).Select(x =>
+            vayrings = vayrings.Concat(activeNodeList.Where(x => x is IRequiresNormal).Select(x =>
             {
                 return new
                 {
@@ -130,7 +130,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 };
             }));
 
-            vayrings.Concat(activeNodeList.Where(x => x is IRequiresWorldPosition).Select(x =>
+            vayrings = vayrings.Concat(activeNodeList.Where(x => x is IRequiresWorldPosition).Select(x =>
             {
                 return new
                 {
@@ -142,7 +142,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 };
             }));
 
-            vayrings.Concat(activeNodeList.Where(x => x is IRequiresViewDirection).Select(x =>
+            vayrings = vayrings.Concat(activeNodeList.Where(x => x is IRequiresViewDirection).Select(x =>
             {
                 return new
                 {
@@ -246,7 +246,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     if (fromNode == null)
                         continue;
 
-                    pixelShaderBodyVisitor.AddShaderChunk("ouput." + slot.shaderOutputName + " = " + fromNode.GetVariableNameForSlot(outputRef.slotId) + ";", true);
+                    pixelShaderBodyVisitor.AddShaderChunk("o." + slot.shaderOutputName + " = " + fromNode.GetVariableNameForSlot(outputRef.slotId) + ";", true);
                 }
             }
 

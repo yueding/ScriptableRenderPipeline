@@ -25,7 +25,6 @@ Shader "Unity/Lit/${ShaderName}"
     //-------------------------------------------------------------------------------------
 
     // Set of users variables
-    ${LightingFunction}
     ${ShaderFunctions}
     ${ShaderPropertyUsages}
 

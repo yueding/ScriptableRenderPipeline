@@ -46,8 +46,7 @@ PackedVaryings VertDefault(Attributes input)
 {
     Varyings output;
 
-    output.positionWS = TransformObjectToWorld(input.positionOS);
-    output.positionHS = TransformWorldToHClip(output.positionWS);
+    output.positionHS = TransformWorldToHClip(TransformObjectToWorld(input.positionOS));
 ${VertexShaderBody}
 
     return PackVaryings(output);
