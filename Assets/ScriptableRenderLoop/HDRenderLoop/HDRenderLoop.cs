@@ -5,42 +5,13 @@ using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine.MaterialGraph;
+using UnityEngine.Graphing;
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [Serializable]
     public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
     {
-        public string shaderTemplate
-        {
-            get
-            {
-                var path = "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/Lit.template";
-                if (!System.IO.File.Exists(path))
-                    return "";
-                var content = System.IO.File.ReadAllText(path);
-
-                var regex = new System.Text.RegularExpressions.Regex("#include {1,}\"Assets/.*.template\"");
-                var innerRegex = new System.Text.RegularExpressions.Regex("\".*\"");
-                while (regex.IsMatch(content))
-                {
-                    var match = regex.Match(content);
-                    var includePath = innerRegex.Match(match.Value).Value;
-                    includePath = includePath.Substring(1, includePath.Length - 2);
-
-                    if (!System.IO.File.Exists(includePath))
-                    {
-                        Debug.Log("Cannot unroll Lit.template file");
-                        return "";
-                    }
-
-                    var includeContent = string.Format("//Begin include : {0}\n{1}\n//End include : {0}", includePath, System.IO.File.ReadAllText(includePath));
-                    content = content.Replace(match.Value, includeContent);
-                }
-                return content;
-            }
-        }
-
         public AbstractHDRenderLoopMasterNode()
         {
             name = GetName();
@@ -107,7 +78,192 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         public override string GetShader(MaterialOptions options, GenerationMode mode, out List<PropertyGenerator.TextureInfo> configuredTextures)
         {
             configuredTextures = new List<PropertyGenerator.TextureInfo>();
-            return "TODO";
+
+            var path = "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/Lit.template";
+            if (!System.IO.File.Exists(path))
+                return "";
+
+            var templateText = System.IO.File.ReadAllText(path);
+
+            var regex = new System.Text.RegularExpressions.Regex("#include {1,}\"Assets/.*.template\"");
+            var innerRegex = new System.Text.RegularExpressions.Regex("\".*\"");
+            while (regex.IsMatch(templateText))
+            {
+                var match = regex.Match(templateText);
+                var includePath = innerRegex.Match(match.Value).Value;
+                includePath = includePath.Substring(1, includePath.Length - 2);
+
+                if (!System.IO.File.Exists(includePath))
+                {
+                    Debug.Log("Cannot unroll Lit.template file");
+                    return "";
+                }
+
+                var includeContent = string.Format("//Begin include : {0}\n{1}\n//End include : {0}", includePath, System.IO.File.ReadAllText(includePath));
+                templateText = templateText.Replace(match.Value, includeContent);
+            }
+
+            var activeNodeList = new List<INode>();
+            NodeUtils.DepthFirstCollectNodesFromNode(activeNodeList, this);
+
+            var vayrings = activeNodeList.Where(x => x is IRequiresMeshUV).Select(x =>
+            {
+                return new
+                {
+                    attributeName = "meshUV0",
+                    semantic = "TEXCOORD0",
+                    vayringName = "meshUV0",
+                    type = SlotValueType.Vector2,
+                    code = "output.meshUV0 = input.meshUV0;"
+                };
+            });
+
+            vayrings.Concat(activeNodeList.Where(x => x is IRequiresNormal).Select(x =>
+            {
+                return new
+                {
+                    attributeName = "normalOS",
+                    semantic = "NORMAL",
+                    vayringName = "normalWS",
+                    type = SlotValueType.Vector3,
+                    code = "output.normalWS = TransformObjectToWorldNormal(input.normalOS);"
+                };
+            }));
+
+            vayrings.Concat(activeNodeList.Where(x => x is IRequiresWorldPosition).Select(x =>
+            {
+                return new
+                {
+                    attributeName = "",
+                    semantic = "",
+                    vayringName = "positionWS",
+                    type = SlotValueType.Vector3,
+                    code = "output.positionWS = TransformObjectToWorld(input.positionOS);"
+                };
+            }));
+
+            vayrings.Concat(activeNodeList.Where(x => x is IRequiresViewDirection).Select(x =>
+            {
+                return new
+                {
+                    attributeName = "",
+                    semantic = "",
+                    vayringName = "viewDirectionWS",
+                    type = SlotValueType.Vector3,
+                    code = "output.viewDirectionWS = GetWorldSpaceNormalizeViewDir(TransformObjectToWorld(input.positionOS));"
+                };
+            }));
+
+            Func<SlotValueType, int> _fnTypeToSize = o =>
+            {
+                switch (o)
+                {
+                    case SlotValueType.Vector1: return 1;
+                    case SlotValueType.Vector2: return 2;
+                    case SlotValueType.Vector3: return 3;
+                    case SlotValueType.Vector4: return 4;
+                }
+                return 0;
+            };
+
+            var vayringsArray = vayrings.ToArray();
+
+            var packedVarying = new ShaderGenerator();
+            int totalSize = vayringsArray.Sum(x => _fnTypeToSize(x.type));
+
+            if (totalSize > 0)
+            {
+                var interpolatorCount = Mathf.Ceil((float)totalSize / 4.0f);
+                packedVarying.AddShaderChunk(string.Format("float4 interpolators[{0}] : TEXCOORD0;", (int)interpolatorCount), false);
+            }
+
+            var vayringVisitor = new ShaderGenerator();
+            var vertexAttributeVisitor = new ShaderGenerator();
+            var vertexShaderBodyVisitor = new ShaderGenerator();
+            var packInterpolatorVisitor = new ShaderGenerator();
+            var unpackInterpolatorVisitor = new ShaderGenerator();
+            int currentIndex = 0;
+            int currentChannel = 0;
+            foreach (var vayring in vayringsArray)
+            {
+                var typeSize = _fnTypeToSize(vayring.type);
+                if (!string.IsNullOrEmpty(vayring.attributeName))
+                {
+                    vertexAttributeVisitor.AddShaderChunk(string.Format("float{0} {1} : {2};", typeSize, vayring.attributeName, vayring.semantic), true);
+                }
+
+                vertexShaderBodyVisitor.AddShaderChunk(vayring.code, false);
+                vayringVisitor.AddShaderChunk(string.Format("float{0} {1};", typeSize, vayring.vayringName), false);
+                for (int channel = 0; channel < typeSize; ++channel)
+                {
+                    var packed = string.Format("interpolators[{0}][{1}]", currentIndex, currentChannel);
+                    var source = string.Format("{0}[{1}]", vayring.vayringName, channel);
+                    packInterpolatorVisitor.AddShaderChunk(string.Format("output.{0} = input.{1};", packed, source), false);
+                    unpackInterpolatorVisitor.AddShaderChunk(string.Format("output.{0} = input.{1};", source, packed), false);
+
+                    if (currentChannel == 3)
+                    {
+                        currentChannel = 0;
+                        currentIndex++;
+                    }
+                    else
+                    {
+                        currentChannel++;
+                    }
+                }
+            }
+
+            var shaderFunctionVisitor = new ShaderGenerator();
+            var shaderPropertiesVistor = new PropertyGenerator();
+            var propertyUsagesVisitor = new ShaderGenerator();
+            foreach (var node in activeNodeList.OfType<AbstractMaterialNode>())
+            {
+                if (node is IGeneratesFunction) (node as IGeneratesFunction).GenerateNodeFunction(shaderFunctionVisitor, mode);
+                if (node is IGenerateProperties)
+                {
+                    (node as IGenerateProperties).GeneratePropertyBlock(shaderPropertiesVistor, mode);
+                    (node as IGenerateProperties).GeneratePropertyUsages(propertyUsagesVisitor, mode);
+                }
+            }
+
+            var pixelShaderBodyVisitor = new ShaderGenerator();
+            var nodes = ListPool<INode>.Get();
+            NodeUtils.DepthFirstCollectNodesFromNode(nodes, this, null, NodeUtils.IncludeSelf.Exclude);
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+                if (node is IGeneratesBodyCode)
+                    (node as IGeneratesBodyCode).GenerateNodeCode(pixelShaderBodyVisitor, mode);
+            }
+            ListPool<INode>.Release(nodes);
+
+            foreach (var slot in GetInputSlots<MaterialSlot>())
+            {
+                foreach (var edge in owner.GetEdges(slot.slotReference))
+                {
+                    var outputRef = edge.outputSlot;
+                    var fromNode = owner.GetNodeFromGuid<AbstractMaterialNode>(outputRef.nodeGuid);
+                    if (fromNode == null)
+                        continue;
+
+                    pixelShaderBodyVisitor.AddShaderChunk("ouput." + slot.shaderOutputName + " = " + fromNode.GetVariableNameForSlot(outputRef.slotId) + ";", true);
+                }
+            }
+
+            var resultShader = templateText.Replace("${ShaderName}", GetType() + guid.ToString());
+
+            resultShader = resultShader.Replace("${VertexAttributes}", vertexAttributeVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${VaryingAttributes}", vayringVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${PackedVaryingAttributes}", packedVarying.GetShaderString(1));
+            resultShader = resultShader.Replace("${PackingVaryingCode}", packInterpolatorVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${UnpackVaryingCode}", unpackInterpolatorVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${ShaderPropertiesHeader}", shaderPropertiesVistor.GetShaderString(1));
+            resultShader = resultShader.Replace("${ShaderPropertyUsages}", propertyUsagesVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${ShaderFunctions}", shaderFunctionVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${PixelShaderBody}", pixelShaderBodyVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${VertexShaderBody}", vertexShaderBodyVisitor.GetShaderString(1));
+
+            return System.Text.RegularExpressions.Regex.Replace(resultShader, @"\r\n|\n\r|\n|\r", Environment.NewLine);
         }
     }
 
