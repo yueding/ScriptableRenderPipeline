@@ -2,7 +2,7 @@ Shader "Unity/Lit/${ShaderName}"
 {
     Properties
     {
-        ${ShaderPropertiesHeader}
+${ShaderPropertiesHeader}
     }
 
     HLSLINCLUDE
@@ -25,8 +25,8 @@ Shader "Unity/Lit/${ShaderName}"
     //-------------------------------------------------------------------------------------
 
     // Set of users variables
-    ${ShaderFunctions}
-    ${ShaderPropertyUsages}
+${ShaderFunctions}
+${ShaderPropertyUsages}
 
     ENDHLSL
 
@@ -53,9 +53,10 @@ Shader "Unity/Lit/${ShaderName}"
             #define SHADERPASS SHADERPASS_GBUFFER
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Material.hlsl"
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitData.template"
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitShare.template"
-            
+//Generated code : Begin
+#{LitTemplate|useDataInput:{.*}|needFragInput:{positionWS}}
+//Generated code : End
+
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/ShaderPass/ShaderPassGBuffer.hlsl"
             ENDHLSL
         }
@@ -79,7 +80,6 @@ Shader "Unity/Lit/${ShaderName}"
         // ------------------------------------------------------------------
         //  forward pass
         // ------------------------------------------------------------------
-        /* //Preview doesn't work for now
         Pass
         {
             Name "Forward" // Name is not used
@@ -102,12 +102,13 @@ Shader "Unity/Lit/${ShaderName}"
 
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Lighting/Lighting.hlsl"
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitData.template"
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/LitShare.template"
+//Generated code : Begin
+#{LitTemplate|useDataInput:{.*}|needFragInput:{positionWS}}
+//Generated code : End
 
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/ShaderPass/ShaderPassForward.hlsl"
 
             ENDHLSL
-        }*/
+        }
     }
 }
