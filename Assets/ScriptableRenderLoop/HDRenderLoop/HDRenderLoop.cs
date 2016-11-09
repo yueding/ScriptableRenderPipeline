@@ -71,7 +71,14 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
                 foreach (var slot in slots)
                 {
-                    AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
+                    if (slot.displayName == "Normal") //WIP : should be a setting in attribute
+                    {
+                        AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceNormalNode(), 0));
+                    }
+                    else
+                    {
+                        AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
+                    }
                 }
             }
         }
@@ -114,7 +121,8 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             public string semantic;
             public string vayringName;
             public SlotValueType type;
-            public string code;
+            public string vertexCode;
+            public string pixelCode;
         };
 
         private string GenerateLitDataTemplate(GenerationMode mode, string useDataInput, string needFragInput, PropertyGenerator propertyGenerator, ShaderGenerator propertyUsagesVisitor, ShaderGenerator shaderFunctionVisitor)
@@ -128,19 +136,20 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             CollectFromNodesFromNodes(activeNodeList, this, slotIDList);
 
             var vayrings = new List<Vayring>();
-            if (needFragInputRegex.IsMatch("meshUV0") || activeNodeList.Any(x => x is IRequiresMeshUV))
+            if (needFragInputRegex.IsMatch("meshUV0") || activeNodeList.OfType<IMayRequireMeshUV>().Any(x => x.RequiresMeshUV()))
             {
                 vayrings.Add(new Vayring()
                 {
                     attributeName = "meshUV0",
                     semantic = "TEXCOORD0",
                     vayringName = "meshUV0",
-                    type = SlotValueType.Vector4,
-                    code = "output.meshUV0 = input.meshUV0;"
+                    type = SlotValueType.Vector2,
+                    vertexCode = "output.meshUV0 = input.meshUV0;",
+                    pixelCode = string.Format("float4 {0} = float4(fragInput.meshUV0, 0, 0);", ShaderGeneratorNames.UV0)
                 });
             }
 
-            if (needFragInputRegex.IsMatch("normalWS") || activeNodeList.Any(x => x is IRequiresNormal))
+            if (needFragInputRegex.IsMatch("normalWS") || activeNodeList.OfType<IMayRequireNormal>().Any(x => x.RequiresNormal()))
             {
                 vayrings.Add(new Vayring()
                 {
@@ -148,27 +157,30 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     semantic = "NORMAL",
                     vayringName = "normalWS",
                     type = SlotValueType.Vector3,
-                    code = "output.normalWS = TransformObjectToWorldNormal(input.normalOS);"
+                    vertexCode = "output.normalWS = TransformObjectToWorldNormal(input.normalOS);",
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.normalWS);", ShaderGeneratorNames.WorldSpaceNormal)
                 });
             }
 
-            if (needFragInputRegex.IsMatch("positionWS") || activeNodeList.Any(x => x is IRequiresWorldPosition))
+            if (needFragInputRegex.IsMatch("positionWS") || activeNodeList.OfType<IMayRequireWorldPosition>().Any(x => x.RequiresWorldPosition()))
             {
                 vayrings.Add(new Vayring()
                 {
                     vayringName = "positionWS",
                     type = SlotValueType.Vector3,
-                    code = "output.positionWS = TransformObjectToWorld(input.positionOS);"
+                    vertexCode = "output.positionWS = TransformObjectToWorld(input.positionOS);",
+                    pixelCode = string.Format("float3 {0} = fragInput.positionWS;", ShaderGeneratorNames.WorldSpacePosition)
                 });
             }
 
-            if (needFragInputRegex.IsMatch("viewDirectionWS") || activeNodeList.Any(x => x is IRequiresViewDirection))
+            if (needFragInputRegex.IsMatch("viewDirectionWS") || activeNodeList.OfType<IMayRequireViewDirection>().Any(x => x.RequiresViewDirection()))
             {
                 vayrings.Add(new Vayring()
                 {
                     vayringName = "viewDirectionWS",
                     type = SlotValueType.Vector3,
-                    code = "output.viewDirectionWS = GetWorldSpaceNormalizeViewDir(TransformObjectToWorld(input.positionOS));"
+                    vertexCode = "output.viewDirectionWS = GetWorldSpaceNormalizeViewDir(TransformObjectToWorld(input.positionOS));",
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.viewDirectionWS);", ShaderGeneratorNames.WorldSpaceViewDirection)
                 });
             }
 
@@ -194,6 +206,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
 
             var vayringVisitor = new ShaderGenerator();
+            var pixelShaderInitVisitor = new ShaderGenerator();
             var vertexAttributeVisitor = new ShaderGenerator();
             var vertexShaderBodyVisitor = new ShaderGenerator();
             var packInterpolatorVisitor = new ShaderGenerator();
@@ -208,8 +221,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     vertexAttributeVisitor.AddShaderChunk(string.Format("float{0} {1} : {2};", typeSize, vayring.attributeName, vayring.semantic), true);
                 }
 
-                vertexShaderBodyVisitor.AddShaderChunk(vayring.code, false);
                 vayringVisitor.AddShaderChunk(string.Format("float{0} {1};", typeSize, vayring.vayringName), false);
+                vertexShaderBodyVisitor.AddShaderChunk(vayring.vertexCode, false);
+                pixelShaderInitVisitor.AddShaderChunk(vayring.pixelCode, false);
+
                 for (int channel = 0; channel < typeSize; ++channel)
                 {
                     var packed = string.Format("interpolators[{0}][{1}]", currentIndex, currentChannel);
@@ -272,10 +287,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 ${VaryingAttributes}
 };
 
-void GetSurfaceAndBuiltinData(FragInput IN, out SurfaceData surfaceData, out BuiltinData builtinData)
+void GetSurfaceAndBuiltinData(FragInput fragInput, out SurfaceData surfaceData, out BuiltinData builtinData)
 {
     ZERO_INITIALIZE(SurfaceData, surfaceData);
     ZERO_INITIALIZE(BuiltinData, builtinData);
+${PixelShaderInitialize}
 ${PixelShaderBody}
 }
 
@@ -312,7 +328,6 @@ FragInput UnpackVaryings(PackedVaryings input)
 
     output.unPositionSS = input.positionHS;
 ${UnpackVaryingCode}
-    
     return output;
 }
 
@@ -325,6 +340,7 @@ ${VertexShaderBody}
 }";
 
             var resultShader = template.Replace("${VaryingAttributes}", vayringVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${PixelShaderInitialize}", pixelShaderInitVisitor.GetShaderString(1));
             resultShader = resultShader.Replace("${PixelShaderBody}", pixelShaderBodyVisitor.GetShaderString(1));
             resultShader = resultShader.Replace("${VertexAttributes}", vertexAttributeVisitor.GetShaderString(1));
             resultShader = resultShader.Replace("${PackedVaryingAttributes}", packedVarying.GetShaderString(1));
