@@ -1,0 +1,178 @@
+Shader "Unity/Lit/${ShaderName}"
+{
+    Properties
+    {
+${ShaderPropertiesHeader}
+        [ToggleOff]  _AlphaCutoffEnable("Alpha Cutoff Enable", Float) = 0.0
+        _AlphaCutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
+        [HideInInspector] _SurfaceType("__surfacetype", Float) = 0.0
+        [HideInInspector] _SrcBlend ("__src", Float) = 1.0
+        [HideInInspector] _BlendMode ("__blendmode", Float) = 0.0
+        [HideInInspector] _DstBlend ("__dst", Float) = 0.0
+        [HideInInspector] _ZWrite ("__zw", Float) = 1.0
+        [HideInInspector] _CullMode("__cullmode", Float) = 2.0
+        [HideInInspector] _MaterialId("_MaterialId", Float) = 0
+        [Enum(None, 0, DoubleSided, 1, DoubleSidedLigthingFlip, 2, DoubleSidedLigthingMirror, 3)] _DoubleSidedMode("Double sided mode", Float) = 0
+    }
+
+    HLSLINCLUDE
+
+    #pragma target 5.0
+    #pragma only_renderers d3d11 // TEMP: unitl we go futher in dev
+    #define UNITY_MATERIAL_LIT // Need to be define before including Material.hlsl
+
+    //-------------------------------------------------------------------------------------
+    // Include
+    //-------------------------------------------------------------------------------------
+
+    #include "common.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPass.cs.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderVariables.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPass.cs.hlsl"
+
+    //-------------------------------------------------------------------------------------
+    // variable declaration
+    //-------------------------------------------------------------------------------------
+
+    // Set of users variables
+${ShaderFunctions}
+${ShaderPropertyUsages}
+
+    ENDHLSL
+
+    SubShader
+    {
+        Tags { "RenderType"="Opaque" "PerformanceChecks"="False" }
+        LOD 300
+
+        // ------------------------------------------------------------------
+        //  Deferred pass
+        // ------------------------------------------------------------------
+        Pass
+        {
+            Name "GBuffer"  // Name is not used
+            Tags { "LightMode" = "GBuffer" } // This will be only for opaque object based on the RenderQueue index
+
+            Cull  [_CullMode]
+
+            HLSLPROGRAM
+
+            #pragma vertex VertDefault
+            #pragma fragment Frag
+
+            #define SHADERPASS SHADERPASS_GBUFFER
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+
+//Generated code : Begin
+#{LitTemplate|useDataInput:{.*}|needFragInput:{positionWS}}
+//Generated code : End
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassGBuffer.hlsl"
+            ENDHLSL
+        }
+
+        // ------------------------------------------------------------------
+        //  Debug pass
+        // ------------------------------------------------------------------
+        Pass
+    {
+        Name "Debug"
+        Tags{ "LightMode" = "DebugViewMaterial" }
+
+        Cull[_CullMode]
+
+        HLSLPROGRAM
+
+        #pragma vertex VertDefault
+        #pragma fragment Frag
+
+        #define SHADERPASS SHADERPASS_DEBUG_VIEW_MATERIAL
+        #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+
+
+//Generated code : Begin
+#{LitTemplate|useDataInput:{.*}|needFragInput:{.*}}
+void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, inout bool needLinearToSRGB)
+{
+    result = float3(1,0,1); //TODO
+}
+//Generated code : End
+
+        #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassDebugViewMaterial.hlsl"
+
+        ENDHLSL
+    }
+
+        // ------------------------------------------------------------------
+        // Extracts information for lightmapping, GI (emission, albedo, ...)
+        // This pass it not used during regular rendering.
+        // ------------------------------------------------------------------
+        //TODO
+
+        // ------------------------------------------------------------------
+        //  Depth only
+        // ------------------------------------------------------------------
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags{ "LightMode" = "ShadowCaster" }
+
+            Cull[_CullMode]
+
+            ZWrite On ZTest LEqual
+
+            HLSLPROGRAM
+
+            #pragma vertex VertDefault
+            #pragma fragment Frag
+
+            #define SHADERPASS SHADERPASS_DEPTH_ONLY
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+
+//Generated code : Begin
+#{LitTemplate|useDataInput:{opacity}|needFragInput:{}}
+//Generated code : End
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassDepthOnly.hlsl"
+
+            ENDHLSL
+        }
+
+        // ------------------------------------------------------------------
+        //  forward pass
+        // ------------------------------------------------------------------
+        /* TODOPAUL : Fix Compilation
+		Pass
+        {
+            Name "Forward" // Name is not used
+            Tags{ "LightMode" = "Forward" } // This will be only for transparent object based on the RenderQueue index
+
+            Blend[_SrcBlend][_DstBlend]
+            ZWrite[_ZWrite]
+            Cull[_CullMode]
+
+            HLSLPROGRAM
+
+            #pragma vertex VertDefault
+            #pragma fragment Frag
+
+            #define SHADERPASS SHADERPASS_FORWARD
+            // TEMP until pragma work in include
+            // #include "../../Lighting/Forward.hlsl"
+            #pragma multi_compile LIGHTLOOP_SINGLE_PASS
+            //#pragma multi_compile SHADOWFILTERING_FIXED_SIZE_PCF
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Lighting/Lighting.hlsl"
+
+//Generated code : Begin
+#{LitTemplate|useDataInput:{.*}|needFragInput:{positionWS}}
+//Generated code : End
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassForward.hlsl"
+
+            ENDHLSL
+        }
+		*/
+    }
+    CustomEditor "LitGraphUI"
+}

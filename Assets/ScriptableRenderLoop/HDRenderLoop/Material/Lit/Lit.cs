@@ -42,31 +42,31 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // MaterialId dependent attribute
 
             // standard
-            [SurfaceDataAttributes("Tangent")]
+            [SurfaceDataAttributes("Tangent", 0, new int[] { (int)MaterialId.LitStandard })]
             public Vector3 tangentWS;
-            [SurfaceDataAttributes("Anisotropy")]
+            [SurfaceDataAttributes("Anisotropy", 0, new int[] { (int)MaterialId.LitStandard })]
             public float anisotropy; // anisotropic ratio(0->no isotropic; 1->full anisotropy in tangent direction)
-            [SurfaceDataAttributes("Metallic")]
+            [SurfaceDataAttributes("Metallic", 0, new int[] { (int)MaterialId.LitStandard })]
             public float metallic;
-            [SurfaceDataAttributes("Specular")]
+            [SurfaceDataAttributes("Specular", 0, new int[] { (int)MaterialId.LitStandard })]
             public float specular; // 0.02, 0.04, 0.16, 0.2
 
             // SSS
-            [SurfaceDataAttributes("SubSurface Radius")]
+            [SurfaceDataAttributes("SubSurface Radius", 0, new int[] { (int)MaterialId.LitSSS })]
             public float subSurfaceRadius;
-            [SurfaceDataAttributes("Thickness")]
+            [SurfaceDataAttributes("Thickness", 0, new int[] { (int)MaterialId.LitSSS })]
             public float thickness;
-            [SurfaceDataAttributes("SubSurface Profile")]
+            [SurfaceDataAttributes("SubSurface Profile", 0, new int[] { (int)MaterialId.LitSSS })]
             public int subSurfaceProfile;
 
             // Clearcoat
-            [SurfaceDataAttributes("Coat Normal")]
+            [SurfaceDataAttributes("Coat Normal", 0, new int[] { (int)MaterialId.LitClearCoat })]
             public Vector3 coatNormalWS;
-            [SurfaceDataAttributes("Coat Smoothness")]
+            [SurfaceDataAttributes("Coat Smoothness", 0, new int[] { (int)MaterialId.LitClearCoat })]
             public float coatPerceptualSmoothness;
 
             // SpecColor
-            [SurfaceDataAttributes("Specular Color")]
+            [SurfaceDataAttributes("Specular Color", 0, new int[] { (int)MaterialId.LitSpecular })]
             public Vector3 specularColor;
         };
 

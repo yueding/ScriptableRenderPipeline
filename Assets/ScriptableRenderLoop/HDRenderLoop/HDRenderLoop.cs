@@ -356,7 +356,7 @@ ${VertexShaderBody}
         {
             configuredTextures = new List<PropertyGenerator.TextureInfo>();
 
-            var path = "Assets/ScriptableRenderLoop/HDRenderLoop/Shaders/Material/Lit/Lit.template";
+            var path = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/Lit.template";
             if (!System.IO.File.Exists(path))
                 return "";
 
