@@ -348,7 +348,13 @@ namespace UnityEditor
             Parallax,
             Displacement,
         }
+        public enum DetailMapMode
+        {
+            DetailWithNormal,
+            DetailWithAOHeight,
+        }
 
+        MaterialProperty UVDetail = null;
         MaterialProperty smoothnessMapChannel = null;
         MaterialProperty emissiveColorMode = null;
         MaterialProperty detailMapMode = null;
