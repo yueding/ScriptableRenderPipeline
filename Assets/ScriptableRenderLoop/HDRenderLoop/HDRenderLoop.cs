@@ -297,7 +297,7 @@ ${PixelShaderBody}
 
 struct Attributes
 {
-    float3 positionOS   : POSITION;
+    float3 positionOS : POSITION;
 ${VertexAttributes}
 };
 

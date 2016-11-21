@@ -3,6 +3,16 @@ Shader "Unity/Lit/${ShaderName}"
     Properties
     {
 ${ShaderPropertiesHeader}
+        [ToggleOff]  _AlphaCutoffEnable("Alpha Cutoff Enable", Float) = 0.0
+        _AlphaCutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
+        [HideInInspector] _SurfaceType("__surfacetype", Float) = 0.0
+        [HideInInspector] _SrcBlend ("__src", Float) = 1.0
+        [HideInInspector] _BlendMode ("__blendmode", Float) = 0.0
+        [HideInInspector] _DstBlend ("__dst", Float) = 0.0
+        [HideInInspector] _ZWrite ("__zw", Float) = 1.0
+        [HideInInspector] _CullMode("__cullmode", Float) = 2.0
+        [HideInInspector] _MaterialId("_MaterialId", Float) = 0
+        [Enum(None, 0, DoubleSided, 1, DoubleSidedLigthingFlip, 2, DoubleSidedLigthingMirror, 3)] _DoubleSidedMode("Double sided mode", Float) = 0
     }
 
     HLSLINCLUDE
@@ -136,10 +146,9 @@ void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, in
             Name "Forward" // Name is not used
             Tags{ "LightMode" = "Forward" } // This will be only for transparent object based on the RenderQueue index
 
-            //TODO
-            //Blend[_SrcBlend][_DstBlend]
-            //ZWrite[_ZWrite]
-            //Cull[_CullMode]
+            Blend[_SrcBlend][_DstBlend]
+            ZWrite[_ZWrite]
+            Cull[_CullMode]
 
             HLSLPROGRAM
 
@@ -163,4 +172,5 @@ void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, in
             ENDHLSL
         }
     }
+    CustomEditor "LitGraphUI"
 }
