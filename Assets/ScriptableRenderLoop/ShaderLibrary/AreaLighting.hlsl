@@ -4,12 +4,10 @@
 float IntegrateEdge(float3 v1, float3 v2)
 {
     float cosTheta = dot(v1, v2);
-    // TODO: Explain the 0.9999 <= precision is important!
-    cosTheta = clamp(cosTheta, -0.9999, 0.9999);
-
-    // TODO: Experiment with fastAcos
-    float theta = acos(cosTheta);
-    float res = cross(v1, v2).z * theta / sin(theta);
+    // Clamp to avoid artifacts. This particular constant gives the best results.
+    cosTheta    = Clamp(cosTheta, -0.9999, 0.9999);
+    float theta = FastACos(cosTheta);
+    float res   = cross(v1, v2).z * theta / sin(theta);
 
     return res;
 }
@@ -36,6 +34,7 @@ float PolygonRadiance(float4x3 L, bool twoSided)
     // Even though that replaced the switch with just some indexing and no branches, it became
     // way, way slower - mem fetch stalls?
 
+    // clip
     uint n = 0;
     switch (config)
     {
@@ -127,19 +126,27 @@ float PolygonRadiance(float4x3 L, bool twoSided)
         break;
     }
 
-    if (n == 0)
-        return 0;
-    if (n == 3)
-        L[3] = L[0];
-    if (n == 4)
-        L4 = L[0];
+    if (n == 0) return 0;
 
     // 2. Project onto sphere
     L[0] = normalize(L[0]);
     L[1] = normalize(L[1]);
     L[2] = normalize(L[2]);
-    L[3] = normalize(L[3]);
-    L4 = normalize(L4);
+
+    switch (n)
+    {
+        case 3:
+            L[3] = L[0];
+            break;
+        case 4:
+            L[3] = normalize(L[3]);
+            L4   = L[0];
+            break;
+        case 5:
+            L[3] = normalize(L[3]);
+            L4   = normalize(L4);
+            break;
+    }
 
     // 3. Integrate
     float sum = 0;
@@ -151,14 +158,17 @@ float PolygonRadiance(float4x3 L, bool twoSided)
     if (n == 5)
         sum += IntegrateEdge(L4, L[0]);
 
-    return twoSided > 0.0 ? abs(sum) : max(0.0, sum);
+    sum *= INV_TWO_PI; // Normalization
+
+    return twoSided ? abs(sum) : max(sum, 0.0);
 }
 
-float LTCEvaluate(float3 V, float3 N, float3x3 minV, float4x3 L, bool twoSided)
+float LTCEvaluate(float4x3 L, float3 V, float3 N, float NdotV, bool twoSided, float3x3 minV)
 {
     // Construct local orthonormal basis around N, aligned with N
+    // TODO: it could be stored in PreLightData. All LTC lights compute it more than once!
     float3x3 basis;
-    basis[0] = normalize(V - N * dot(V, N));
+    basis[0] = normalize(V - N * NdotV);
     basis[1] = normalize(cross(N, basis[0]));
     basis[2] = N;
 
@@ -168,6 +178,33 @@ float LTCEvaluate(float3 V, float3 N, float3x3 minV, float4x3 L, bool twoSided)
 
     // Polygon radiance in transformed configuration - specular
     return PolygonRadiance(L, twoSided);
+}
+
+float LineFpo(float rcpD, float rcpDL, float l)
+{
+    // Compute: l / d / (d * d + l * l) + 1.0 / (d * d) * atan(l / d).
+    return l * rcpDL + rcpD * rcpD * atan(l * rcpD);
+}
+
+float LineFwt(float sqL, float rcpDL)
+{
+    // Compute: l * l / d / (d * d + l * l).
+    return sqL * rcpDL;
+}
+
+// Computes the integral of the clamped cosine over the line segment.
+// 'dist' is the shortest distance to the line. 'l1' and 'l2' define the integration interval.
+float LineIrradiance(float l1, float l2, float dist, float pointZ, float tangentZ)
+{   
+    float sqD    = dist * dist;
+    float sqL1   = l1 * l1;
+    float sqL2   = l2 * l2;
+    float rcpD   = rcp(dist);
+    float rcpDL1 = rcpD * rcp(sqD + sqL1);
+    float rcpDL2 = rcpD * rcp(sqD + sqL2);
+    float intP0  = LineFpo(rcpD, rcpDL2, l2) - LineFpo(rcpD, rcpDL1, l1);
+    float intWt  = LineFwt(sqL2, rcpDL2) - LineFwt(sqL1, rcpDL1);
+    return intP0 * pointZ + intWt * tangentZ;
 }
 
 #endif // UNITY_AREA_LIGHTING_INCLUDED

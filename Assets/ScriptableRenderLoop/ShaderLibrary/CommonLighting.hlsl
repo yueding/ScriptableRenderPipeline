@@ -1,6 +1,27 @@
 #ifndef UNITY_COMMON_LIGHTING_INCLUDED
 #define UNITY_COMMON_LIGHTING_INCLUDED
 
+// These clamping function to max of floating point 16 bit are use to prevent INF in code in case of extreme value
+float ClampToFloat16Max(float value)
+{
+    return min(value, 65504.0);
+}
+
+float2 ClampToFloat16Max(float2 value)
+{
+    return min(value, 65504.0);
+}
+
+float3 ClampToFloat16Max(float3 value)
+{
+    return min(value, 65504.0);
+}
+
+float4 ClampToFloat16Max(float4 value)
+{
+    return min(value, 65504.0);
+}
+
 // Ligthing convention
 // Light direction is oriented backward (-Z). i.e in shader code, light direction is -lightData.forward
 
@@ -87,5 +108,28 @@ void GetLocalFrame(float3 N, out float3 tangentX, out float3 tangentY)
     tangentY    = float3(b, 1.0f - N.y * N.y * a, -N.y);
 }
 */
+
+//-----------------------------------------------------------------------------
+// various helper
+//-----------------------------------------------------------------------------
+
+// Performs the mapping of the vector 'v' located within the cube of dimensions [-r, r]^3
+// to a vector within the sphere of radius 'r', where r = sqrt(r2).
+// Modified version of http://mathproofs.blogspot.com/2005/07/mapping-cube-to-sphere.html
+float3 MapCubeToSphere(float3 v, float r2)
+{
+    float3 v2 = v * v;
+    float2 vr3 = v2.xy * rcp(3.0 * r2);
+    return v * sqrt((float3)r2 - 0.5 * v2.yzx - 0.5 * v2.zxy + vr3.yxx * v2.zzy);
+}
+
+// Computes the squared magnitude of the vector computed by MapCubeToSphere().
+float ComputeCubeToSphereMapSqMagnitude(float3 v, float r2)
+{
+    float3 v2 = v * v;
+    // Note: dot(v, v) is often computed before this function is called,
+    // so the compiler should optimize and use the precomputed result here.
+    return r2 * dot(v, v) - v2.x * v2.y - v2.y * v2.z - v2.z * v2.x + v2.x * v2.y * v2.z * rcp(r2);
+}
 
 #endif // UNITY_COMMON_LIGHTING_INCLUDED
