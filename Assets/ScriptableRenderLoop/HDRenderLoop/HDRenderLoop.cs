@@ -295,6 +295,11 @@ void GetSurfaceAndBuiltinData(FragInput fragInput, out SurfaceData surfaceData, 
     ZERO_INITIALIZE(BuiltinData, builtinData);
 ${PixelShaderInitialize}
 ${PixelShaderBody}
+
+/* this clip could be integrated earlier for optimisation */
+#ifdef _ALPHATEST_ON
+    clip(builtinData.opacity - _AlphaCutoff);
+#endif
 }
 
 struct Attributes

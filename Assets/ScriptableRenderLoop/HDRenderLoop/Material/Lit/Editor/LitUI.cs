@@ -5,15 +5,15 @@ using UnityEngine.Rendering;
 
 namespace UnityEditor
 {
-    class BaseLitGUI : ShaderGUI
+    public class BaseLitGUI : ShaderGUI
     {
         protected static class Styles
         {
-        public enum DetailMapMode
-        {
-            DetailWithNormal,
-            DetailWithAOHeight,
-        }
+            public enum DetailMapMode
+            {
+                DetailWithNormal,
+                DetailWithAOHeight,
+            }
             public static string OptionText = "Options";
             public static string SurfaceTypeText = "Surface Type";
             public static string BlendModeText = "Blend Mode";
@@ -297,31 +297,6 @@ namespace UnityEditor
         private const string kAlphaCutoffEnabled = "_AlphaCutoffEnable";
         private const string kDoubleSidedMode = "_DoubleSidedMode";
         protected static string[] reservedProperties = new string[] { kSurfaceType, kBlendMode, kAlphaCutoff, kAlphaCutoffEnabled, kDoubleSidedMode };
-    }
-
-    class LitGraphUI : BaseLitGUI
-    {
-        private MaterialProperty[] genericProperties = new MaterialProperty[] { };
-        public override void FindInputProperties(MaterialProperty[] props)
-        {
-            genericProperties = props.Where(p => (p.flags & MaterialProperty.PropFlags.HideInInspector) == 0 & !reservedProperties.Contains(p.name)).ToArray();
-        }
-        protected override void ShaderInputOptionsGUI()
-        {
-            EditorGUI.indentLevel++;
-            foreach(var prop in genericProperties)
-            {
-                if ((prop.type & MaterialProperty.PropType.Texture) != 0)
-                {
-                    m_MaterialEditor.TexturePropertySingleLine(new GUIContent(prop.name), prop);
-                }
-                else
-                {
-                    m_MaterialEditor.ShaderProperty(prop, prop.name);
-                }
-            }
-            EditorGUI.indentLevel--;
-        }
     }
 
     class LitGUI : BaseLitGUI

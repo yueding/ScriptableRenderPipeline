@@ -20,6 +20,8 @@ ${ShaderPropertiesHeader}
     #pragma target 5.0
     #pragma only_renderers d3d11 // TEMP: unitl we go futher in dev
     #define UNITY_MATERIAL_LIT // Need to be define before including Material.hlsl
+    #pragma shader_feature _ALPHATEST_ON
+    #pragma shader_feature _ _DOUBLESIDED_LIGHTING_FLIP _DOUBLESIDED_LIGHTING_MIRROR
 
     //-------------------------------------------------------------------------------------
     // Include
@@ -37,6 +39,8 @@ ${ShaderPropertiesHeader}
     // Set of users variables
 ${ShaderFunctions}
 ${ShaderPropertyUsages}
+
+float _AlphaCutoff;
 
     ENDHLSL
 
