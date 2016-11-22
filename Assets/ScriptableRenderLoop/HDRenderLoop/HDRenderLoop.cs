@@ -1,6 +1,3 @@
-// Must be in sync with ShaderConfig.cs
-//#define VELOCITY_IN_GBUFFER
-
 using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 using System.Collections.Generic;
@@ -531,14 +528,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         }
 #endif
 
-        public class SkyParameters
-        {
-            public Cubemap skyHDRI;
-            public float rotation;
-            public float exposure;
-            public float multiplier;
-        }
-
+        SkyRenderer m_SkyRenderer = null;
         [SerializeField]
         SkyParameters m_SkyParameters = new SkyParameters();
  
@@ -590,7 +580,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 }
             }
 
-            public RenderTargetIdentifier[] GetGBuffers(CommandBuffer cmd)
+            public RenderTargetIdentifier[] GetGBuffers()
             {
                 var colorMRTs = new RenderTargetIdentifier[gbufferCount];
                 for (int index = 0; index < gbufferCount; index++)
@@ -637,9 +627,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         TextureSettings m_TextureSettings = TextureSettings.Default;
 
         // Various set of material use in render loop
-        Material m_SkyboxMaterial;
-        Material m_SkyHDRIMaterial;
-        Material m_DeferredMaterial;
         Material m_FinalPassMaterial;
         Material m_DebugViewMaterialGBuffer;
 
@@ -649,6 +636,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         int m_VelocityBuffer;
         int m_DistortionBuffer;
 
+        RenderTargetIdentifier m_CameraColorBufferRT;
+        RenderTargetIdentifier m_CameraDepthBufferRT;
+        RenderTargetIdentifier m_VelocityBufferRT;
+        RenderTargetIdentifier m_DistortionBufferRT;
+		
         public class LightList
         {
             public List<DirectionalLightData> directionalLights;
@@ -724,31 +716,19 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             Rebuild();
         }
 
-        Material CreateEngineMaterial(string shaderPath)
-        {
-            var mat = new Material(Shader.Find(shaderPath) as Shader)
-            {
-                hideFlags = HideFlags.HideAndDontSave
-            };
-            return mat;
-        }
-
         public override void Rebuild()
         {
             m_CameraColorBuffer  = Shader.PropertyToID("_CameraColorTexture");
             m_CameraDepthBuffer  = Shader.PropertyToID("_CameraDepthTexture");
 
-            // TODO: We need to have an API to send our sky information to Enlighten. For now use a workaround through skybox/cubemap material...
-            m_SkyboxMaterial = CreateEngineMaterial("Skybox/Cubemap");
-            RenderSettings.skybox = m_SkyboxMaterial; // Setup this material as the default to be use in RenderSettings
-            RenderSettings.ambientIntensity = 1.0f; // fix this to 1, this parameter should not exist!
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Skybox; // Force skybox for our HDRI
-            RenderSettings.reflectionIntensity = 1.0f;
-        
-            m_SkyHDRIMaterial = CreateEngineMaterial("Hidden/HDRenderLoop/SkyHDRI");
-            m_DeferredMaterial   = CreateEngineMaterial("Hidden/HDRenderLoop/Deferred");
-            m_FinalPassMaterial  = CreateEngineMaterial("Hidden/HDRenderLoop/FinalPass");
-            m_DebugViewMaterialGBuffer = CreateEngineMaterial("Hidden/HDRenderLoop/DebugViewMaterialGBuffer");
+            m_CameraColorBufferRT = new RenderTargetIdentifier(m_CameraColorBuffer);
+            m_CameraDepthBufferRT = new RenderTargetIdentifier(m_CameraDepthBuffer);
+
+            m_SkyRenderer = new SkyRenderer();
+            m_SkyRenderer.Rebuild();
+
+            m_FinalPassMaterial  = Utilities.CreateEngineMaterial("Hidden/HDRenderLoop/FinalPass");
+            m_DebugViewMaterialGBuffer = Utilities.CreateEngineMaterial("Hidden/HDRenderLoop/DebugViewMaterialGBuffer");
 
             m_ShadowPass = new ShadowRenderPass(m_ShadowSettings);
 
@@ -772,9 +752,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 m_gbufferManager.SetBufferDescription(m_gbufferManager.gbufferCount, "_VelocityTexture", Builtin.RenderLoop.GetVelocityBufferFormat(), Builtin.RenderLoop.GetVelocityBufferReadWrite());
                 m_gbufferManager.gbufferCount++;
             }
+            m_VelocityBufferRT = new RenderTargetIdentifier(m_VelocityBuffer);
 #pragma warning restore 162
 
             m_DistortionBuffer = Shader.PropertyToID("_DistortionTexture");
+            m_DistortionBufferRT = new RenderTargetIdentifier(m_DistortionBuffer);
 
             m_LitRenderLoop.Rebuild();
 
@@ -801,15 +783,14 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             m_SinglePassLightLoop.OnDisable();
             m_TilePassLightLoop.OnDisable();
 
-            if (m_SkyboxMaterial) DestroyImmediate(m_SkyboxMaterial);
-            if (m_SkyHDRIMaterial) DestroyImmediate(m_SkyHDRIMaterial);
-            if (m_DeferredMaterial)  DestroyImmediate(m_DeferredMaterial);
-            if (m_FinalPassMaterial) DestroyImmediate(m_FinalPassMaterial);
-            if (m_DebugViewMaterialGBuffer) DestroyImmediate(m_DebugViewMaterialGBuffer);
+            Utilities.Destroy(m_FinalPassMaterial);
+            Utilities.Destroy(m_DebugViewMaterialGBuffer);
 
             m_CubeReflTexArray.Release();
             m_CookieTexArray.Release();
             m_CubeCookieTexArray.Release();
+
+            m_SkyRenderer.OnDisable();
         }
 
         void NewFrame()
@@ -841,11 +822,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 {
                     m_gbufferManager.InitGBuffers(w, h, cmd);
                 }
-
-                cmd.SetRenderTarget(new RenderTargetIdentifier(m_CameraColorBuffer), new RenderTargetIdentifier(m_CameraDepthBuffer));
-                cmd.ClearRenderTarget(true, false, new Color(0, 0, 0, 0));
                 renderLoop.ExecuteCommandBuffer(cmd);
                 cmd.Dispose();
+
+                Utilities.SetRenderTarget(renderLoop, m_CameraColorBufferRT, m_CameraDepthBufferRT, ClearFlag.ClearDepth);
             }
 
 
@@ -853,81 +833,40 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
             // Clear HDR target
             {
-                var cmd = new CommandBuffer();
-                cmd.name = "Clear HDR target";
-                cmd.SetRenderTarget(new RenderTargetIdentifier(m_CameraColorBuffer), new RenderTargetIdentifier(m_CameraDepthBuffer));
-                cmd.ClearRenderTarget(false, true, new Color(0, 0, 0, 0));
-                renderLoop.ExecuteCommandBuffer(cmd);
-                cmd.Dispose();
+                Utilities.SetRenderTarget(renderLoop, m_CameraColorBufferRT, m_CameraDepthBufferRT, ClearFlag.ClearColor, Color.black, "Clear HDR target");
             }
 
 
             // Clear GBuffers
             {
-                var cmd = new CommandBuffer();
-                cmd.name = "Clear GBuffer";
-                // Write into the Camera Depth buffer
-                cmd.SetRenderTarget(m_gbufferManager.GetGBuffers(cmd), new RenderTargetIdentifier(m_CameraDepthBuffer));
-                // Clear everything
-                // TODO: Clear is not required for color as we rewrite everything, will save performance.
-                cmd.ClearRenderTarget(false, true, new Color(0, 0, 0, 0));
-                renderLoop.ExecuteCommandBuffer(cmd);
-                cmd.Dispose();
+                Utilities.SetRenderTarget(renderLoop, m_gbufferManager.GetGBuffers(), m_CameraDepthBufferRT, ClearFlag.ClearColor, Color.black, "Clear GBuffer");
             }
 
             // END TEMP
         }
 
-        void RenderOpaqueNoLightingRenderList(CullResults cull, Camera camera, RenderLoop renderLoop, string passName)
+        void RenderOpaqueRenderList(CullResults cull, Camera camera, RenderLoop renderLoop, string passName, RendererConfiguration rendererConfiguration = 0)
         {
             if (!debugParameters.displayOpaqueObjects)
                 return;
 
             var settings = new DrawRendererSettings(cull, camera, new ShaderPassName(passName))
             {
-                rendererConfiguration = 0,
+                rendererConfiguration = rendererConfiguration,
                 sorting = { sortOptions = SortOptions.SortByMaterialThenMesh }
             };        
             settings.inputFilter.SetQueuesOpaque();
             renderLoop.DrawRenderers(ref settings);
         }
 
-        void RenderOpaqueRenderList(CullResults cull, Camera camera, RenderLoop renderLoop, string passName)
-        {
-            if (!debugParameters.displayOpaqueObjects)
-                return;
-
-            var settings = new DrawRendererSettings(cull, camera, new ShaderPassName(passName))
-            {
-                rendererConfiguration = RendererConfiguration.PerObjectLightProbe | RendererConfiguration.PerObjectReflectionProbes | RendererConfiguration.PerObjectLightmaps | RendererConfiguration.PerObjectLightProbeProxyVolume,
-                sorting = { sortOptions = SortOptions.SortByMaterialThenMesh }
-            };
-            settings.inputFilter.SetQueuesOpaque();
-            renderLoop.DrawRenderers(ref settings);
-        }
-
-        void RenderTransparentNoLightingRenderList(CullResults cull, Camera camera, RenderLoop renderLoop, string passName)
+        void RenderTransparentRenderList(CullResults cull, Camera camera, RenderLoop renderLoop, string passName, RendererConfiguration rendererConfiguration = 0)
         {
             if (!debugParameters.displayTransparentObjects)
                 return;
 
             var settings = new DrawRendererSettings(cull, camera, new ShaderPassName(passName))
             {
-                rendererConfiguration = 0,
-                sorting = { sortOptions = SortOptions.BackToFront }
-            };
-            settings.inputFilter.SetQueuesTransparent();
-            renderLoop.DrawRenderers(ref settings);
-        }
-
-        void RenderTransparentRenderList(CullResults cull, Camera camera, RenderLoop renderLoop, string passName)        
-        {
-            if (!debugParameters.displayTransparentObjects)
-                return;
-
-            var settings = new DrawRendererSettings(cull, camera, new ShaderPassName(passName))
-            {
-                rendererConfiguration = RendererConfiguration.PerObjectLightProbe | RendererConfiguration.PerObjectReflectionProbes | RendererConfiguration.PerObjectLightmaps | RendererConfiguration.PerObjectLightProbeProxyVolume,
+                rendererConfiguration = rendererConfiguration,
                 sorting = { sortOptions = SortOptions.BackToFront }
             };
             settings.inputFilter.SetQueuesTransparent();
@@ -941,14 +880,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             if (!debugParameters.useDepthPrepass)
                 return;
 
-              // TODO: Must do opaque then alpha masked for performance! 
+            // TODO: Must do opaque then alpha masked for performance! 
             // TODO: front to back for opaque and by materal for opaque tested when we split in two
-            var cmd = new CommandBuffer { name = "Depth Prepass" };
-            cmd.SetRenderTarget(new RenderTargetIdentifier(m_CameraDepthBuffer));
-            renderLoop.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
-
-            RenderOpaqueNoLightingRenderList(cull, camera, renderLoop, "DepthOnly");
+            Utilities.SetRenderTarget(renderLoop, m_CameraDepthBufferRT, "Depth Prepass");
+            RenderOpaqueRenderList(cull, camera, renderLoop, "DepthOnly");
         }
 
         void RenderGBuffer(CullResults cull, Camera camera, RenderLoop renderLoop)
@@ -959,13 +894,9 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
 
             // setup GBuffer for rendering
-            var cmd = new CommandBuffer { name = "GBuffer Pass" };
-            cmd.SetRenderTarget(m_gbufferManager.GetGBuffers(cmd), new RenderTargetIdentifier(m_CameraDepthBuffer));
-            renderLoop.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
-
+            Utilities.SetRenderTarget(renderLoop, m_gbufferManager.GetGBuffers(), m_CameraDepthBufferRT, "GBuffer Pass");
             // render opaque objects into GBuffer
-            RenderOpaqueRenderList(cull, camera, renderLoop, "GBuffer");
+            RenderOpaqueRenderList(cull, camera, renderLoop, "GBuffer", Utilities.kRendererConfigurationBakedLighting);
         }
 
         // This pass is use in case of forward opaque and deferred rendering. We need to render forward objects before tile lighting pass
@@ -976,23 +907,15 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 return;
 
             // TODO: Use the render queue index to only send the forward opaque!
-            var cmd = new CommandBuffer { name = "Depth Prepass" };
-            cmd.SetRenderTarget(new RenderTargetIdentifier(m_CameraDepthBuffer));
-            renderLoop.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
-
-            RenderOpaqueNoLightingRenderList(cull, camera, renderLoop, "DepthOnly");
+            Utilities.SetRenderTarget(renderLoop, m_CameraDepthBufferRT, "Clear HDR target");
+			RenderOpaqueRenderList(cull, camera, renderLoop, "DepthOnly");
         }
 
         void RenderDebugViewMaterial(CullResults cull, Camera camera, RenderLoop renderLoop)
         {
             // Render Opaque forward
             {
-                var cmd = new CommandBuffer { name = "DebugView Material Mode Pass" };
-                cmd.SetRenderTarget(new RenderTargetIdentifier(m_CameraColorBuffer), new RenderTargetIdentifier(m_CameraDepthBuffer));
-                cmd.ClearRenderTarget(true, true, new Color(0, 0, 0, 0));
-                renderLoop.ExecuteCommandBuffer(cmd);
-                cmd.Dispose();
+                Utilities.SetRenderTarget(renderLoop, m_CameraColorBufferRT, m_CameraDepthBufferRT, Utilities.kClearAll, Color.black, "DebugView Material Mode Pass");
 
                 Shader.SetGlobalInt("_DebugViewMaterial", (int)debugParameters.debugViewMaterial);
 
@@ -1002,14 +925,14 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // Render GBuffer opaque
             if (!debugParameters.useForwardRenderingOnly)
             {
-                Vector4 screenSize = ComputeScreenSize(camera);
+                Vector4 screenSize = Utilities.ComputeScreenSize(camera);
                 m_DebugViewMaterialGBuffer.SetVector("_ScreenSize", screenSize);
                 m_DebugViewMaterialGBuffer.SetFloat("_DebugViewMaterial", (float)debugParameters.debugViewMaterial);
 
-                // m_gbufferManager.BindBuffers(m_DeferredMaterial);
+                // m_gbufferManager.BindBuffers(m_DebugViewMaterialGBuffer);
                 // TODO: Bind depth textures
                 var cmd = new CommandBuffer { name = "GBuffer Debug Pass" };
-                cmd.Blit(null, new RenderTargetIdentifier(m_CameraColorBuffer), m_DebugViewMaterialGBuffer, 0);
+                cmd.Blit(null, m_CameraColorBufferRT, m_DebugViewMaterialGBuffer, 0);
                 renderLoop.ExecuteCommandBuffer(cmd);
                 cmd.Dispose();
             }
@@ -1022,25 +945,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // Last blit
             {
                 var cmd = new CommandBuffer { name = "Blit DebugView Material Debug" };
-                cmd.Blit(new RenderTargetIdentifier(m_CameraColorBuffer), BuiltinRenderTextureType.CameraTarget);
+                cmd.Blit(m_CameraColorBufferRT, BuiltinRenderTextureType.CameraTarget);
                 renderLoop.ExecuteCommandBuffer(cmd);
                 cmd.Dispose();
             }
-        }
-
-        Matrix4x4 GetViewProjectionMatrix(Camera camera)
-        {
-            // The actual projection matrix used in shaders is actually massaged a bit to work across all platforms
-            // (different Z value ranges etc.)
-            var gpuProj = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
-            var gpuVP = gpuProj * camera.worldToCameraMatrix;
-
-            return gpuVP;
-        }
-
-        Vector4 ComputeScreenSize(Camera camera)
-        {
-            return new Vector4(camera.pixelWidth, camera.pixelHeight, 1.0f / camera.pixelWidth, 1.0f / camera.pixelHeight);
         }
 
         void RenderDeferredLighting(Camera camera, RenderLoop renderLoop)
@@ -1053,70 +961,13 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // Bind material data
             m_LitRenderLoop.Bind();
 
-            var invViewProj = GetViewProjectionMatrix(camera).inverse;
-            m_DeferredMaterial.SetMatrix("_InvViewProjMatrix", invViewProj);
-
-            var screenSize = ComputeScreenSize(camera);
-            m_DeferredMaterial.SetVector("_ScreenSize", screenSize);
-
-            // m_gbufferManager.BindBuffers(m_DeferredMaterial);
-            // TODO: Bind depth textures
-            var cmd = new CommandBuffer { name = "Deferred Ligthing Pass" };
-            cmd.Blit(null, new RenderTargetIdentifier(m_CameraColorBuffer), m_DeferredMaterial, 0);
-            renderLoop.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
+            m_SinglePassLightLoop.RenderDeferredLighting(camera, renderLoop, m_CameraColorBuffer);
+           // m_TilePassLightLoop.RenderDeferredLighting(camera, renderLoop, );
         }
 
         void RenderSky(Camera camera, RenderLoop renderLoop)
         {
-            /*
-            // Render sky into a cubemap - doesn't happen every frame, can be control
-
-            // TODO: do a render to texture here
-
-            // Downsample the cubemap and provide it to Enlighten
-
-            // TODO: currently workaround is to set the cubemap in a Skybox/cubemap material
-            //m_SkyboxMaterial.SetTexture(cubemap);
-
-            // Render the sky itself
-
-            Vector3[] vertData = new Vector3[4];
-            vertData[0] = new Vector3(-1.0f, -1.0f, 0.0f);
-            vertData[1] = new Vector3(1.0f, -1.0f, 0.0f);
-            vertData[2] = new Vector3(1.0f, 1.0f, 0.0f);
-            vertData[3] = new Vector3(-1.0f, 1.0f, 0.0f);            
-
-            Vector3[] eyeVectorData = new Vector3[4];
-            // camera.worldToCameraMatrix, camera.projectionMatrix
-            // Get view vector vased on the frustrum, i.e (invert transform frustrum get position etc...)
-            eyeVectorData[0] = 
-            eyeVectorData[1] = 
-            eyeVectorData[2] = 
-            eyeVectorData[3] = 
-
-            // Write out the mesh
-            var triangles = new int[4];
-            for (int i = 0; i < 4; i++)
-            {
-                triangles[i] = i;
-            }
-
-            Mesh mesh = new Mesh
-            {
-                vertices = vertData,
-                normals = eyeVectorData,
-                triangles = triangles
-            };
-
-            m_SkyHDRIMaterial.SetTexture("_Cubemap", skyParameters.skyHDRI);
-            m_SkyHDRIMaterial.SetVector("_SkyParam", new Vector4(skyParameters.exposure, skyParameters.multiplier, skyParameters.rotation, 0.0f));
-
-            var cmd = new CommandBuffer { name = "Skybox" };
-            cmd.DrawMesh(mesh, Matrix4x4.identity, m_SkyHDRIMaterial);
-            renderloop.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
-            */
+            m_SkyRenderer.RenderSky(camera, m_SkyParameters, m_CameraColorBufferRT, m_CameraDepthBufferRT, renderLoop);
         }
 
         void RenderForward(CullResults cullResults, Camera camera, RenderLoop renderLoop)
@@ -1124,17 +975,14 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // Bind material data
             m_LitRenderLoop.Bind();
 
-            var cmd = new CommandBuffer { name = "Forward Pass" };
-            cmd.SetRenderTarget(new RenderTargetIdentifier(m_CameraColorBuffer), new RenderTargetIdentifier(m_CameraDepthBuffer));
-            renderLoop.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
+            Utilities.SetRenderTarget(renderLoop, m_CameraColorBufferRT, m_CameraDepthBufferRT, "Forward Pass");
 
             if (debugParameters.useForwardRenderingOnly)
             {
                 RenderOpaqueRenderList(cullResults, camera, renderLoop, "Forward");
             }
 
-            RenderTransparentRenderList(cullResults, camera, renderLoop, "Forward");
+            RenderTransparentRenderList(cullResults, camera, renderLoop, "Forward", Utilities.kRendererConfigurationBakedLighting);
         }
 
         void RenderForwardUnlit(CullResults cullResults, Camera camera, RenderLoop renderLoop)
@@ -1142,13 +990,9 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // Bind material data
             m_LitRenderLoop.Bind();
 
-            var cmd = new CommandBuffer { name = "Forward Unlit Pass" };
-            cmd.SetRenderTarget(new RenderTargetIdentifier(m_CameraColorBuffer), new RenderTargetIdentifier(m_CameraDepthBuffer));
-            renderLoop.ExecuteCommandBuffer(cmd);
-            cmd.Dispose();
-
-            RenderOpaqueNoLightingRenderList(cullResults, camera, renderLoop, "ForwardUnlit");
-            RenderTransparentNoLightingRenderList(cullResults, camera, renderLoop, "ForwardUnlit");
+            Utilities.SetRenderTarget(renderLoop, m_CameraColorBufferRT, m_CameraDepthBufferRT, "Forward Unlit Pass");
+            RenderOpaqueRenderList(cullResults, camera, renderLoop, "ForwardUnlit");
+            RenderTransparentRenderList(cullResults, camera, renderLoop, "ForwardUnlit");
         }
 
         void RenderVelocity(CullResults cullResults, Camera camera, RenderLoop renderLoop)
@@ -1164,11 +1008,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
             var cmd = new CommandBuffer { name = "Velocity Pass" };
             cmd.GetTemporaryRT(m_VelocityBuffer, w, h, 0, FilterMode.Point, Builtin.RenderLoop.GetVelocityBufferFormat(), Builtin.RenderLoop.GetVelocityBufferReadWrite());
-            cmd.SetRenderTarget(new RenderTargetIdentifier(m_VelocityBuffer), new RenderTargetIdentifier(m_CameraDepthBuffer));
+            cmd.SetRenderTarget(m_VelocityBufferRT, m_CameraDepthBufferRT);
             renderLoop.ExecuteCommandBuffer(cmd);
             cmd.Dispose();
 
-            RenderOpaqueNoLightingRenderList(cullResults, camera, renderLoop, "MotionVectors");
+            RenderOpaqueRenderList(cullResults, camera, renderLoop, "MotionVectors");
 #pragma warning restore 162, 429
         }
 
@@ -1179,12 +1023,12 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
             var cmd = new CommandBuffer { name = "Distortion Pass" };
             cmd.GetTemporaryRT(m_DistortionBuffer, w, h, 0, FilterMode.Point, Builtin.RenderLoop.GetDistortionBufferFormat(), Builtin.RenderLoop.GetDistortionBufferReadWrite());
-            cmd.SetRenderTarget(new RenderTargetIdentifier(m_DistortionBuffer), new RenderTargetIdentifier(m_CameraDepthBuffer));
+            cmd.SetRenderTarget(m_DistortionBufferRT, m_CameraDepthBufferRT);
             renderLoop.ExecuteCommandBuffer(cmd);
             cmd.Dispose();
 
             // Only transparent object can render distortion vectors
-            RenderTransparentNoLightingRenderList(cullResults, camera, renderLoop, "DistortionVectors");
+            RenderTransparentRenderList(cullResults, camera, renderLoop, "DistortionVectors");
         }
 
 
@@ -1213,7 +1057,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             var cmd = new CommandBuffer { name = "FinalPass" };
 
             // Resolve our HDR texture to CameraTarget.
-            cmd.Blit(new RenderTargetIdentifier(m_CameraColorBuffer), BuiltinRenderTextureType.CameraTarget, m_FinalPassMaterial, 0);
+            cmd.Blit(m_CameraColorBufferRT, BuiltinRenderTextureType.CameraTarget, m_FinalPassMaterial, 0);
             renderLoop.ExecuteCommandBuffer(cmd);
             cmd.Dispose();
         }
@@ -1544,8 +1388,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     m_TilePassLightLoop.BuildGPULightLists(camera, renderLoop, m_lightList, m_CameraDepthBuffer);
 
                     PushGlobalParams(camera, renderLoop, m_lightList);
-
-                    
 
                     RenderDeferredLighting(camera, renderLoop);
 

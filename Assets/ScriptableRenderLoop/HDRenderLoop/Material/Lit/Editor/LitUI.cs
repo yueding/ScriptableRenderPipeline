@@ -1,11 +1,10 @@
 using System;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace UnityEditor
 {
-    public class BaseLitGUI : ShaderGUI
+    public abstract class BaseLitGUI : ShaderGUI
     {
         protected static class Styles
         {
@@ -156,6 +155,7 @@ namespace UnityEditor
             alphaCutoff = FindProperty(kAlphaCutoff, props);
             alphaCutoffEnable = FindProperty(kAlphaCutoffEnabled, props);
             doubleSidedMode = FindProperty(kDoubleSidedMode, props);
+            FindInputOptionProperties(props);
         }
 
         protected void SetupMaterial(Material material)
@@ -234,6 +234,7 @@ namespace UnityEditor
             }
 
             SetKeyword(material, "_ALPHATEST_ON", alphaTestEnable);
+            SetupInputMaterial(material);
         }
 
         protected void SetKeyword(Material m, string keyword, bool state)
@@ -268,11 +269,6 @@ namespace UnityEditor
             }
         }
 
-        public virtual void FindInputProperties(MaterialProperty[] props) { }
-        protected virtual void ShaderInputGUI() { }
-        protected virtual void ShaderInputOptionsGUI() { }
-
-
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
         {
             FindOptionProperties(props); // MaterialProperties can be animated so we do not cache them but fetch them every event to ensure animated values are updated correctly
@@ -297,6 +293,12 @@ namespace UnityEditor
         private const string kAlphaCutoffEnabled = "_AlphaCutoffEnable";
         private const string kDoubleSidedMode = "_DoubleSidedMode";
         protected static string[] reservedProperties = new string[] { kSurfaceType, kBlendMode, kAlphaCutoff, kAlphaCutoffEnabled, kDoubleSidedMode };
+
+        protected abstract void FindInputProperties(MaterialProperty[] props);
+        protected abstract void ShaderInputGUI();
+        protected abstract void ShaderInputOptionsGUI();
+        protected abstract void FindInputOptionProperties(MaterialProperty[] props);
+        protected abstract void SetupInputMaterial(Material material);
     }
 
     class LitGUI : BaseLitGUI
@@ -384,9 +386,8 @@ namespace UnityEditor
         protected const string kDetailHeightScale = "_DetailHeightScale";
         protected const string kDetailAOScale = "_DetailAOScale";
 
-        new public void FindOptionProperties(MaterialProperty[] props)
+        override protected void FindInputOptionProperties(MaterialProperty[] props)
         {
-            base.FindOptionProperties(props);
             UVDetail = FindProperty(kUVDetail, props);
             smoothnessMapChannel = FindProperty(kSmoothnessTextureChannelProp, props);
             emissiveColorMode = FindProperty(kEmissiveColorMode, props);
@@ -395,7 +396,7 @@ namespace UnityEditor
             detailMapMode = FindProperty(kDetailMapMode, props);
         }
 
-        override public void FindInputProperties(MaterialProperty[] props)
+        override protected void FindInputProperties(MaterialProperty[] props)
         {
             baseColor = FindProperty("_BaseColor", props);
             baseColorMap = FindProperty("_BaseColorMap", props);
@@ -471,7 +472,7 @@ namespace UnityEditor
             GUILayout.Label(Styles.detailText, EditorStyles.boldLabel);
 
             m_MaterialEditor.TexturePropertySingleLine(Styles.detailMaskText, detailMask); 
-			m_MaterialEditor.ShaderProperty(UVDetail, Styles.uvSetLabel.text);          
+            m_MaterialEditor.ShaderProperty(UVDetail, Styles.uvSetLabel.text);          
 
             if (useDetailMapWithNormal)
             {
@@ -537,12 +538,10 @@ namespace UnityEditor
             }
         }
 
-        new protected void SetupMaterial(Material material)
+        override protected void SetupInputMaterial(Material material)
         {
             // Note: keywords must be based on Material value not on MaterialProperty due to multi-edit & material animation
             // (MaterialProperty value might come from renderer material property block)
-            base.SetupMaterial(material);
-
             SetKeyword(material, "_NORMALMAP_TANGENT_SPACE", (NormalMapSpace)material.GetFloat(kNormalMapSpace) == NormalMapSpace.TangentSpace);
             SetKeyword(material, "_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A", ((SmoothnessMapChannel)material.GetFloat(kSmoothnessTextureChannelProp)) == SmoothnessMapChannel.AlbedoAlpha);
             SetKeyword(material, "_EMISSIVE_COLOR", ((EmissiveColorMode)material.GetFloat(kEmissiveColorMode)) == EmissiveColorMode.UseEmissiveColor);
