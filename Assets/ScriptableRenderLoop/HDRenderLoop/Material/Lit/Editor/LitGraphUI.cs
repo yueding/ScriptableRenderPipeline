@@ -7,11 +7,19 @@ namespace UnityEditor
     class LitGraphUI : BaseLitGUI
     {
         private MaterialProperty[] genericProperties = new MaterialProperty[] { };
-        public override void FindInputProperties(MaterialProperty[] props)
+        protected override void FindInputProperties(MaterialProperty[] props)
         {
             genericProperties = props.Where(p => (p.flags & MaterialProperty.PropFlags.HideInInspector) == 0 & !reservedProperties.Contains(p.name)).ToArray();
         }
-        protected override void ShaderInputOptionsGUI()
+
+        protected override void FindInputOptionProperties(MaterialProperty[] props)
+        {
+        }
+
+        protected override void SetupInputMaterial(Material material)
+        {
+        }
+        protected override void ShaderInputGUI()
         {
             EditorGUI.indentLevel++;
             foreach (var prop in genericProperties)
@@ -27,5 +35,11 @@ namespace UnityEditor
             }
             EditorGUI.indentLevel--;
         }
+
+        protected override void ShaderInputOptionsGUI()
+        {
+        }
+
+
     }
 }
