@@ -145,7 +145,6 @@ void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, in
         // ------------------------------------------------------------------
         //  forward pass
         // ------------------------------------------------------------------
-        /* TODOPAUL : Fix Compilation
 		Pass
         {
             Name "Forward" // Name is not used
@@ -176,7 +175,6 @@ void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, in
 
             ENDHLSL
         }
-		*/
     }
     CustomEditor "LitGraphUI"
 }

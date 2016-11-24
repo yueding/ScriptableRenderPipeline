@@ -293,10 +293,13 @@ void GetSurfaceAndBuiltinData(FragInput fragInput, out SurfaceData surfaceData, 
 ${PixelShaderInitialize}
 ${PixelShaderBody}
 
-/* this clip could be integrated earlier for optimisation */
+    /* this clip could be integrated earlier for optimisation */
 #ifdef _ALPHATEST_ON
     clip(builtinData.opacity - _AlphaCutoff);
 #endif
+
+    /* HotFix to keep the PreIntegratedFGD shared texture sampler */
+    surfaceData.specularOcclusion = max(surfaceData.specularOcclusion, 10e-5f);
 }
 
 struct Attributes
