@@ -28,8 +28,9 @@ ${ShaderPropertiesHeader}
     //-------------------------------------------------------------------------------------
 
     #include "common.hlsl"
-    #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPass.cs.hlsl"
+	#include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderConfig.cs.hlsl"
     #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderVariables.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Attributes.hlsl"
     #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPass.cs.hlsl"
 
     //-------------------------------------------------------------------------------------
@@ -68,7 +69,7 @@ float _AlphaCutoff;
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
 
 //Generated code : Begin
-#{LitTemplate|useDataInput:{.*}|needFragInput:{positionWS}}
+#{LitTemplate|useSurfaceData:{.*}|useFragInput:{positionWS}}
 //Generated code : End
 
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassGBuffer.hlsl"
@@ -95,11 +96,7 @@ float _AlphaCutoff;
 
 
 //Generated code : Begin
-#{LitTemplate|useDataInput:{.*}|needFragInput:{.*}}
-void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, inout bool needLinearToSRGB)
-{
-    result = float3(1,0,1); //TODO
-}
+#{LitTemplate|useSurfaceData:{.*}|useFragInput:{.*}}
 //Generated code : End
 
         #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassDebugViewMaterial.hlsl"
@@ -111,7 +108,33 @@ void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, in
         // Extracts information for lightmapping, GI (emission, albedo, ...)
         // This pass it not used during regular rendering.
         // ------------------------------------------------------------------
-        //TODO
+        Pass
+        {
+            Name "META"
+            Tags{ "LightMode" = "Meta" }
+
+            Cull Off
+
+            HLSLPROGRAM
+
+            // Lightmap memo
+            // DYNAMICLIGHTMAP_ON is used when we have an "enlighten lightmap" ie a lightmap updated at runtime by enlighten.This lightmap contain indirect lighting from realtime lights and realtime emissive material.Offline baked lighting(from baked material / light, 
+            // both direct and indirect lighting) will hand up in the "regular" lightmap->LIGHTMAP_ON.
+
+            #pragma vertex VertDefault
+            #pragma fragment Frag
+
+            #define SHADERPASS SHADERPASS_LIGHT_TRANSPORT
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+			
+//Generated code : Begin
+#{LitTemplate|useSurfaceData:{.*}|useFragInput:{.*}}
+//Generated code : End
+
+            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassLightTransport.hlsl"
+
+            ENDHLSL
+        }
 
         // ------------------------------------------------------------------
         //  Depth only
@@ -134,7 +157,7 @@ void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, in
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
 
 //Generated code : Begin
-#{LitTemplate|useDataInput:{opacity}|needFragInput:{}}
+#{LitTemplate|useSurfaceData:{opacity}|useFragInput:{}}
 //Generated code : End
 
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassDepthOnly.hlsl"
@@ -168,7 +191,7 @@ void GetVaryingsDataDebug(uint paramId, FragInput input, inout float3 result, in
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Lighting/Lighting.hlsl"
 
 //Generated code : Begin
-#{LitTemplate|useDataInput:{.*}|needFragInput:{positionWS}}
+#{LitTemplate|useSurfaceData:{.*}|useFragInput:{positionWS}}
 //Generated code : End
 
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassForward.hlsl"
