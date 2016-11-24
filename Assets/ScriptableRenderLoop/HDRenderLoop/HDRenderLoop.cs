@@ -298,7 +298,7 @@ ${PixelShaderBody}
     clip(builtinData.opacity - _AlphaCutoff);
 #endif
 
-    /* HotFix to keep the PreIntegratedFGD shared texture sampler */
+    /* HotFix to keep the PreIntegratedFGD shared texture sampler (TODO : workaround until we support independant sampler declaration)*/
     surfaceData.specularOcclusion = max(surfaceData.specularOcclusion, 10e-5f);
 }
 
