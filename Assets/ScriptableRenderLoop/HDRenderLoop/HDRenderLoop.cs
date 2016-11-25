@@ -145,6 +145,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         {
             public string attributeName;
             public string semantic;
+            public SlotValueType semanticType;
             public string vayringName;
             public SlotValueType type;
             public string vertexCode;
@@ -179,7 +180,23 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 }
             }
 
-            if (needFragInputRegex.IsMatch("normalWS") || activeNodeList.OfType<IMayRequireNormal>().Any(x => x.RequiresNormal()))
+            bool needBitangent = needFragInputRegex.IsMatch("bitangentWS");
+            if (needBitangent || needFragInputRegex.IsMatch("tangentWS"))
+            {
+                vayrings.Add(new Vayring()
+                {
+                    attributeName = "tangentOS",
+                    semantic = "TANGENT",
+                    semanticType = SlotValueType.Vector4,
+                    vayringName = "tangentWS",
+                    type = SlotValueType.Vector3,
+                    vertexCode = "output.tangentWS = TransformObjectToWorldDir(input.tangentOS.xyz);",
+                    fragInputTarget = "tangentToWorld[0]",
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[0]);", "worldSpaceTangent")
+                });
+            }
+
+            if (needBitangent || needFragInputRegex.IsMatch("normalWS") || activeNodeList.OfType<IMayRequireNormal>().Any(x => x.RequiresNormal()))
             {
                 vayrings.Add(new Vayring()
                 {
@@ -190,6 +207,18 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     vertexCode = "output.normalWS = TransformObjectToWorldNormal(input.normalOS);",
                     fragInputTarget = "tangentToWorld[2]",
                     pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[2]);", ShaderGeneratorNames.WorldSpaceNormal)
+                });
+            }
+
+            if (needBitangent)
+            {
+                vayrings.Add(new Vayring()
+                {
+                    vayringName = "bitangentWS",
+                    type = SlotValueType.Vector3,
+                    vertexCode = "output.bitangentWS = CreateBitangent(output.normalWS, output.tangentWS, input.tangentOS.w);",
+                    fragInputTarget = "tangentToWorld[1]",
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[1]);", "worldSpaceBitangent")
                 });
             }
 
@@ -210,6 +239,19 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 vayrings.Add(new Vayring()
                 {
                     pixelCode = string.Format("float3 {0} = GetWorldSpaceNormalizeViewDir(fragInput.positionWS);", ShaderGeneratorNames.WorldSpaceViewDirection)
+                });
+            }
+
+            if (needFragInputRegex.IsMatch("vertexColor"))
+            {
+                vayrings.Add(new Vayring()
+                {
+                    attributeName = "vertexColor",
+                    semantic = "COLOR",
+                    vayringName = "vertexColor",
+                    type = SlotValueType.Vector4,
+                    vertexCode = "output.vertexColor = input.vertexColor;",
+                    pixelCode = string.Format("float4 {0} = fragInput.vertexColor;", "vertexColor")
                 });
             }
 
@@ -251,7 +293,9 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     var typeSize = _fnTypeToSize(vayring.type);
                     if (!string.IsNullOrEmpty(vayring.attributeName))
                     {
-                        vertexAttributeVisitor.AddShaderChunk(string.Format("float{0} {1} : {2};", typeSize, vayring.attributeName, vayring.semantic), true);
+                        var semanticType = vayring.semanticType != SlotValueType.Dynamic ? vayring.semanticType : vayring.type;
+                        var semanticSize = _fnTypeToSize(semanticType);
+                        vertexAttributeVisitor.AddShaderChunk(string.Format("float{0} {1} : {2};", semanticSize, vayring.attributeName, vayring.semantic), true);
                     }
 
                     vayringVisitor.AddShaderChunk(string.Format("float{0} {1};", typeSize, vayring.vayringName), false);

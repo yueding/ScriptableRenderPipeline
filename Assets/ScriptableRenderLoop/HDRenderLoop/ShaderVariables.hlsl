@@ -266,12 +266,16 @@ float4 TransformWorldToHClip(float3 positionWS)
     return mul(GetWorldToHClipMatrix(), float4(positionWS, 1.0));
 }
 
+float3 CreateBitangent(float3 normal, float3 tangent, float tangentSign)
+{
+	// For odd-negative scale transforms we need to flip the sign
+    float sign = tangentSign * GetOdddNegativeScale();
+    return cross(normal, tangent) * sign;
+}
+
 float3x3 CreateTangentToWorld(float3 normal, float3 tangent, float tangentSign)
 {
-    // For odd-negative scale transforms we need to flip the sign
-    float sign = tangentSign * GetOdddNegativeScale();
-    float3 bitangent = cross(normal, tangent) * sign;
-
+    float3 bitangent = CreateBitangent(normal, tangent, tangentSign);
     return float3x3(tangent, bitangent, normal);
 }
 
