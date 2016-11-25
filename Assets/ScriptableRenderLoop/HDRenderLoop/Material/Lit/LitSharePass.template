@@ -1,0 +1,93 @@
+#if SHADERPASS == SHADERPASS_LIGHT_TRANSPORT
+CBUFFER_START(UnityMetaPass)
+// x = use uv1 as raster position
+// y = use uv2 as raster position
+bool4 unity_MetaVertexControl;
+
+// x = return albedo
+// y = return normal
+bool4 unity_MetaFragmentControl;
+CBUFFER_END
+// This was not in constant buffer in original unity, so keep outiside. But should be in as ShaderRenderPass frequency
+float unity_OneOverOutputBoost;
+float unity_MaxOutputValue;
+#endif
+
+void GetSurfaceAndBuiltinData(FragInput fragInput, out SurfaceData surfaceData, out BuiltinData builtinData)
+{
+    ZERO_INITIALIZE(SurfaceData, surfaceData);
+    ZERO_INITIALIZE(BuiltinData, builtinData);
+${PixelShaderInitialize}
+${PixelShaderBody}
+
+    /* this clip could be integrated earlier for optimisation */
+#ifdef _ALPHATEST_ON
+    clip(builtinData.opacity - _AlphaCutoff);
+#endif
+
+    /* HotFix to keep the PreIntegratedFGD shared texture sampler (TODO : workaround until we support independant sampler declaration)*/
+    surfaceData.specularOcclusion = max(surfaceData.specularOcclusion, 10e-5f);
+}
+
+struct Attributes
+{
+    float3 positionOS : POSITION;
+${VertexAttributes}
+};
+
+struct Varyings
+{
+    float4 positionHS;
+${VaryingAttributes}
+};
+
+struct PackedVaryings
+{
+    float4 positionHS : SV_Position;
+${PackedVaryingAttributes}
+};
+
+PackedVaryings PackVaryings(Varyings input)
+{
+    PackedVaryings output;
+    output.positionHS = input.positionHS;
+${PackingVaryingCode}
+    return output;
+}
+
+FragInput UnpackVaryings(PackedVaryings input)
+{
+    FragInput output;
+    ZERO_INITIALIZE(FragInput, output);
+
+    output.unPositionSS = input.positionHS;
+${UnpackVaryingCode}
+    return output;
+}
+
+PackedVaryings VertDefault(Attributes input)
+{
+    Varyings output;
+
+#if SHADERPASS == SHADERPASS_LIGHT_TRANSPORT
+    // Output UV coordinate in vertex shader
+    if (unity_MetaVertexControl.x)
+    {
+        input.positionOS.xy = input.texCoord1 * unity_LightmapST.xy + unity_LightmapST.zw;
+        // OpenGL right now needs to actually use incoming vertex position,
+        // so use it in a very dummy way
+        //v.positionOS.z = vertex.z > 0 ? 1.0e-4f : 0.0f;
+    }
+    if (unity_MetaVertexControl.y)
+    {
+        input.positionOS.xy = input.texCoord2 * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
+        // OpenGL right now needs to actually use incoming vertex position,
+        // so use it in a very dummy way
+        //v.positionOS.z = vertex.z > 0 ? 1.0e-4f : 0.0f;
+    }
+#endif
+
+    output.positionHS = TransformWorldToHClip(TransformObjectToWorld(input.positionOS));
+${VertexShaderBody}
+    return PackVaryings(output);
+}
