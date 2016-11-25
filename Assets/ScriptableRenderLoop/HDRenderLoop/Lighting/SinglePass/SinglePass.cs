@@ -61,6 +61,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 s_PunctualShadowList = new ComputeBuffer(HDRenderLoop.k_MaxShadowOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(PunctualShadowData)));
 
                 m_DeferredMaterial = Utilities.CreateEngineMaterial("Hidden/HDRenderLoop/Deferred");
+                m_DeferredMaterial.EnableKeyword("LIGHTLOOP_SINGLE_PASS");
             }
 
             public void OnDisable()
@@ -116,7 +117,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
                 // m_gbufferManager.BindBuffers(m_DeferredMaterial);
                 // TODO: Bind depth textures
-                var cmd = new CommandBuffer { name = "Single Pass - Deferred Ligthing Pass" };
+                var cmd = new CommandBuffer { name = "" };
                 cmd.Blit(null, colorBuffer, m_DeferredMaterial, 0);
                 renderLoop.ExecuteCommandBuffer(cmd);
                 cmd.Dispose();
