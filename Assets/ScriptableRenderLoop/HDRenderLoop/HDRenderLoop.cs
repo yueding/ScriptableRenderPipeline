@@ -97,6 +97,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     {
                         AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceNormalNode(), WorldSpaceNormalNode.kOutputSlotId));
                     }
+                    else if (slot.displayName == "Tangent")
+                    {
+                        AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceTangentNode(), WorldSpaceTangentNode.kOutputSlotId));
+                    }
                     else if (slot.displayName == "Ambient Occlusion")
                     {
                         AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new DefaultAmbientOcclusion(), DefaultAmbientOcclusion.kOutputSlotId));
@@ -181,7 +185,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
 
             bool needBitangent = needFragInputRegex.IsMatch("bitangentWS");
-            if (needBitangent || needFragInputRegex.IsMatch("tangentWS"))
+            if (needBitangent || needFragInputRegex.IsMatch("tangentWS") || activeNodeList.OfType<IMayRequireTangent>().Any(x => x.RequiresTangent()))
             {
                 vayrings.Add(new Vayring()
                 {
@@ -192,7 +196,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     type = SlotValueType.Vector3,
                     vertexCode = "output.tangentWS = TransformObjectToWorldDir(input.tangentOS.xyz);",
                     fragInputTarget = "tangentToWorld[0]",
-                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[0]);", "worldSpaceTangent")
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[0]);", ShaderGeneratorNames.WorldSpaceTangent)
                 });
             }
 
