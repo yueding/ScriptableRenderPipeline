@@ -25,8 +25,10 @@ ${PixelShaderBody}
     clip(builtinData.opacity - _AlphaCutoff);
 #endif
 
+#ifdef UNITY_MATERIAL_LIT
     /* HotFix to keep the PreIntegratedFGD shared texture sampler (TODO : workaround until we support independant sampler declaration)*/
     surfaceData.specularOcclusion = max(surfaceData.specularOcclusion, 10e-5f);
+#endif
 }
 
 struct Attributes

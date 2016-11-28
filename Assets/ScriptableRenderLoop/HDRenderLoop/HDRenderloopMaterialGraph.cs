@@ -37,13 +37,9 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     {
         public AbstractHDRenderLoopMasterNode()
         {
-            name = GetName();
+            name = GetType().Name;
             UpdateNodeAfterDeserialization();
         }
-
-        protected abstract Type GetSurfaceType();
-        protected abstract string GetName();
-        protected abstract int GetMatchingMaterialID();
 
         public sealed override void UpdateNodeAfterDeserialization()
         {
@@ -356,9 +352,22 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
                     var slotOutputName = slot.shaderOutputName;
 
-                    var inputStruct = typeof(Lit.SurfaceData).GetFields().Any(o => o.Name == slotOutputName) ? "surfaceData" : "builtinData";
-                    pixelShaderBodyVisitor.AddShaderChunk(inputStruct + "." + slot.shaderOutputName + " = " + fromNode.GetVariableNameForSlot(outputRef.slotId) + ";", true);
+                    var inputStruct = GetSurfaceType().GetFields().Any(o => o.Name == slotOutputName) ? "surfaceData" : "builtinData";
+                    pixelShaderBodyVisitor.AddShaderChunk(inputStruct + "." + slot.shaderOutputName + " = " + fromNode.GetVariableNameForSlot(outputRef.slotId) + ";", false);
                 }
+            }
+
+            var type =  GetMatchingMaterialID();
+            var typeString = type.ToString();
+
+            var fieldsSurface = GetSurfaceType().GetFields();
+            var materialIdField = fieldsSurface.FirstOrDefault(o => o.FieldType.IsEnum);
+            if (materialIdField != null)
+            {
+                var enumValue = Enum.ToObject(materialIdField.FieldType, GetMatchingMaterialID()).ToString();
+                var define = string.Format("{0}_{1}", materialIdField.Name, ShaderGeneratorHelper.InsertUnderscore(enumValue));
+                define = define.ToUpper();
+                pixelShaderBodyVisitor.AddShaderChunk(string.Format("surfaceData.{0} = {1};", materialIdField.Name, define), false);
             }
 
             var resultShader = litShareTemplate.Replace("${VaryingAttributes}", vayringVisitor.GetShaderString(1));
@@ -376,23 +385,15 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         {
             configuredTextures = new List<PropertyGenerator.TextureInfo>();
 
-            var templatePath = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/Lit.template";
-            if (!System.IO.File.Exists(templatePath))
-                return "";
-
-            var templatePathPass = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/LitSharePass.template";
-            if (!System.IO.File.Exists(templatePathPass))
-                return "";
-
-            var templateText = System.IO.File.ReadAllText(templatePath);
-            var templatePassText = System.IO.File.ReadAllText(templatePathPass);
+            var templateText = GetTemplateText();
+            var templatePassText = GetTemplatePassText();
 
             var shaderPropertiesVisitor = new PropertyGenerator();
             var propertyUsagesVisitor = new ShaderGenerator();
             var shaderFunctionVisitor = new ShaderGenerator();
             var templateToShader = new Dictionary<string, string>();
 
-            var findLitShareTemplate = new System.Text.RegularExpressions.Regex("#{LitTemplate.*}");
+            var findLitShareTemplate = new System.Text.RegularExpressions.Regex("#{TemplatePass.*}");
             var findUseDataInput = new System.Text.RegularExpressions.Regex("useSurfaceData:{(.*?)}");
             var findNeedFragInput = new System.Text.RegularExpressions.Regex("useFragInput:{(.*?)}");
             foreach (System.Text.RegularExpressions.Match match in findLitShareTemplate.Matches(templateText))
@@ -434,25 +435,44 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
             configuredTextures = shaderPropertiesVisitor.GetConfiguredTexutres();
             resultShader = Regex.Replace(resultShader, @"\t", "    ");
-
             return Regex.Replace(resultShader, @"\r\n|\n\r|\n|\r", Environment.NewLine);
         }
+
+        protected abstract Type GetSurfaceType();
+        protected abstract int GetMatchingMaterialID();
+        protected abstract string GetTemplateText();
+        protected abstract string GetTemplatePassText();
     }
 
     [Serializable]
-    [Title("HDRenderLoop/StandardLit")]
-    public class StandardtLit : AbstractHDRenderLoopMasterNode
+    public abstract class LitNode : AbstractHDRenderLoopMasterNode
     {
-        protected override string GetName()
-        {
-            return "MasterNodeStandardLit";
-        }
-
-        protected override Type GetSurfaceType()
+        protected override sealed Type GetSurfaceType()
         {
             return typeof(Lit.SurfaceData);
         }
 
+        protected sealed override string GetTemplateText()
+        {
+            var templatePath = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/Lit.template";
+            if (!System.IO.File.Exists(templatePath))
+                return "";
+            return System.IO.File.ReadAllText(templatePath);
+        }
+
+        protected sealed override string GetTemplatePassText()
+        {
+            var templatePathPass = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/LitSharePass.template";
+            if (!System.IO.File.Exists(templatePathPass))
+                return "";
+            return System.IO.File.ReadAllText(templatePathPass);
+        }
+    }
+
+    [Serializable]
+    [Title("HDRenderLoop/Lit/Standard")]
+    public class StandardtLitNode : LitNode
+    {
         protected override int GetMatchingMaterialID()
         {
             return (int)Lit.MaterialId.LitStandard;
@@ -460,19 +480,9 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/SubsurfaceScatteringLit")]
-    public class SubsurfaceScatteringLit : AbstractHDRenderLoopMasterNode
+    [Title("HDRenderLoop/Lit/SubsurfaceScattering")]
+    public class SubsurfaceScatteringLitNode : LitNode
     {
-        protected override string GetName()
-        {
-            return "MasterNodeSubsurfaceScatteringLit";
-        }
-
-        protected override Type GetSurfaceType()
-        {
-            return typeof(Lit.SurfaceData);
-        }
-
         protected override int GetMatchingMaterialID()
         {
             return (int)Lit.MaterialId.LitSSS;
@@ -480,19 +490,9 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/SubsurfaceClearCoatLit")]
-    public class SubsurfaceClearCoatLit : AbstractHDRenderLoopMasterNode
+    [Title("HDRenderLoop/Lit/SubsurfaceClearCoat")]
+    public class SubsurfaceClearCoatLitNode : LitNode
     {
-        protected override string GetName()
-        {
-            return "MasterNodeSubsurfaceClearCoatLit";
-        }
-
-        protected override Type GetSurfaceType()
-        {
-            return typeof(Lit.SurfaceData);
-        }
-
         protected override int GetMatchingMaterialID()
         {
             return (int)Lit.MaterialId.LitClearCoat;
@@ -500,22 +500,43 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/SpecularColorLit")]
-    public class SpecularColorLit : AbstractHDRenderLoopMasterNode
+    [Title("HDRenderLoop/Lit/SpecularColor")]
+    public class SpecularColorLitNode : LitNode
     {
-        protected override string GetName()
+        protected override int GetMatchingMaterialID()
         {
-            return "MasterNodeSpecularColorLit";
+            return (int)Lit.MaterialId.LitSpecular;
         }
+    }
 
+    [Serializable]
+    [Title("HDRenderLoop/Unlit")]
+    public class UnlitNode : AbstractHDRenderLoopMasterNode
+    {
         protected override Type GetSurfaceType()
         {
-            return typeof(Lit.SurfaceData);
+            return typeof(Unlit.SurfaceData);
         }
 
         protected override int GetMatchingMaterialID()
         {
-            return (int)Lit.MaterialId.LitSpecular;
+            return -1;
+        }
+
+        protected sealed override string GetTemplateText()
+        {
+            var templatePath = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Unlit/Unlit.template";
+            if (!System.IO.File.Exists(templatePath))
+                return "";
+            return System.IO.File.ReadAllText(templatePath);
+        }
+
+        protected sealed override string GetTemplatePassText()
+        {
+            var templatePathPass = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/LitSharePass.template";
+            if (!System.IO.File.Exists(templatePathPass))
+                return "";
+            return System.IO.File.ReadAllText(templatePathPass);
         }
     }
 }

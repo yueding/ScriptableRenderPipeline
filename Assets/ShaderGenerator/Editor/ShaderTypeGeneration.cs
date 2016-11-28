@@ -427,22 +427,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             return EmitDefines() + EmitTypeDecl() + EmitAccessors();
         }
 
-        // This function is a helper to follow unity convertion
-        // when converting fooBar ro FOO_BAR
-        string InsertUnderscore(string name)
-        {
-            for (int i = 1; i < name.Length; i++)
-            {
-                if (char.IsLower(name[i - 1]) && char.IsUpper(name[i]))
-                {
-                    // case switch, insert underscore
-                    name = name.Insert(i, "_");
-                }
-            }
-
-            return name;
-        }
-
         public bool Generate()
         {
             m_Statics = new Dictionary<string, string>();
@@ -457,7 +441,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     if (!field.IsSpecialName)
                     {
                         string name = field.Name;
-                        name = InsertUnderscore(name);
+                        name = ShaderGeneratorHelper.InsertUnderscore(name);
                         m_Statics[(type.Name + "_" + name).ToUpper()] = field.GetRawConstantValue().ToString();
                     }
                 }
@@ -479,7 +463,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 if (attr.needParamDefines)
                 {
                     string subNamespace = type.Namespace.Substring(type.Namespace.LastIndexOf((".")) + 1);
-                    string name = InsertUnderscore(field.Name);
+                    string name = ShaderGeneratorHelper.InsertUnderscore(field.Name);
                     m_Statics[("DEBUGVIEW_" + subNamespace + "_" + type.Name + "_" + name).ToUpper()] = Convert.ToString(attr.paramDefinesStart + debugCounter++);
                 }
 
