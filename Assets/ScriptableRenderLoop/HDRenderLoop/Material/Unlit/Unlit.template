@@ -139,4 +139,6 @@ float _AlphaCutoff;
             ENDHLSL
         }
     }
+	
+	CustomEditor "Experimental.ScriptableRenderLoop.UnlitGraphUI"
 }

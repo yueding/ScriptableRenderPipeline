@@ -62,6 +62,7 @@ namespace UnityEditor.Experimental.ScriptableRenderLoop
         protected const string kAlphaCutoff = "_AlphaCutoff";
         protected const string kAlphaCutoffEnabled = "_AlphaCutoffEnable";
         protected const string kDoubleSidedMode = "_DoubleSidedMode";
+        protected static string[] reservedProperties = new string[] { kSurfaceType, kBlendMode, kAlphaCutoff, kAlphaCutoffEnabled, kDoubleSidedMode };
 
         protected MaterialEditor m_MaterialEditor;
 

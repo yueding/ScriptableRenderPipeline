@@ -199,5 +199,5 @@ float _AlphaCutoff;
             ENDHLSL
         }
     }
-    CustomEditor "LitGraphUI"
+    CustomEditor "Experimental.ScriptableRenderLoop.LitGraphUI"
 }

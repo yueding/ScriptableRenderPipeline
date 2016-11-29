@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace UnityEditor.Experimental.ScriptableRenderLoop
 {
-    class LitGraphUI : BaseLitGUI
+    class UnlitGraphUI : BaseUnlitGUI
     {
         private MaterialProperty[] genericProperties = new MaterialProperty[] { };
         protected override void FindInputProperties(MaterialProperty[] props)
