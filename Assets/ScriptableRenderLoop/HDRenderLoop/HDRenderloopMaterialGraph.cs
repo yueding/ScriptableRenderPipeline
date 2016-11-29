@@ -9,12 +9,12 @@ using UnityEngine.Graphing;
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
-    public class DefaultAmbientOcclusion : AbstractMaterialNode
+    public class DefaultOneNode : AbstractMaterialNode
     {
         public const int kOutputSlotId = 0;
-        public const string kOutputSlotName = "DefaultAmbientOcclusion";
+        public const string kOutputSlotName = "DefaultOne";
 
-        public DefaultAmbientOcclusion()
+        public DefaultOneNode()
         {
             name = "Default Ambient Occlusion";
             UpdateNodeAfterDeserialization();
@@ -78,6 +78,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                         priority = attribute.priority,
                         displayName = attribute.displayName,
                         materialID = attribute.filter,
+                        semantic = attribute.semantic,
                         shaderOutputName = field.Name,
                         valueType = valueType
                     };
@@ -89,21 +90,21 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
                 foreach (var slot in slots)
                 {
-                    if (slot.displayName == "Normal")
+                    switch (slot.semantic)
                     {
-                        AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceNormalNode(), WorldSpaceNormalNode.kOutputSlotId));
-                    }
-                    else if (slot.displayName == "Tangent")
-                    {
-                        AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceTangentNode(), WorldSpaceTangentNode.kOutputSlotId));
-                    }
-                    else if (slot.displayName == "Ambient Occlusion")
-                    {
-                        AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new DefaultAmbientOcclusion(), DefaultAmbientOcclusion.kOutputSlotId));
-                    }
-                    else
-                    {
-                        AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
+                        case SurfaceDataAttributes.Semantic.None:
+                            AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
+                            break;
+                        case SurfaceDataAttributes.Semantic.Normal:
+                            AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceNormalNode(), WorldSpaceNormalNode.kOutputSlotId));
+                            break;
+                        case SurfaceDataAttributes.Semantic.Tangent:
+                            AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceTangentNode(), WorldSpaceTangentNode.kOutputSlotId));
+                            break;
+                        case SurfaceDataAttributes.Semantic.Opacity:
+                        case SurfaceDataAttributes.Semantic.AmbientOcclusion:
+                            AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new DefaultOneNode(), DefaultOneNode.kOutputSlotId));
+                            break;
                     }
                 }
             }

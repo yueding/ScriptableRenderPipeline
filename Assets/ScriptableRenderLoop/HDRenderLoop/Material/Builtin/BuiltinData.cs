@@ -16,7 +16,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         [GenerateHLSL(PackingRules.Exact, false, true, 100)]
         public struct BuiltinData
         {
-            [SurfaceDataAttributes("Opacity")]
+            [SurfaceDataAttributes("Opacity", 0, null, SurfaceDataAttributes.Semantic.Opacity)]
             public float opacity;
 
             // These are lighting data.

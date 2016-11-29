@@ -28,15 +28,26 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     [AttributeUsage(AttributeTargets.Field)]
     public class SurfaceDataAttributes : System.Attribute
     {
+        public enum Semantic
+        {
+            None,
+            Normal,
+            Tangent,
+            Opacity,
+            AmbientOcclusion,
+        }
+
         public string displayName { get; private set; }
         public int priority { get; private set; }
         public int[] filter { get; private set; }
+        public Semantic semantic { get; private set; }
 
-        public SurfaceDataAttributes(string displayName = "", int priority = 0, int[] filter = null)
+        public SurfaceDataAttributes(string _displayName = "", int _priority = 0, int[] _filter = null, Semantic _semantic = Semantic.None)
         {
-            this.displayName = displayName;
-            this.priority = priority;
-            this.filter = filter;
+            displayName = _displayName;
+            priority = _priority;
+            filter = _filter;
+            semantic = _semantic;
         }
     }
 }

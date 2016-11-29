@@ -29,14 +29,14 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             [SurfaceDataAttributes("Specular Occlusion")]
             public float specularOcclusion;
 
-            [SurfaceDataAttributes("Normal")]
+            [SurfaceDataAttributes("Normal", 0, null, SurfaceDataAttributes.Semantic.Normal)]
             public Vector3 normalWS;
             [SurfaceDataAttributes("Smoothness")]
             public float perceptualSmoothness;
             [SurfaceDataAttributes("Material ID")]
             public MaterialId materialId;
 
-            [SurfaceDataAttributes("Ambient Occlusion")]
+            [SurfaceDataAttributes("Ambient Occlusion", 0, null, SurfaceDataAttributes.Semantic.AmbientOcclusion)]
             public float ambientOcclusion;
 
             // MaterialId dependent attribute
