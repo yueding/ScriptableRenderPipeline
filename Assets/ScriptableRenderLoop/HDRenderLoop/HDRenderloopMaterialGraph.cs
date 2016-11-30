@@ -110,38 +110,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
         }
 
-        private static void CollectFromNodesFromNodes(List<INode> nodeList, INode node, List<int> slotId)
-        {
-            // no where to start
-            if (node == null)
-                return;
-
-            // allready added this node
-            if (nodeList.Contains(node))
-                return;
-
-            // if we have a slot passed in but can not find it on the node abort
-            if (slotId != null && node.GetInputSlots<ISlot>().All(x => !slotId.Contains(x.id)))
-                return;
-
-            var validSlots = ListPool<int>.Get();
-            if (slotId != null)
-                slotId.ForEach(x => validSlots.Add(x));
-            else
-                validSlots.AddRange(node.GetInputSlots<ISlot>().Select(x => x.id));
-
-            foreach (var slot in validSlots)
-            {
-                foreach (var edge in node.owner.GetEdges(node.GetSlotReference(slot)))
-                {
-                    var outputNode = node.owner.GetNodeFromGuid(edge.outputSlot.nodeGuid);
-                    CollectFromNodesFromNodes(nodeList, outputNode, null);
-                }
-            }
-            nodeList.Add(node);
-            ListPool<int>.Release(validSlots);
-        }
-
         private class Vayring
         {
             public string attributeName;
@@ -162,8 +130,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             var needFragInputRegex = new Regex(useSurfaceFragInput);
             var slotIDList = GetInputSlots<MaterialSlot>().Where(s => useDataInputRegex.IsMatch(s.shaderOutputName)).Select(s => s.id).ToList();
 
-            CollectFromNodesFromNodes(activeNodeList, this, slotIDList);
-
+            NodeUtils.DepthFirstCollectNodesFromNodeSlotList(activeNodeList, this, slotIDList);
             var vayrings = new List<Vayring>();
             for (int iTexCoord = 0; iTexCoord < 4; ++iTexCoord)
             {
