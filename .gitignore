@@ -16,6 +16,7 @@ DataSource/*
 *.sdf
 *.userprefs
 
+Assets/GraphFramework/*
 Assets/NewUI/*
 Assets/UnityShaderEditor/*
 Assets/MaterialGraphInterface/*
