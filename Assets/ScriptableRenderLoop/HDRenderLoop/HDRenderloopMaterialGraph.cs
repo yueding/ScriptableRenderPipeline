@@ -9,31 +9,8 @@ using UnityEngine.Graphing;
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
-    public class DefaultOneNode : AbstractMaterialNode
-    {
-        public const int kOutputSlotId = 0;
-        public const string kOutputSlotName = "DefaultOne";
-
-        public DefaultOneNode()
-        {
-            name = "Default Ambient Occlusion";
-            UpdateNodeAfterDeserialization();
-        }
-
-        public sealed override void UpdateNodeAfterDeserialization()
-        {
-            AddSlot(new MaterialSlot(kOutputSlotId, kOutputSlotName, kOutputSlotName, SlotType.Output, SlotValueType.Vector1, Vector4.one));
-            RemoveSlotsNameNotMatching(new[] { kOutputSlotId });
-        }
-
-        public override string GetVariableNameForSlot(int slotId)
-        {
-            return "1.0f";
-        }
-    }
-
     [Serializable]
-    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
+    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IMayRequireNormal, IMayRequireTangent
     {
         public AbstractHDRenderLoopMasterNode()
         {
@@ -78,7 +55,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                         priority = attribute.priority,
                         displayName = attribute.displayName,
                         materialID = attribute.filter,
-                        semantic = attribute.semantic,
                         shaderOutputName = field.Name,
                         valueType = valueType
                     };
@@ -90,24 +66,39 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
                 foreach (var slot in slots)
                 {
-                    switch (slot.semantic)
-                    {
-                        case SurfaceDataAttributes.Semantic.None:
-                            AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
-                            break;
-                        case SurfaceDataAttributes.Semantic.Normal:
-                            AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceNormalNode(), WorldSpaceNormalNode.kOutputSlotId));
-                            break;
-                        case SurfaceDataAttributes.Semantic.Tangent:
-                            AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new WorldSpaceTangentNode(), WorldSpaceTangentNode.kOutputSlotId));
-                            break;
-                        case SurfaceDataAttributes.Semantic.Opacity:
-                        case SurfaceDataAttributes.Semantic.AmbientOcclusion:
-                            AddSlot(new MaterialSlotDefaultInput(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, new DefaultOneNode(), DefaultOneNode.kOutputSlotId));
-                            break;
-                    }
+                    AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
                 }
             }
+        }
+
+        private bool Requires(SurfaceDataAttributes.Semantic targetSemantic)
+        {
+            var fields = GetSurfaceType().GetFields().Concat(typeof(Builtin.BuiltinData).GetFields());
+            return fields.Any(f =>
+            {
+                var attributes = (SurfaceDataAttributes[])f.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
+                var semantic = attributes.Length > 0 ? attributes[0].semantic : SurfaceDataAttributes.Semantic.None;
+                if (semantic == targetSemantic)
+                {
+                    var slot = GetInputSlots<MaterialSlot>().FirstOrDefault(o => o.shaderOutputName == f.Name);
+                    if (slot != null)
+                    {
+                        return owner.GetEdges(slot.slotReference).Count() == 0;
+                    }
+
+                }
+                return false;
+            });
+        }
+
+        public bool RequiresNormal()
+        {
+            return Requires(SurfaceDataAttributes.Semantic.Normal);
+        }
+
+        public bool RequiresTangent()
+        {
+            return Requires(SurfaceDataAttributes.Semantic.Tangent);
         }
 
         private class Vayring
@@ -311,17 +302,49 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 if (!slotIDList.Contains(slot.id))
                     continue;
 
-                foreach (var edge in owner.GetEdges(slot.slotReference))
+                var slotOutputName = slot.shaderOutputName;
+                var surfaceField = GetSurfaceType().GetFields().FirstOrDefault(o => o.Name == slotOutputName);
+                var builtinField = typeof(Builtin.BuiltinData).GetFields().FirstOrDefault(o => o.Name == slotOutputName);
+                var currentField = surfaceField != null ? surfaceField : builtinField;
+
+                string variableName = null;
+                var egdes = owner.GetEdges(slot.slotReference).ToArray();
+                if (egdes.Length == 1)
                 {
-                    var outputRef = edge.outputSlot;
+                    var outputRef = egdes[0].outputSlot;
                     var fromNode = owner.GetNodeFromGuid<AbstractMaterialNode>(outputRef.nodeGuid);
-                    if (fromNode == null)
-                        continue;
+                    if (fromNode != null)
+                    {
+                        variableName = fromNode.GetVariableNameForSlot(outputRef.slotId);
+                    }
+                }
+                else if (egdes.Length == 0)
+                {
+                    var attributes = (SurfaceDataAttributes[])currentField.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
+                    var semantic = attributes.Length > 0 ? attributes[0].semantic : SurfaceDataAttributes.Semantic.None;
+                    switch(semantic)
+                    {
+                        case SurfaceDataAttributes.Semantic.AmbientOcclusion:
+                        case SurfaceDataAttributes.Semantic.Opacity:
+                            variableName = "1.0f";
+                            break;
+                        case SurfaceDataAttributes.Semantic.Normal:
+                            variableName = ShaderGeneratorNames.WorldSpaceNormal;
+                            break;
+                        case SurfaceDataAttributes.Semantic.Tangent:
+                            variableName = ShaderGeneratorNames.WorldSpaceTangent;
+                            break;
+                        default: break;
+                    }
+                }
+                else
+                {
+                    Debug.LogError("Unexpected graph : multiples edges connected to the same slot");
+                }
 
-                    var slotOutputName = slot.shaderOutputName;
-
-                    var inputStruct = GetSurfaceType().GetFields().Any(o => o.Name == slotOutputName) ? "surfaceData" : "builtinData";
-                    pixelShaderBodyVisitor.AddShaderChunk(inputStruct + "." + slot.shaderOutputName + " = " + fromNode.GetVariableNameForSlot(outputRef.slotId) + ";", false);
+                if (!string.IsNullOrEmpty(variableName))
+                {
+                    pixelShaderBodyVisitor.AddShaderChunk(string.Format("{0}.{1} = {2};", surfaceField != null ? "surfaceData" : "builtinData", slotOutputName, variableName), false);
                 }
             }
 
@@ -349,7 +372,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             return resultShader;
         }
 
-        public override string GetShader(MaterialOptions options, GenerationMode mode, out List<PropertyGenerator.TextureInfo> configuredTextures)
+        public override string GetShader(GenerationMode mode, out List<PropertyGenerator.TextureInfo> configuredTextures)
         {
             configuredTextures = new List<PropertyGenerator.TextureInfo>();
 
