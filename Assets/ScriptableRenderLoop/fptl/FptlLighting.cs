@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [ExecuteInEditMode]
-    public class FptlLighting : ScriptableRenderLoop
+    public class FptlLighting : RenderPipeline
     {
 #if UNITY_EDITOR
         [UnityEditor.MenuItem("Renderloop/CreateRenderLoopFPTL")]
@@ -113,14 +113,42 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         private Texture2D m_LightAttentuationTexture;
         private int m_shadowBufferID;
 
-        void OnEnable()
+        private void OnValidate()
         {
             Rebuild();
         }
 
-        void OnValidate()
+        public override void Initialize()
         {
             Rebuild();
+        }
+
+        public override void Cleanup()
+        {
+            // RenderLoop.renderLoopDelegate -= ExecuteRenderLoop;
+            if (m_DeferredMaterial) DestroyImmediate(m_DeferredMaterial);
+            if (m_DeferredReflectionMaterial) DestroyImmediate(m_DeferredReflectionMaterial);
+            if (m_BlitMaterial) DestroyImmediate(m_BlitMaterial);
+            if (m_DebugLightBoundsMaterial) DestroyImmediate(m_DebugLightBoundsMaterial);
+            if (m_NHxRoughnessTexture) DestroyImmediate(m_NHxRoughnessTexture);
+            if (m_LightAttentuationTexture) DestroyImmediate(m_LightAttentuationTexture);
+
+            m_CookieTexArray.Release();
+            m_CubeCookieTexArray.Release();
+            m_CubeReflTexArray.Release();
+
+            s_AABBBoundsBuffer.Release();
+            s_ConvexBoundsBuffer.Release();
+            s_LightDataBuffer.Release();
+            ReleaseResolutionDependentBuffers();
+            s_DirLightList.Release();
+
+            if (enableClustered)
+            {
+                s_GlobalLightListAtomic.Release();
+            }
+
+            ClearComputeBuffers();
         }
 
         void ClearComputeBuffers()
@@ -203,9 +231,9 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             m_CookieTexArray = new TextureCache2D();
             m_CubeCookieTexArray = new TextureCacheCubemap();
             m_CubeReflTexArray = new TextureCacheCubemap();
-            m_CookieTexArray.AllocTextureArray(8, (int)m_TextureSettings.spotCookieSize, (int)m_TextureSettings.spotCookieSize, TextureFormat.RGBA32, true);
-            m_CubeCookieTexArray.AllocTextureArray(4, (int)m_TextureSettings.pointCookieSize, TextureFormat.RGBA32, true);
-            m_CubeReflTexArray.AllocTextureArray(64, (int)m_TextureSettings.reflectionCubemapSize, TextureFormat.BC6H, true);
+            m_CookieTexArray.AllocTextureArray(8, m_TextureSettings.spotCookieSize, m_TextureSettings.spotCookieSize, TextureFormat.RGBA32, true);
+            m_CubeCookieTexArray.AllocTextureArray(4, m_TextureSettings.pointCookieSize, TextureFormat.RGBA32, true);
+            m_CubeReflTexArray.AllocTextureArray(64, m_TextureSettings.reflectionCubemapSize, TextureFormat.BC6H, true);
 
             //m_DeferredMaterial.SetTexture("_spotCookieTextures", m_cookieTexArray.GetTexCache());
             //m_DeferredMaterial.SetTexture("_pointCookieTextures", m_cubeCookieTexArray.GetTexCache());
@@ -230,34 +258,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             s_BigTileLightList = null;
 
             m_shadowBufferID = Shader.PropertyToID("g_tShadowBuffer");
-        }
-
-        void OnDisable()
-        {
-            // RenderLoop.renderLoopDelegate -= ExecuteRenderLoop;
-            if (m_DeferredMaterial) DestroyImmediate(m_DeferredMaterial);
-            if (m_DeferredReflectionMaterial) DestroyImmediate(m_DeferredReflectionMaterial);
-            if (m_BlitMaterial) DestroyImmediate(m_BlitMaterial);
-            if (m_DebugLightBoundsMaterial) DestroyImmediate(m_DebugLightBoundsMaterial);
-            if (m_NHxRoughnessTexture) DestroyImmediate(m_NHxRoughnessTexture);
-            if (m_LightAttentuationTexture) DestroyImmediate(m_LightAttentuationTexture);
-
-            m_CookieTexArray.Release();
-            m_CubeCookieTexArray.Release();
-            m_CubeReflTexArray.Release();
-
-            s_AABBBoundsBuffer.Release();
-            s_ConvexBoundsBuffer.Release();
-            s_LightDataBuffer.Release();
-            ReleaseResolutionDependentBuffers();
-            s_DirLightList.Release();
-
-
-
-            if (enableClustered)
-            {
-                s_GlobalLightListAtomic.Release();
-            }
         }
 
         static void SetupGBuffer(int width, int height, CommandBuffer cmd)
@@ -371,7 +371,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
         void DoTiledDeferredLighting(Camera camera, RenderLoop loop, int numLights, int numDirLights)
         {
-            var bUseClusteredForDeferred = !usingFptl;       // doesn't work on reflections yet but will soon
+            var bUseClusteredForDeferred = !usingFptl;
             var cmd = new CommandBuffer();
 
             m_DeferredMaterial.EnableKeyword(bUseClusteredForDeferred ? "USE_CLUSTERED_LIGHTLIST" : "USE_FPTL_LIGHTLIST");
@@ -986,6 +986,15 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
             return numLightsOut + numProbesOut;
         }
+
+#if UNITY_EDITOR
+        public override void RenderSceneView(Camera camera, RenderLoop renderLoop)
+        {
+            base.RenderSceneView(camera, renderLoop);
+            renderLoop.PrepareForEditorRendering(camera, new RenderTargetIdentifier(s_CameraDepthTexture));
+            renderLoop.Submit();
+        }
+#endif
 
         public override void Render(Camera[] cameras, RenderLoop renderLoop)
         {

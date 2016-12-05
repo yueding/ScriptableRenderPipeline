@@ -22,15 +22,15 @@ void ADD_IDX(ComputeLayerTexCoord)(FragInput input, bool isTriplanar, inout Laye
     // triplanar
     ADD_IDX(layerTexCoord.base).isTriplanar = isTriplanar;
 
-    ADD_IDX(layerTexCoord.base).uvYZ = position.yz;
-    ADD_IDX(layerTexCoord.base).uvZX = position.zx;
-    ADD_IDX(layerTexCoord.base).uvXY = position.xy;
+    ADD_IDX(layerTexCoord.base).uvYZ = position.zy;
+    ADD_IDX(layerTexCoord.base).uvZX = position.xz;
+    ADD_IDX(layerTexCoord.base).uvXY = float2(-position.x, position.y);
 
     ADD_IDX(layerTexCoord.details).isTriplanar = isTriplanar;
 
-    ADD_IDX(layerTexCoord.details).uvYZ = TRANSFORM_TEX(position.yz, ADD_IDX(_DetailMap));
-    ADD_IDX(layerTexCoord.details).uvZX = TRANSFORM_TEX(position.zx, ADD_IDX(_DetailMap));
-    ADD_IDX(layerTexCoord.details).uvXY = TRANSFORM_TEX(position.xy, ADD_IDX(_DetailMap));
+    ADD_IDX(layerTexCoord.details).uvYZ = TRANSFORM_TEX(position.zy, ADD_IDX(_DetailMap));
+    ADD_IDX(layerTexCoord.details).uvZX = TRANSFORM_TEX(position.xz, ADD_IDX(_DetailMap));
+    ADD_IDX(layerTexCoord.details).uvXY = TRANSFORM_TEX(float2(-position.x, position.y), ADD_IDX(_DetailMap));
 }
 
 void ADD_IDX(ApplyDisplacement)(inout FragInput input, inout LayerTexCoord layerTexCoord)
@@ -156,7 +156,7 @@ float ADD_IDX(GetSurfaceData)(FragInput input, LayerTexCoord layerTexCoord, out 
 #else
     surfaceData.perceptualSmoothness = 1.0;
 #endif
-    surfaceData.perceptualSmoothness *= _Smoothness;
+	surfaceData.perceptualSmoothness = ADD_IDX(_Smoothness);
 #ifdef _DETAIL_MAP
     surfaceData.perceptualSmoothness *= LerpWhiteTo(2.0 * saturate(detailSmoothness * ADD_IDX(_DetailSmoothnessScale)), detailMask);
 #endif
@@ -169,7 +169,7 @@ float ADD_IDX(GetSurfaceData)(FragInput input, LayerTexCoord layerTexCoord, out 
     surfaceData.metallic = 1.0;
     surfaceData.ambientOcclusion = 1.0;
 #endif
-    surfaceData.metallic *= _Metallic;
+    surfaceData.metallic *= ADD_IDX(_Metallic);
 
     // This part of the code is not used in case of layered shader but we keep the same macro system for simplicity
 #if !defined(LAYERED_LIT_SHADER)
@@ -179,7 +179,7 @@ float ADD_IDX(GetSurfaceData)(FragInput input, LayerTexCoord layerTexCoord, out 
     // TODO: think about using BC5
 #ifdef _TANGENTMAP
 #ifdef _NORMALMAP_TANGENT_SPACE // Normal and tangent use same space
-    float3 tangentTS = SAMPLE_LAYER_NORMALMAP(ADD_IDX(_TangentMap), ADD_ZERO_IDX(sampler_TangentMap), ADD_IDX(layerTexCoord.base)));
+    float3 tangentTS = SAMPLE_LAYER_NORMALMAP(ADD_IDX(_TangentMap), ADD_ZERO_IDX(sampler_TangentMap), ADD_IDX(layerTexCoord.base));
     surfaceData.tangentWS = TransformTangentToWorld(tangentTS, input.tangentToWorld);
 #else // Object space (TODO: We need to apply the world rotation here! - Require to pass world transform)
     surfaceData.tangentWS = SAMPLE_LAYER_TEXTURE2D(ADD_IDX(_TangentMap), ADD_ZERO_IDX(sampler_TangentMap), ADD_IDX(layerTexCoord.base)).rgb;
@@ -194,7 +194,7 @@ float ADD_IDX(GetSurfaceData)(FragInput input, LayerTexCoord layerTexCoord, out 
 #else
     surfaceData.anisotropy = 1.0;
 #endif
-    surfaceData.anisotropy *= _Anisotropy;
+    surfaceData.anisotropy *= ADD_IDX(_Anisotropy);
 
     surfaceData.specular = 0.04;
 

@@ -1,6 +1,7 @@
 
 Library/*
 Temp/*
+obj/*
 *.csproj
 *.sln
 *.suo
@@ -15,10 +16,6 @@ DataSource/*
 *.sdf
 *.userprefs
 
-Assets/UnityHDRI.meta
-Assets/UnityHDRI/Gareoult/GareoultWhiteBalanced.exr
-obj/Debug/Assembly-CSharp.csproj.FileListAbsolute.txt
-Assets/GraphFramework/*
 Assets/NewUI/*
 Assets/UnityShaderEditor/*
 Assets/MaterialGraphInterface/*
