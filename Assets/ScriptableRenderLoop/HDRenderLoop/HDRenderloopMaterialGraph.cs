@@ -324,7 +324,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 });
             }
 
-            if (needFragInputRegex.IsMatch("vertexColor"))
+            if (needFragInputRegex.IsMatch("vertexColor") || activeNodeList.OfType<IMayRequireVertexColor>().Any(x => x.RequiresVertexColor()))
             {
                 vayrings.Add(new Vayring()
                 {
