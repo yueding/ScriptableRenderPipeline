@@ -5,6 +5,22 @@
 #ifndef TILEPASS_CS_HLSL
 #define TILEPASS_CS_HLSL
 //
+// UnityEngine.Experimental.ScriptableRenderLoop.TilePass.LightVolumeType:  static fields
+//
+#define LIGHTVOLUMETYPE_CONE (0)
+#define LIGHTVOLUMETYPE_SPHERE (1)
+#define LIGHTVOLUMETYPE_BOX (2)
+#define LIGHTVOLUMETYPE_COUNT (3)
+
+//
+// UnityEngine.Experimental.ScriptableRenderLoop.TilePass.LightCategory:  static fields
+//
+#define LIGHTCATEGORY_PUNCTUAL (0)
+#define LIGHTCATEGORY_AREA (1)
+#define LIGHTCATEGORY_ENV (2)
+#define LIGHTCATEGORY_COUNT (3)
+
+//
 // UnityEngine.Experimental.ScriptableRenderLoop.TilePass.LightDefinitions:  static fields
 //
 #define MAX_NR_LIGHTS_PER_CAMERA (1024)
@@ -15,20 +31,6 @@
 #define HAS_COOKIE_TEXTURE (2)
 #define IS_BOX_PROJECTED (4)
 #define HAS_SHADOW (8)
-#define MAX_TYPES (3)
-#define SPOT_LIGHT (0)
-#define SPHERE_LIGHT (1)
-#define BOX_LIGHT (2)
-#define DIRECTIONAL_LIGHT (3)
-#define NR_LIGHT_MODELS (2)
-#define DIRECT_LIGHT (0)
-#define REFLECTION_LIGHT (1)
-
-//
-// UnityEngine.Experimental.ScriptableRenderLoop.TilePass.DebugViewTilesFlags:  static fields
-//
-#define DEBUGVIEWTILESFLAGS_DIRECT_LIGHTING (1)
-#define DEBUGVIEWTILESFLAGS_REFLECTION (2)
 
 // Generated from UnityEngine.Experimental.ScriptableRenderLoop.TilePass.SFiniteLightBound
 // PackingRules = Exact
@@ -42,20 +44,20 @@ struct SFiniteLightBound
 	float radius;
 };
 
-// Generated from UnityEngine.Experimental.ScriptableRenderLoop.TilePass.LightShapeData
+// Generated from UnityEngine.Experimental.ScriptableRenderLoop.TilePass.LightVolumeData
 // PackingRules = Exact
-struct LightShapeData
+struct LightVolumeData
 {
 	float3 lightPos;
-	uint lightIndex;
+	uint lightVolume;
 	float3 lightAxisX;
-	uint lightType;
+	uint lightCategory;
 	float3 lightAxisY;
 	float radiusSq;
 	float3 lightAxisZ;
 	float cotan;
 	float3 boxInnerDist;
-	uint lightCategory;
+	float unused;
 	float3 boxInvRange;
 	float unused2;
 };
@@ -89,53 +91,53 @@ float GetRadius(SFiniteLightBound value)
 }
 
 //
-// Accessors for UnityEngine.Experimental.ScriptableRenderLoop.TilePass.LightShapeData
+// Accessors for UnityEngine.Experimental.ScriptableRenderLoop.TilePass.LightVolumeData
 //
-float3 GetLightPos(LightShapeData value)
+float3 GetLightPos(LightVolumeData value)
 {
 	return value.lightPos;
 }
-uint GetLightIndex(LightShapeData value)
+uint GetLightVolume(LightVolumeData value)
 {
-	return value.lightIndex;
+	return value.lightVolume;
 }
-float3 GetLightAxisX(LightShapeData value)
+float3 GetLightAxisX(LightVolumeData value)
 {
 	return value.lightAxisX;
 }
-uint GetLightType(LightShapeData value)
-{
-	return value.lightType;
-}
-float3 GetLightAxisY(LightShapeData value)
-{
-	return value.lightAxisY;
-}
-float GetRadiusSq(LightShapeData value)
-{
-	return value.radiusSq;
-}
-float3 GetLightAxisZ(LightShapeData value)
-{
-	return value.lightAxisZ;
-}
-float GetCotan(LightShapeData value)
-{
-	return value.cotan;
-}
-float3 GetBoxInnerDist(LightShapeData value)
-{
-	return value.boxInnerDist;
-}
-uint GetLightCategory(LightShapeData value)
+uint GetLightCategory(LightVolumeData value)
 {
 	return value.lightCategory;
 }
-float3 GetBoxInvRange(LightShapeData value)
+float3 GetLightAxisY(LightVolumeData value)
+{
+	return value.lightAxisY;
+}
+float GetRadiusSq(LightVolumeData value)
+{
+	return value.radiusSq;
+}
+float3 GetLightAxisZ(LightVolumeData value)
+{
+	return value.lightAxisZ;
+}
+float GetCotan(LightVolumeData value)
+{
+	return value.cotan;
+}
+float3 GetBoxInnerDist(LightVolumeData value)
+{
+	return value.boxInnerDist;
+}
+float GetUnused(LightVolumeData value)
+{
+	return value.unused;
+}
+float3 GetBoxInvRange(LightVolumeData value)
 {
 	return value.boxInvRange;
 }
-float GetUnused2(LightShapeData value)
+float GetUnused2(LightVolumeData value)
 {
 	return value.unused2;
 }
