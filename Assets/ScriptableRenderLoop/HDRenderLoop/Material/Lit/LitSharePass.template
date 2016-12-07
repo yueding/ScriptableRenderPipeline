@@ -1,3 +1,5 @@
+#define UnpackNormal(x) UnpackNormalAG(x, 1.0)
+
 #if SHADERPASS == SHADERPASS_LIGHT_TRANSPORT
 CBUFFER_START(UnityMetaPass)
 // x = use uv1 as raster position

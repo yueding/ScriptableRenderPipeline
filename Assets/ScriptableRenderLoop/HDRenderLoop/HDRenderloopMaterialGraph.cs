@@ -10,6 +10,129 @@ using UnityEngine.Graphing;
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
     [Serializable]
+    [Title("HDRenderLoop/TangentToWorldDirectionNode")]
+    public class TangentToWorldDirectionNode : AbstractMaterialNode, IGeneratesBodyCode, IMayRequireBitangent, IMayRequireTangent, IMayRequireNormal
+    {
+
+        private const int TextureNormal = 0;
+        private const int NormalInput = 1;
+        private const int TangentInput = 2;
+        private const int BitangentInput = 3;
+        private const int NormalOutput = 4;
+
+        public TangentToWorldDirectionNode()
+        {
+            name = GetType().Name;
+            UpdateNodeAfterDeserialization();
+        }
+
+        public override bool hasPreview
+        {
+            get { return true; }
+        }
+
+        public override PreviewMode previewMode
+        {
+            get { return PreviewMode.Preview3D; }
+        }
+
+        private string GetVariableName(IEdge edge, ConcreteSlotValueType type)
+        {
+            var fromNode = owner.GetNodeFromGuid<AbstractMaterialNode>(edge.outputSlot.nodeGuid);
+            return ShaderGenerator.AdaptNodeOutput(fromNode, edge.outputSlot.slotId, type);
+        }
+
+        private IEdge GetEdge(int idSlot)
+        {
+            var slot = FindInputSlot<MaterialSlot>(idSlot);
+            if (slot != null)
+            {
+                var edges = owner.GetEdges(slot.slotReference).ToArray();
+                if (edges.Length > 0)
+                {
+                    return edges[0];
+                }
+            }
+            return null;
+        }
+
+        public void GenerateNodeCode(ShaderGenerator visitor, GenerationMode generationMode)
+        {
+            var textureNormalSlotEdge = GetEdge(TextureNormal);
+            var normalInputSlotEdge = GetEdge(NormalInput);
+            var tangentInputSlotEdge = GetEdge(TangentInput);
+            var bitangentInputSlotEdge = GetEdge(BitangentInput);
+
+            var textureNormalValue = string.Format("{0}4(UnpackNormal(float3(0.5f), 0)", precision);
+            var normalInputSlotValue = ShaderGeneratorNames.WorldSpaceNormal;
+            var tangentInputSlotValue = ShaderGeneratorNames.WorldSpaceTangent;
+            var bitangentInputSlotValue = ShaderGeneratorNames.WorldSpaceBitangent;
+
+            if (textureNormalSlotEdge != null)
+            {
+                textureNormalValue = GetVariableName(textureNormalSlotEdge, ConcreteSlotValueType.Vector4);
+            }
+
+            if (normalInputSlotEdge != null)
+            {
+                normalInputSlotValue = GetVariableName(normalInputSlotEdge, ConcreteSlotValueType.Vector3);
+            }
+
+            if (tangentInputSlotEdge != null)
+            {
+                tangentInputSlotValue = GetVariableName(tangentInputSlotEdge, ConcreteSlotValueType.Vector3);
+            }
+
+            if (bitangentInputSlotEdge != null)
+            {
+                bitangentInputSlotValue = GetVariableName(bitangentInputSlotEdge, ConcreteSlotValueType.Vector3);
+            }
+
+            var tangentToWorldName = string.Format("tangentToWorld_{0}", GetVariableNameForNode());
+            var normalTSName = string.Format("normalTS_{0}", GetVariableNameForNode());
+
+            var body = "";
+            body += string.Format("float3 {0} = {1}.xyz;\n", normalTSName, textureNormalValue);
+            body += string.Format("float3 {0}[3] = {{ {1}, {2}, {3} }};\n", tangentToWorldName, tangentInputSlotValue, bitangentInputSlotValue, normalInputSlotValue);
+            if (generationMode == GenerationMode.Preview)
+            {
+                body += string.Format("{0}3 {1} = mul({2}, float3x3({3}[0], {3}[1], {3}[2]));\n", precision, GetVariableNameForSlot(NormalOutput), normalTSName, tangentToWorldName);
+            }
+            else
+            {
+                body += string.Format("{0}3 {1} = TransformTangentToWorld({2}, {3});\n", precision, GetVariableNameForSlot(NormalOutput), normalTSName, tangentToWorldName);
+            }
+            
+            visitor.AddShaderChunk(body, false);
+        }
+
+        public sealed override void UpdateNodeAfterDeserialization()
+        {
+            AddSlot(new MaterialSlot(TextureNormal, "TextureNormal", "TextureNormalInput", Graphing.SlotType.Input, SlotValueType.Vector4, Vector4.zero));
+            AddSlot(new MaterialSlot(NormalInput, "Normal", "NormalInput", Graphing.SlotType.Input, SlotValueType.Vector3, Vector4.zero));
+            AddSlot(new MaterialSlot(TangentInput, "Tangent", "TangentInput", Graphing.SlotType.Input, SlotValueType.Vector3, Vector4.zero));
+            AddSlot(new MaterialSlot(BitangentInput, "Bitangent", "BitangentInput", Graphing.SlotType.Input, SlotValueType.Vector3, Vector4.zero));
+
+            AddSlot(new MaterialSlot(NormalOutput, "Normal", "NormalOutput", Graphing.SlotType.Output, SlotValueType.Vector3, Vector4.zero));
+        }
+
+        public bool RequiresBitangent()
+        {
+            return GetEdge(BitangentInput) == null;
+        }
+
+        public bool RequiresTangent()
+        {
+            return GetEdge(TangentInput) == null;
+        }
+
+        public bool RequiresNormal()
+        {
+            return GetEdge(NormalInput) == null;
+        }
+    }
+
+    [Serializable]
     public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IMayRequireNormal, IMayRequireTangent
     {
         public AbstractHDRenderLoopMasterNode()
@@ -139,7 +262,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 }
             }
 
-            bool needBitangent = needFragInputRegex.IsMatch("bitangentWS");
+            bool needBitangent = needFragInputRegex.IsMatch("bitangentWS") || activeNodeList.OfType<IMayRequireBitangent>().Any(x => x.RequiresBitangent());
             if (needBitangent || needFragInputRegex.IsMatch("tangentWS") || activeNodeList.OfType<IMayRequireTangent>().Any(x => x.RequiresTangent()))
             {
                 vayrings.Add(new Vayring()
@@ -177,7 +300,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                     type = SlotValueType.Vector3,
                     vertexCode = "output.bitangentWS = CreateBitangent(output.normalWS, output.tangentWS, input.tangentOS.w);",
                     fragInputTarget = "tangentToWorld[1]",
-                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[1]);", "worldSpaceBitangent")
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[1]);", ShaderGeneratorNames.WorldSpaceBitangent)
                 });
             }
 
