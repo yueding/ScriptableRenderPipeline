@@ -133,7 +133,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IMayRequireNormal, IMayRequireTangent
+    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IMayRequireNormal, IMayRequireTangent, IMayRequireMeshUV, IMayRequireWorldPosition
     {
         public AbstractHDRenderLoopMasterNode()
         {
@@ -178,6 +178,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                         priority = attribute.priority,
                         displayName = attribute.displayName,
                         materialID = attribute.filter,
+                        semantic = attribute.semantic,
                         shaderOutputName = field.Name,
                         valueType = valueType
                     };
@@ -189,6 +190,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
                 foreach (var slot in slots)
                 {
+                    if (slot.semantic == SurfaceDataAttributes.Semantic.BakeDiffuseLighting && !IncludeBuiltInLitData())
+                    {
+                        continue;
+                    }
                     AddSlot(new MaterialSlot(slot.index, slot.displayName, slot.shaderOutputName, Graphing.SlotType.Input, slot.valueType, Vector4.zero));
                 }
             }
@@ -224,6 +229,20 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             return Requires(SurfaceDataAttributes.Semantic.Tangent);
         }
 
+        public bool RequiresMeshUV(int index)
+        {
+            if (index == 1 || index == 2)
+            {
+                return Requires(SurfaceDataAttributes.Semantic.BakeDiffuseLighting);
+            }
+            return false;
+        }
+
+        public bool RequiresWorldPosition()
+        {
+            return Requires(SurfaceDataAttributes.Semantic.BakeDiffuseLighting);
+        }
+
         private class Vayring
         {
             public string attributeName;
@@ -248,7 +267,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             var vayrings = new List<Vayring>();
             for (int iTexCoord = 0; iTexCoord < 4; ++iTexCoord)
             {
-                if (needFragInputRegex.IsMatch("texCoord" + iTexCoord) || (iTexCoord == 0 && activeNodeList.OfType<IMayRequireMeshUV>().Any(x => x.RequiresMeshUV())))
+                if (needFragInputRegex.IsMatch("texCoord" + iTexCoord) || activeNodeList.OfType<IMayRequireMeshUV>().Any(x => x.RequiresMeshUV(iTexCoord)))
                 {
                     vayrings.Add(new Vayring()
                     {
@@ -257,7 +276,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                         vayringName = "texCoord" + iTexCoord,
                         type = SlotValueType.Vector2,
                         vertexCode = string.Format("output.texCoord{0} = input.texCoord{0};", iTexCoord),
-                        pixelCode = string.Format("float4 {0} = float4(fragInput.texCoord{1}, 0, 0);", ShaderGeneratorNames.UV0.Replace("0", iTexCoord.ToString()), iTexCoord)
+                        pixelCode = string.Format("float4 {0} = float4(fragInput.texCoord{1}, 0, 0);", ShaderGeneratorNames.UV[iTexCoord], iTexCoord)
                     });
                 }
             }
@@ -413,11 +432,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 }
             }
 
-            var pixelShaderBodyVisitor = new ShaderGenerator();
+            var pixelShaderBodyVisitor = new ShaderGenerator[] { new ShaderGenerator(), new ShaderGenerator() };
             foreach (var node in activeNodeList)
             {
                 if (node is IGeneratesBodyCode)
-                    (node as IGeneratesBodyCode).GenerateNodeCode(pixelShaderBodyVisitor, mode);
+                    (node as IGeneratesBodyCode).GenerateNodeCode(pixelShaderBodyVisitor[0], mode);
             }
 
             foreach (var slot in GetInputSlots<MaterialSlot>())
@@ -431,6 +450,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 var currentField = surfaceField != null ? surfaceField : builtinField;
 
                 string variableName = null;
+                int visitorIndex = 0;
                 var egdes = owner.GetEdges(slot.slotReference).ToArray();
                 if (egdes.Length == 1)
                 {
@@ -457,6 +477,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                         case SurfaceDataAttributes.Semantic.Tangent:
                             variableName = ShaderGeneratorNames.WorldSpaceTangent;
                             break;
+                        case SurfaceDataAttributes.Semantic.BakeDiffuseLighting:
+                            variableName = string.Format("SampleBakedGI({0}, surfaceData.normalWS, {1}, {2})", ShaderGeneratorNames.WorldSpacePosition, ShaderGeneratorNames.UV[1], ShaderGeneratorNames.UV[2]);
+                            visitorIndex = 1; //it depends of surfaceData.normalWS, do it last
+                            break;
                         default: break;
                     }
                 }
@@ -467,7 +491,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
                 if (!string.IsNullOrEmpty(variableName))
                 {
-                    pixelShaderBodyVisitor.AddShaderChunk(string.Format("{0}.{1} = {2};", surfaceField != null ? "surfaceData" : "builtinData", slotOutputName, variableName), false);
+                    pixelShaderBodyVisitor[visitorIndex].AddShaderChunk(string.Format("{0}.{1} = {2};", surfaceField != null ? "surfaceData" : "builtinData", slotOutputName, variableName), false);
                 }
             }
 
@@ -481,12 +505,12 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 var enumValue = Enum.ToObject(materialIdField.FieldType, GetMatchingMaterialID()).ToString();
                 var define = string.Format("{0}_{1}", materialIdField.Name, ShaderGeneratorHelper.InsertUnderscore(enumValue));
                 define = define.ToUpper();
-                pixelShaderBodyVisitor.AddShaderChunk(string.Format("surfaceData.{0} = {1};", materialIdField.Name, define), false);
+                pixelShaderBodyVisitor[1].AddShaderChunk(string.Format("surfaceData.{0} = {1};", materialIdField.Name, define), false);
             }
 
             var resultShader = litShareTemplate.Replace("${VaryingAttributes}", vayringVisitor.GetShaderString(1));
             resultShader = resultShader.Replace("${PixelShaderInitialize}", pixelShaderInitVisitor.GetShaderString(1));
-            resultShader = resultShader.Replace("${PixelShaderBody}", pixelShaderBodyVisitor.GetShaderString(1));
+            resultShader = resultShader.Replace("${PixelShaderBody}", pixelShaderBodyVisitor.Select(o => o.GetShaderString(1)).Aggregate((a, b) => a + b));
             resultShader = resultShader.Replace("${VertexAttributes}", vertexAttributeVisitor.GetShaderString(1));
             resultShader = resultShader.Replace("${PackedVaryingAttributes}", packedVarying.GetShaderString(1));
             resultShader = resultShader.Replace("${PackingVaryingCode}", packInterpolatorVisitor.GetShaderString(1));
@@ -556,6 +580,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         protected abstract int GetMatchingMaterialID();
         protected abstract string GetTemplateText();
         protected abstract string GetTemplatePassText();
+        protected abstract bool IncludeBuiltInLitData();
     }
 
     [Serializable]
@@ -564,6 +589,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         protected override sealed Type GetSurfaceType()
         {
             return typeof(Lit.SurfaceData);
+        }
+
+        protected sealed override bool IncludeBuiltInLitData()
+        {
+            return true;
         }
 
         protected sealed override string GetTemplateText()
@@ -635,6 +665,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
         protected override int GetMatchingMaterialID()
         {
             return -1;
+        }
+
+        protected sealed override bool IncludeBuiltInLitData()
+        {
+            return false;
         }
 
         protected sealed override string GetTemplateText()

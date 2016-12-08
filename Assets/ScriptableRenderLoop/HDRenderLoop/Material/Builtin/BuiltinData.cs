@@ -23,7 +23,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             // We would prefer to split lighting and material information but for performance reasons,
             // those lighting information are fill
             // at the same time than material information.
-            [SurfaceDataAttributes("Bake Diffuse Lighting")]
+            [SurfaceDataAttributes("Bake Diffuse Lighting", 0, null, SurfaceDataAttributes.Semantic.BakeDiffuseLighting)]
             public Vector3 bakeDiffuseLighting; // This is the result of sampling lightmap/lightprobe/proxyvolume
 
             [SurfaceDataAttributes("Emissive Color")]

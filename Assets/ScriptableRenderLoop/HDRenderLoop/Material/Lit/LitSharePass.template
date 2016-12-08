@@ -1,3 +1,7 @@
+#ifdef UNITY_MATERIAL_LIT
+#include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/MaterialUtilities.hlsl"
+#endif
+
 #define UnpackNormal(x) UnpackNormalAG(x, 1.0)
 
 #if SHADERPASS == SHADERPASS_LIGHT_TRANSPORT

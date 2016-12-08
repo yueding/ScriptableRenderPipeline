@@ -35,6 +35,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             Tangent,
             Opacity,
             AmbientOcclusion,
+            BakeDiffuseLighting,
         }
 
         public string displayName { get; private set; }
