@@ -9,11 +9,121 @@ using UnityEngine.Graphing;
 
 namespace UnityEngine.Experimental.ScriptableRenderLoop
 {
+    public abstract class AbstractMaterialNodeHDRenderLoop : AbstractMaterialNode
+    {
+        protected string GetVariableName(IEdge edge, ConcreteSlotValueType type)
+        {
+            var fromNode = owner.GetNodeFromGuid<AbstractMaterialNode>(edge.outputSlot.nodeGuid);
+            return ShaderGenerator.AdaptNodeOutput(fromNode, edge.outputSlot.slotId, type);
+        }
+
+        protected IEdge GetEdge(int idSlot)
+        {
+            var slot = FindInputSlot<MaterialSlot>(idSlot);
+            if (slot != null)
+            {
+                var edges = owner.GetEdges(slot.slotReference).ToArray();
+                if (edges.Length > 0)
+                {
+                    return edges[0];
+                }
+            }
+            return null;
+        }
+    }
+
+    [Serializable]
+    [Title("HDRenderLoop/BakeDiffuseLighting")]
+    public class BakeDiffuseLightingNode : AbstractMaterialNodeHDRenderLoop, IGeneratesBodyCode, IMayRequireNormal, IMayRequireWorldPosition, IMayRequireMeshUV
+    {
+        private const int PositionWSInput = 0;
+        private const int NormalWSInput = 1;
+        private const int UVStaticInput = 2;
+        private const int UVDynamicInput = 3;
+        private const int ColorOuput = 4;
+
+        public BakeDiffuseLightingNode()
+        {
+            name = GetType().Name;
+            UpdateNodeAfterDeserialization();
+        }
+
+
+        public bool RequiresWorldPosition()
+        {
+            return GetEdge(PositionWSInput) == null;
+        }
+
+        public bool RequiresMeshUV(int index)
+        {
+            if (index == 1)
+            {
+                return GetEdge(UVStaticInput) == null;
+            }
+
+            if (index == 2)
+            {
+                return GetEdge(UVDynamicInput) == null;
+            }
+            return false;
+        }
+
+        public bool RequiresNormal()
+        {
+            return GetEdge(NormalWSInput) == null;
+        }
+
+        public sealed override void UpdateNodeAfterDeserialization()
+        {
+            AddSlot(new MaterialSlot(PositionWSInput, "PositionWS", "PositionWSInput", Graphing.SlotType.Input, SlotValueType.Vector3, Vector4.zero));
+            AddSlot(new MaterialSlot(NormalWSInput, "Normal", "NormalWSInput", Graphing.SlotType.Input, SlotValueType.Vector3, Vector4.zero));
+            AddSlot(new MaterialSlot(UVStaticInput, "UVStatic", "UVStaticInput", Graphing.SlotType.Input, SlotValueType.Vector2, Vector4.zero));
+            AddSlot(new MaterialSlot(UVDynamicInput, "UVDynamic", "UVDynamicInput", Graphing.SlotType.Input, SlotValueType.Vector2, Vector4.zero));
+
+            AddSlot(new MaterialSlot(ColorOuput, "Color", "ColorOuput", Graphing.SlotType.Output, SlotValueType.Vector3, Vector4.zero));
+        }
+
+        public void GenerateNodeCode(ShaderGenerator visitor, GenerationMode generationMode)
+        {
+            var positionWSInputEdge = GetEdge(PositionWSInput);
+            var normalWSInputEdge = GetEdge(NormalWSInput);
+            var UVStaticInputEdge = GetEdge(UVStaticInput);
+            var UVDynamicInputEdge = GetEdge(UVDynamicInput);
+
+            var positionWSInputValue = ShaderGeneratorNames.WorldSpacePosition;
+            var normalWSInputValue = ShaderGeneratorNames.WorldSpaceNormal;
+            var UVStaticInputValue = ShaderGeneratorNames.UV[1];
+            var UVDynamicInputValue = ShaderGeneratorNames.UV[2];
+
+            if (positionWSInputEdge != null)
+            {
+                positionWSInputValue = GetVariableName(positionWSInputEdge, ConcreteSlotValueType.Vector3);
+            }
+
+            if (normalWSInputEdge != null)
+            {
+                normalWSInputValue = GetVariableName(normalWSInputEdge, ConcreteSlotValueType.Vector3);
+            }
+
+            if (UVStaticInputEdge != null)
+            {
+                UVStaticInputValue = GetVariableName(UVStaticInputEdge, ConcreteSlotValueType.Vector2);
+            }
+
+            if (UVDynamicInputEdge != null)
+            {
+                UVDynamicInputValue = GetVariableName(UVDynamicInputEdge, ConcreteSlotValueType.Vector2);
+            }
+
+            var body = string.Format("{0}3 {1} = SampleBakedGI({2}, {3}, {4}.xy, {5}.xy);", precision, GetVariableNameForSlot(ColorOuput), positionWSInputValue, normalWSInputValue, UVStaticInputValue, UVDynamicInputValue);
+            visitor.AddShaderChunk(body, false);
+        }
+    }
+
     [Serializable]
     [Title("HDRenderLoop/TangentToWorldDirectionNode")]
-    public class TangentToWorldDirectionNode : AbstractMaterialNode, IGeneratesBodyCode, IMayRequireBitangent, IMayRequireTangent, IMayRequireNormal
+    public class TangentToWorldDirectionNode : AbstractMaterialNodeHDRenderLoop, IGeneratesBodyCode, IMayRequireBitangent, IMayRequireTangent, IMayRequireNormal
     {
-
         private const int TextureNormal = 0;
         private const int NormalInput = 1;
         private const int TangentInput = 2;
@@ -36,26 +146,6 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             get { return PreviewMode.Preview3D; }
         }
 
-        private string GetVariableName(IEdge edge, ConcreteSlotValueType type)
-        {
-            var fromNode = owner.GetNodeFromGuid<AbstractMaterialNode>(edge.outputSlot.nodeGuid);
-            return ShaderGenerator.AdaptNodeOutput(fromNode, edge.outputSlot.slotId, type);
-        }
-
-        private IEdge GetEdge(int idSlot)
-        {
-            var slot = FindInputSlot<MaterialSlot>(idSlot);
-            if (slot != null)
-            {
-                var edges = owner.GetEdges(slot.slotReference).ToArray();
-                if (edges.Length > 0)
-                {
-                    return edges[0];
-                }
-            }
-            return null;
-        }
-
         public void GenerateNodeCode(ShaderGenerator visitor, GenerationMode generationMode)
         {
             var textureNormalSlotEdge = GetEdge(TextureNormal);
@@ -63,7 +153,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             var tangentInputSlotEdge = GetEdge(TangentInput);
             var bitangentInputSlotEdge = GetEdge(BitangentInput);
 
-            var textureNormalValue = string.Format("{0}4(UnpackNormal(float3(0.5f), 0)", precision);
+            var textureNormalValue = string.Format("{0}4(UnpackNormal(float3(0.5f), 0.0f)", precision);
             var normalInputSlotValue = ShaderGeneratorNames.WorldSpaceNormal;
             var tangentInputSlotValue = ShaderGeneratorNames.WorldSpaceTangent;
             var bitangentInputSlotValue = ShaderGeneratorNames.WorldSpaceBitangent;
@@ -133,7 +223,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode, IMayRequireNormal, IMayRequireTangent, IMayRequireMeshUV, IMayRequireWorldPosition
+    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
     {
         public AbstractHDRenderLoopMasterNode()
         {
@@ -199,10 +289,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
         }
 
-        private bool Requires(SurfaceDataAttributes.Semantic targetSemantic)
+        private bool Requires(SurfaceDataAttributes.Semantic targetSemantic, Regex filter)
         {
             var fields = GetSurfaceType().GetFields().Concat(typeof(Builtin.BuiltinData).GetFields());
-            return fields.Any(f =>
+            return fields.Where(f => filter.IsMatch(f.Name)).Any(f =>
             {
                 var attributes = (SurfaceDataAttributes[])f.GetCustomAttributes(typeof(SurfaceDataAttributes), false);
                 var semantic = attributes.Length > 0 ? attributes[0].semantic : SurfaceDataAttributes.Semantic.None;
@@ -219,28 +309,28 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             });
         }
 
-        public bool RequiresNormal()
+        public bool RequiresNormal(Regex filter)
         {
-            return Requires(SurfaceDataAttributes.Semantic.Normal);
+            return Requires(SurfaceDataAttributes.Semantic.Normal, filter);
         }
 
-        public bool RequiresTangent()
+        public bool RequiresTangent(Regex filter)
         {
-            return Requires(SurfaceDataAttributes.Semantic.Tangent);
+            return Requires(SurfaceDataAttributes.Semantic.Tangent, filter);
         }
 
-        public bool RequiresMeshUV(int index)
+        public bool RequiresMeshUV(int index, Regex filter)
         {
             if (index == 1 || index == 2)
             {
-                return Requires(SurfaceDataAttributes.Semantic.BakeDiffuseLighting);
+                return Requires(SurfaceDataAttributes.Semantic.BakeDiffuseLighting, filter);
             }
             return false;
         }
 
-        public bool RequiresWorldPosition()
+        public bool RequiresWorldPosition(Regex filter)
         {
-            return Requires(SurfaceDataAttributes.Semantic.BakeDiffuseLighting);
+            return Requires(SurfaceDataAttributes.Semantic.BakeDiffuseLighting, filter);
         }
 
         private class Vayring
@@ -263,11 +353,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             var needFragInputRegex = new Regex(useSurfaceFragInput);
             var slotIDList = GetInputSlots<MaterialSlot>().Where(s => useDataInputRegex.IsMatch(s.shaderOutputName)).Select(s => s.id).ToList();
 
-            NodeUtils.DepthFirstCollectNodesFromNodeSlotList(activeNodeList, this, slotIDList);
+            NodeUtils.DepthFirstCollectNodesFromNodeSlotList(activeNodeList, this, slotIDList, NodeUtils.IncludeSelf.Exclude);
             var vayrings = new List<Vayring>();
             for (int iTexCoord = 0; iTexCoord < 4; ++iTexCoord)
             {
-                if (needFragInputRegex.IsMatch("texCoord" + iTexCoord) || activeNodeList.OfType<IMayRequireMeshUV>().Any(x => x.RequiresMeshUV(iTexCoord)))
+                if (needFragInputRegex.IsMatch("texCoord" + iTexCoord) || RequiresMeshUV(iTexCoord, useDataInputRegex) || activeNodeList.OfType<IMayRequireMeshUV>().Any(x => x.RequiresMeshUV(iTexCoord)))
                 {
                     vayrings.Add(new Vayring()
                     {
@@ -282,7 +372,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
 
             bool needBitangent = needFragInputRegex.IsMatch("bitangentWS") || activeNodeList.OfType<IMayRequireBitangent>().Any(x => x.RequiresBitangent());
-            if (needBitangent || needFragInputRegex.IsMatch("tangentWS") || activeNodeList.OfType<IMayRequireTangent>().Any(x => x.RequiresTangent()))
+            if (needBitangent || needFragInputRegex.IsMatch("tangentWS") || RequiresTangent(useDataInputRegex) || activeNodeList.OfType<IMayRequireTangent>().Any(x => x.RequiresTangent()))
             {
                 vayrings.Add(new Vayring()
                 {
@@ -297,7 +387,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                 });
             }
 
-            if (needBitangent || needFragInputRegex.IsMatch("normalWS") || activeNodeList.OfType<IMayRequireNormal>().Any(x => x.RequiresNormal()))
+            if (needBitangent || needFragInputRegex.IsMatch("normalWS") || RequiresNormal(useDataInputRegex) || activeNodeList.OfType<IMayRequireNormal>().Any(x => x.RequiresNormal()))
             {
                 vayrings.Add(new Vayring()
                 {
@@ -324,7 +414,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             }
 
             bool requireViewDirection = needFragInputRegex.IsMatch("viewDirectionWS") || activeNodeList.OfType<IMayRequireViewDirection>().Any(x => x.RequiresViewDirection());
-            if (requireViewDirection || needFragInputRegex.IsMatch("positionWS") || activeNodeList.OfType<IMayRequireWorldPosition>().Any(x => x.RequiresWorldPosition()))
+            if (requireViewDirection || needFragInputRegex.IsMatch("positionWS") || RequiresWorldPosition(useDataInputRegex) || activeNodeList.OfType<IMayRequireWorldPosition>().Any(x => x.RequiresWorldPosition()))
             {
                 vayrings.Add(new Vayring()
                 {

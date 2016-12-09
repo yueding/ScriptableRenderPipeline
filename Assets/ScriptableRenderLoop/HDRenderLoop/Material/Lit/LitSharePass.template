@@ -45,20 +45,20 @@ ${VertexAttributes}
 
 struct Varyings
 {
-    float4 positionHS;
+    float4 positionCS;
 ${VaryingAttributes}
 };
 
 struct PackedVaryings
 {
-    float4 positionHS : SV_Position;
+    float4 positionCS : SV_Position;
 ${PackedVaryingAttributes}
 };
 
 PackedVaryings PackVaryings(Varyings input)
 {
     PackedVaryings output;
-    output.positionHS = input.positionHS;
+    output.positionCS = input.positionCS;
 ${PackingVaryingCode}
     return output;
 }
@@ -68,7 +68,7 @@ FragInput UnpackVaryings(PackedVaryings input)
     FragInput output;
     ZERO_INITIALIZE(FragInput, output);
 
-    output.unPositionSS = input.positionHS;
+    output.unPositionSS = input.positionCS;
 ${UnpackVaryingCode}
     return output;
 }
@@ -95,7 +95,7 @@ PackedVaryings VertDefault(Attributes input)
     }
 #endif
 
-    output.positionHS = TransformWorldToHClip(TransformObjectToWorld(input.positionOS));
+    output.positionCS = TransformWorldToHClip(TransformObjectToWorld(input.positionOS));
 ${VertexShaderBody}
     return PackVaryings(output);
 }

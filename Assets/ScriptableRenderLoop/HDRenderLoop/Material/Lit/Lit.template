@@ -160,7 +160,7 @@ float _AlphaCutoff;
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
 
 //Generated code : Begin
-#{TemplatePass|useSurfaceData:{opacity}|useFragInput:{}}
+#{TemplatePass|useSurfaceData:{opacity}|useFragInput:{nothing_at_all}}
 //Generated code : End
 
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassDepthOnly.hlsl"

@@ -99,7 +99,7 @@ float _AlphaCutoff;
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
 
 //Generated code : Begin
-#{TemplatePass|useSurfaceData:{color|emissiveColor|opacity}|useFragInput:{}}
+#{TemplatePass|useSurfaceData:{color|emissiveColor|opacity}|useFragInput:{nothing_at_all}}
 //Generated code : End
             
             #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassForwardUnlit.hlsl"
