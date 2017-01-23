@@ -20,7 +20,7 @@ Pass
 
 
 CGPROGRAM
-#pragma target 5.0
+#pragma target 4.5
 #pragma vertex vert
 #pragma fragment frag
 
@@ -40,7 +40,7 @@ float3 EvalMaterial(UnityLight light, UnityIndirect ind);
 #include "TiledLightingTemplate.hlsl"
 
 
-Texture2D _CameraDepthTexture;
+Texture2D_float _CameraDepthTexture;
 Texture2D _CameraGBufferTexture0;
 Texture2D _CameraGBufferTexture1;
 Texture2D _CameraGBufferTexture2;

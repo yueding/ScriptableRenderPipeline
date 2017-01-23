@@ -6,45 +6,69 @@
 #include "BSDF.hlsl"
 #include "Sampling.hlsl"
 
+// TODO: We need to change this hard limit!
+#ifndef UNITY_SPECCUBE_LOD_STEPS
+    #define UNITY_SPECCUBE_LOD_STEPS 6
+#endif
+
 //-----------------------------------------------------------------------------
 // Util image based lighting
 //-----------------------------------------------------------------------------
 
-// TODO: We need to change this hard limit!
-#define UNITY_SPECCUBE_LOD_STEPS (6)
-
-float perceptualRoughnessToMipmapLevel(float perceptualRoughness)
+// The *approximated* version of the non-linear remapping. It works by
+// approximating the cone of the specular lobe, and then computing the MIP map level
+// which (approximately) covers the footprint of the lobe with a single texel.
+// Improves the perceptual roughness distribution.
+float PerceptualRoughnessToMipmapLevel(float perceptualRoughness)
 {
-    // TODO: Clean a bit this code
-    // CAUTION: remap from Morten may work only with offline convolution, see impact with runtime convolution!
-
-    // For now disabled
-#if 0
-    float m = PerceptualRoughnessToRoughness(perceptualRoughness); // m is the real roughness parameter
-    float n = (2.0 / max(FLT_EPSILON, m*m)) - 2.0;		// remap to spec power. See eq. 21 in --> https://dl.dropboxusercontent.com/u/55891920/papers/mm_brdf.pdf
-
-    n /= 4.0;									    // remap from n_dot_h formulatino to n_dot_r. See section "Pre-convolved Cube Maps vs Path Tracers" --> https://s3.amazonaws.com/docs.knaldtech.com/knald/1.0.0/lys_power_drops.html
-
-    perceptualRoughness = pow(2.0 / (n + 2.0), 0.25);		// remap back to square root of real roughness (0.25 include both the sqrt root of the conversion and sqrt for going from roughness to perceptualRoughness)
-#else
-    // MM: came up with a surprisingly close approximation to what the #if 0'ed out code above does.
     perceptualRoughness = perceptualRoughness * (1.7 - 0.7 * perceptualRoughness);
-#endif
 
     return perceptualRoughness * UNITY_SPECCUBE_LOD_STEPS;
 }
 
-float mipmapLevelToPerceptualRoughness(float mipmapLevel)
+// The *accurate* version of the non-linear remapping. It works by
+// approximating the cone of the specular lobe, and then computing the MIP map level
+// which (approximately) covers the footprint of the lobe with a single texel.
+// Improves the perceptual roughness distribution and adds reflection (contact) hardening.
+// TODO: optimize!
+float PerceptualRoughnessToMipmapLevel(float perceptualRoughness, float NdotR)
 {
-    return mipmapLevel / UNITY_SPECCUBE_LOD_STEPS;
+    float m = PerceptualRoughnessToRoughness(perceptualRoughness);
+
+    // Remap to spec power. See eq. 21 in --> https://dl.dropboxusercontent.com/u/55891920/papers/mm_brdf.pdf
+    float n = (2.0 / max(FLT_EPSILON, m * m)) - 2.0;
+
+    // Remap from n_dot_h formulation to n_dot_r. See section "Pre-convolved Cube Maps vs Path Tracers" --> https://s3.amazonaws.com/docs.knaldtech.com/knald/1.0.0/lys_power_drops.html
+    n /= (4.0 * max(NdotR, FLT_EPSILON));
+
+    // remap back to square root of real roughness (0.25 include both the sqrt root of the conversion and sqrt for going from roughness to perceptualRoughness)
+    perceptualRoughness = pow(2.0 / (n + 2.0), 0.25);
+
+    return perceptualRoughness * UNITY_SPECCUBE_LOD_STEPS;
 }
 
-// Ref: See "Moving Frostbite to PBR" Listing 22
-// This formulation is for GGX only (with smith joint visibility or regular)
-float3 GetSpecularDominantDir(float3 N, float3 R, float roughness)
+// The inverse of the *approximated* version of perceptualRoughnessToMipmapLevel().
+float MipmapLevelToPerceptualRoughness(float mipmapLevel)
+{
+    float perceptualRoughness = saturate(mipmapLevel / UNITY_SPECCUBE_LOD_STEPS);
+
+    return saturate(1.7 / 1.4 - sqrt(2.89 - 2.8 * perceptualRoughness) / 1.4);
+}
+
+// Ref: "Moving Frostbite to PBR", p. 69.
+float3 GetSpecularDominantDir(float3 N, float3 R, float roughness, float NdotV)
 {
     float a = 1.0 - roughness;
-    float lerpFactor = a * (sqrt(a) + roughness);
+    float s = sqrt(a);
+
+#ifdef USE_FB_DSD
+    // This is the original formulation.
+    float lerpFactor = (s + roughness) * a;
+#else
+    // TODO: tweak this further to achieve a closer match to the reference.
+    float lerpFactor = (s + roughness) * saturate(a * a + lerp(0.0, a, NdotV * NdotV));
+#endif
+
     // The result is not normalized as we fetch in a cubemap
     return lerp(N, R, lerpFactor);
 }
@@ -60,85 +84,143 @@ float AnisotropicStrechAtGrazingAngle(float roughness, float perceptualRoughness
     return roughness * lerp(saturate(NdotV * 2.0), 1.0, perceptualRoughness);
 }
 
+//-----------------------------------------------------------------------------
+// Coordinate system conversion
+//-----------------------------------------------------------------------------
+
+// Transforms the unit vector from the spherical to the Cartesian (right-handed, Z up) coordinate.
+float3 SphericalToCartesian(float phi, float cosTheta)
+{
+    float sinPhi, cosPhi;
+    sincos(phi, sinPhi, cosPhi);
+
+    float sinTheta = sqrt(saturate(1.0 - cosTheta * cosTheta));
+
+    return float3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+}
+
+// Converts Cartesian coordinates given in the right-handed coordinate system
+// with Z pointing upwards (OpenGL style) to the coordinates in the left-handed
+// coordinate system with Y pointing up and Z facing forward (DirectX style).
+float3 TransformGLtoDX(float3 v)
+{
+    return v.xzy;
+}
+
+// Performs conversion from equiareal map coordinates to Cartesian (DirectX cubemap) ones.
+float3 ConvertEquiarealToCubemap(float u, float v)
+{
+    float phi      = TWO_PI - TWO_PI * u;
+    float cosTheta = 1.0 - 2.0 * v;
+
+    return TransformGLtoDX(SphericalToCartesian(phi, cosTheta));
+}
+
 // ----------------------------------------------------------------------------
 // Importance sampling BSDF functions
 // ----------------------------------------------------------------------------
 
-void ImportanceSampleCosDir(float2 u,
-                            float3 N,
-                            float3 tangentX,
-                            float3 tangentY,
-                            out float3 L)
+// Performs uniform sampling of the unit disk.
+// Ref: PBRT v3, p. 777.
+float2 SampleDiskUniform(float2 u)
 {
-    // Cosine sampling - ref: http://www.rorydriscoll.com/2009/01/07/better-sampling/
-    float cosTheta = sqrt(max(0.0, 1.0 - u.x));
-    float sinTheta = sqrt(u.x);
+    float r   = sqrt(u.x);
     float phi = TWO_PI * u.y;
 
-    // Transform from spherical into cartesian
-    L = float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
-    // Local to world
-    L = tangentX * L.x + tangentY * L.y + N * L.z;
+    float sinPhi, cosPhi;
+    sincos(phi, sinPhi, cosPhi);
+
+    return r * float2(cosPhi, sinPhi);
 }
 
-void ImportanceSampleGGXDir(float2 u,
-                            float3 V,
-                            float3 N,
-                            float3 tangentX,
-                            float3 tangentY,
-                            float roughness,
-                            out float3 H,
-                            out float3 L)
+// Performs cosine-weighted sampling of the hemisphere.
+// Ref: PBRT v3, p. 780.
+void SampleHemisphereCosine(float2   u,
+                            float3x3 localToWorld,
+                        out float3   L,
+                        out float    NdotL)
+{
+    float3 localL;
+
+    // Since we don't really care about the area distortion,
+    // we substitute uniform disk sampling for the concentric one.
+    localL.xy = SampleDiskUniform(u);
+
+    // Project the point from the disk onto the hemisphere.
+    localL.z = sqrt(1.0 - u.x);
+
+    NdotL = localL.z;
+
+    L = mul(localL, localToWorld);
+}
+
+void SampleGGXDir(float2   u,
+                  float3   V,
+                  float3x3 localToWorld,
+                  float    roughness,
+              out float3   L,
+              out float    NdotL,
+              out float    NdotH,
+              out float    VdotH,
+                  bool     VeqN = false)
 {
     // GGX NDF sampling
-    float cosThetaH = sqrt((1.0 - u.x) / (1.0 + (roughness * roughness - 1.0) * u.x));
-    float sinThetaH = sqrt(max(0.0, 1.0 - cosThetaH * cosThetaH));
-    float phiH      = TWO_PI * u.y;
+    float cosTheta = sqrt((1.0 - u.x) / (1.0 + (roughness * roughness - 1.0) * u.x));
+    float phi      = TWO_PI * u.y;
 
-    // Transform from spherical into cartesian
-    H = float3(sinThetaH * cos(phiH), sinThetaH * sin(phiH), cosThetaH);
-    // Local to world
-    H = tangentX * H.x + tangentY * H.y + N * H.z;
+    float3 localH = SphericalToCartesian(phi, cosTheta);
 
-    // Convert sample from half angle to incident angle
-    L = 2.0 * dot(V, H) * H - V;
+    NdotH = cosTheta;
+
+    float3 localV;
+
+    if (VeqN)
+    {
+        // localV == localN
+        localV = float3(0.0, 0.0, 1.0);
+        VdotH  = NdotH;
+    }
+    else
+    {
+        localV = mul(V, transpose(localToWorld));
+        VdotH  = saturate(dot(localV, localH));
+    }
+
+    // Compute { localL = reflect(-localV, localH) }
+    float3 localL = -localV + 2.0 * VdotH * localH;
+
+    NdotL = localL.z;
+
+    L = mul(localL, localToWorld);
 }
 
 // ref: http://blog.selfshadow.com/publications/s2012-shading-course/burley/s2012_pbs_disney_brdf_notes_v3.pdf p26
-void ImportanceSampleAnisoGGXDir(   float2 u,
-                                    float3 V,
-                                    float3 N,
-                                    float3 tangentX,
-                                    float3 tangentY,
-                                    float roughnessT,
-                                    float roughnessB,
-                                    out float3 H,
-                                    out float3 L)
+void SampleAnisoGGXDir(float2 u,
+                       float3 V,
+                       float3 N,
+                       float3 tangentX,
+                       float3 tangentY,
+                       float  roughnessT,
+                       float  roughnessB,
+                   out float3 H,
+                   out float3 L)
 {
     // AnisoGGX NDF sampling
     H = sqrt(u.x / (1.0 - u.x)) * (roughnessT * cos(TWO_PI * u.y) * tangentX + roughnessB * sin(TWO_PI * u.y) * tangentY) + N;
     H = normalize(H);
 
-    // Local to world
-  //  H = tangentX * H.x + tangentY * H.y + N * H.z;
-
     // Convert sample from half angle to incident angle
-    L = 2.0 * dot(V, H) * H - V;
+    L = 2.0 * saturate(dot(V, H)) * H - V;
 }
 
 // weightOverPdf return the weight (without the diffuseAlbedo term) over pdf. diffuseAlbedo term must be apply by the caller.
-void ImportanceSampleLambert(
-    float2 u,
-    float3 N,
-    float3 tangentX,
-    float3 tangentY,
-    out float3 L,
-    out float NdotL,
-    out float weightOverPdf)
+void ImportanceSampleLambert(float2   u,
+                             float3x3 localToWorld,
+                         out float3   L,
+                         out float    NdotL,
+                         out float    weightOverPdf)
 {
-    ImportanceSampleCosDir(u, N, tangentX, tangentY, L);
-
-    NdotL = saturate(dot(N, L));
+    SampleHemisphereCosine(u, localToWorld, L, NdotL);
 
     // Importance sampling weight for each sample
     // pdf = N.L / PI
@@ -152,26 +234,18 @@ void ImportanceSampleLambert(
 }
 
 // weightOverPdf return the weight (without the Fresnel term) over pdf. Fresnel term must be apply by the caller.
-void ImportanceSampleGGX(
-    float2 u,
-    float3 V,
-    float3 N,
-    float3 tangentX,
-    float3 tangentY,
-    float roughness,
-    float NdotV,
-    out float3 L,
-    out float VdotH,
-    out float NdotL,
-    out float weightOverPdf)
+void ImportanceSampleGGX(float2   u,
+                         float3   V,
+                         float3x3 localToWorld,
+                         float    roughness,
+                         float    NdotV,
+                     out float3   L,
+                     out float    VdotH,
+                     out float    NdotL,
+                     out float    weightOverPdf)
 {
-    float3 H;
-    ImportanceSampleGGXDir(u, V, N, tangentX, tangentY, roughness, H, L);
-
-    float NdotH = saturate(dot(N, H));
-    // Note: since L and V are symmetric around H, LdotH == VdotH
-    VdotH = saturate(dot(V, H));
-    NdotL = saturate(dot(N, L));
+    float NdotH;
+    SampleGGXDir(u, V, localToWorld, roughness, L, NdotL, NdotH, VdotH);
 
     // Importance sampling weight for each sample
     // pdf = D(H) * (N.H) / (4 * (L.H))
@@ -187,22 +261,23 @@ void ImportanceSampleGGX(
 }
 
 // weightOverPdf return the weight (without the Fresnel term) over pdf. Fresnel term must be apply by the caller.
-void ImportanceSampleAnisoGGX(
-    float2 u,
-    float3 V,
-    float3 N,
-    float3 tangentX,
-    float3 tangentY,
-    float roughnessT,
-    float roughnessB,
-    float NdotV,
-    out float3 L,
-    out float VdotH,
-    out float NdotL,
-    out float weightOverPdf)
+void ImportanceSampleAnisoGGX(float2   u,
+                              float3   V,
+                              float3x3 localToWorld,
+                              float    roughnessT,
+                              float    roughnessB,
+                              float    NdotV,
+                          out float3   L,
+                          out float    VdotH,
+                          out float    NdotL,
+                          out float    weightOverPdf)
 {
+    float3 tangentX = localToWorld[0];
+    float3 tangentY = localToWorld[1];
+    float3 N        = localToWorld[2];
+
     float3 H;
-    ImportanceSampleAnisoGGXDir(u, V, N, tangentX, tangentY, roughnessT, roughnessB, H, L);
+    SampleAnisoGGXDir(u, V, N, tangentX, tangentY, roughnessT, roughnessB, H, L);
 
     float NdotH = saturate(dot(N, H));
     // Note: since L and V are symmetric around H, LdotH == VdotH
@@ -216,11 +291,13 @@ void ImportanceSampleAnisoGGX(
     // weightOverPdf = F(H) * G(V, L) * (L.H) / ((N.H) * (N.V))
     // weightOverPdf = F(H) * 4 * (N.L) * V(V, L) * (L.H) / (N.H) with V(V, L) = G(V, L) / (4 * (N.L) * (N.V))
     // Remind (L.H) == (V.H)
-    // F is apply outside the function        
+    // F is apply outside the function
+
+    // For anisotropy we must not saturate these values
     float TdotV = dot(tangentX, V);
     float BdotV = dot(tangentY, V);
-    float TdotL = saturate(dot(tangentX, L));
-    float BdotL = saturate(dot(tangentY, L));
+    float TdotL = dot(tangentX, L);
+    float BdotL = dot(tangentY, L);
 
     float Vis = V_SmithJointGGXAniso(TdotV, BdotV, NdotV, TdotL, BdotL, NdotL, roughnessT, roughnessB);
     weightOverPdf = 4.0 * Vis * NdotL * VdotH / NdotH;
@@ -231,27 +308,25 @@ void ImportanceSampleAnisoGGX(
 // ----------------------------------------------------------------------------
 
 // Ref: Listing 18 in "Moving Frostbite to PBR" + https://knarkowicz.wordpress.com/2014/12/27/analytical-dfg-term-for-ibl/
-float4 IntegrateGGXAndDisneyFGD(float3 V, float3 N, float roughness, uint sampleCount)
+float4 IntegrateGGXAndDisneyFGD(float3 V, float3 N, float roughness, uint sampleCount = 4096)
 {
     float NdotV     = saturate(dot(N, V));
     float4 acc      = float4(0.0, 0.0, 0.0, 0.0);
     // Add some jittering on Hammersley2d
     float2 randNum  = InitRandom(V.xy * 0.5 + 0.5);
 
-    float3 tangentX, tangentY;
-    GetLocalFrame(N, tangentX, tangentY);
+    float3x3 localToWorld = GetLocalFrame(N);
 
     for (uint i = 0; i < sampleCount; ++i)
     {
-        float2 u    = Hammersley2d(i, sampleCount);
-        u           = frac(u + randNum + 0.5);
+        float2 u = frac(randNum + Hammersley2d(i, sampleCount));
 
         float VdotH;
         float NdotL;
         float weightOverPdf;
 
         float3 L; // Unused
-        ImportanceSampleGGX(u, V, N, tangentX, tangentY, roughness, NdotV,
+        ImportanceSampleGGX(u, V, localToWorld, roughness, NdotV,
                             L, VdotH, NdotL, weightOverPdf);
 
         if (NdotL > 0.0)
@@ -270,7 +345,7 @@ float4 IntegrateGGXAndDisneyFGD(float3 V, float3 N, float roughness, uint sample
         }
 
         // for Disney we still use a Cosine importance sampling, true Disney importance sampling imply a look up table
-        ImportanceSampleLambert(u, N, tangentX, tangentY, L, NdotL, weightOverPdf);
+        ImportanceSampleLambert(u, localToWorld, L, NdotL, weightOverPdf);
 
         if (NdotL > 0.0)
         {
@@ -285,80 +360,249 @@ float4 IntegrateGGXAndDisneyFGD(float3 V, float3 N, float roughness, uint sample
     return acc / sampleCount;
 }
 
+uint GetIBLRuntimeFilterSampleCount(uint mipLevel)
+{
+    uint sampleCount = 0;
+
+    switch (mipLevel)
+    {
+        case 1: sampleCount = 21; break;
+        case 2: sampleCount = 34; break;
+        case 3: sampleCount = 55; break;
+        case 4: sampleCount = 89; break;
+        case 5: sampleCount = 89; break;
+        case 6: sampleCount = 89; break; // UNITY_SPECCUBE_LOD_STEPS
+    }
+
+    return sampleCount;
+}
+
 // Ref: Listing 19 in "Moving Frostbite to PBR"
 float4 IntegrateLD(TEXTURECUBE_ARGS(tex, sampl),
-                    float3 V,
-                    float3 N,
-                    float roughness,
-                    float mipmapcount,
-                    float invOmegaP,
-                    uint sampleCount,
-                    bool prefilter = true) // static bool
+                   TEXTURE2D(ggxIblSamples),
+                   float3 V,
+                   float3 N,
+                   float roughness,
+                   float index,      // Current MIP level minus one
+                   float lastMipLevel,
+                   float invOmegaP,
+                   uint sampleCount, // Must be a Fibonacci number
+                   bool prefilter,
+                   bool usePrecomputedSamples)
 {
-    float3 acc          = float3(0.0, 0.0, 0.0);
-    float  accWeight    = 0;
+    float3x3 localToWorld = GetLocalFrame(N);
 
-    float2 randNum  = InitRandom(V.xy * 0.5 + 0.5);
+    // Bias samples towards the mirror direction to reduce variance.
+    // This will have a side effect of making the reflection sharper.
+    // Ref: Stochastic Screen-Space Reflections, p. 67.
+    const float bias = 0.5 * roughness;
 
-    float3 tangentX, tangentY;
-    GetLocalFrame(N, tangentX, tangentY);
+    float3 lightInt = float3(0.0, 0.0, 0.0);
+    float  cbsdfInt = 0.0;
 
     for (uint i = 0; i < sampleCount; ++i)
     {
-        float2 u    = Hammersley2d(i, sampleCount);
-        u           = frac(u + randNum + 0.5);
-
-        float3 H;
         float3 L;
-        ImportanceSampleGGXDir(u, V, N, tangentX, tangentY, roughness, H, L);
+        float  NdotL, NdotH, VdotH;
+        bool   isValid;
 
-        float NdotL = saturate(dot(N,L));
+        if (usePrecomputedSamples)
+        {
+            float3 localL = LOAD_TEXTURE2D(ggxIblSamples, uint2(i, index)).xyz;
+
+            L       = mul(localL, localToWorld);
+            NdotL   = localL.z;
+            isValid = true;
+        }
+        else
+        {
+            float2 u = Fibonacci2d(i, sampleCount);
+            u.x = lerp(u.x, 0.0, bias);
+
+            SampleGGXDir(u, V, localToWorld, roughness, L, NdotL, NdotH, VdotH, true);
+
+            isValid = NdotL > 0.0;
+        }
 
         float mipLevel;
 
         if (!prefilter) // BRDF importance sampling
         {
-            mipLevel = 0.0;
+            mipLevel = 0;
         }
         else // Prefiltered BRDF importance sampling
         {
-            float NdotH = saturate(dot(N, H));
-            // Note: since L and V are symmetric around H, LdotH == VdotH
-            float LdotH = saturate(dot(L, H));
-
-            // Use pre - filtered importance sampling (i.e use lower mipmap
-            // level for fetching sample with low probability in order
-            // to reduce the variance ).
-            // ( Reference : GPU Gem3: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch20.html)
+            // Use lower MIP-map levels for fetching samples with low probabilities
+            // in order to reduce the variance.
+            // Ref: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch20.html
             //
-            // Since we pre - integrate the result for normal direction ,
-            // N == V and then NdotH == LdotH . This is why the BRDF pdf
-            // can be simplifed from :
-            // pdf = D * NdotH /(4* LdotH ) to pdf = D / 4;
+            // pdf = D * NdotH * jacobian, where jacobian = 1.0 / (4* LdotH).
             //
-            // - OmegaS : Solid angle associated to a sample
-            // - OmegaP : Solid angle associated to a pixel of the cubemap
+            // Since L and V are symmetric around H, LdotH == VdotH.
+            // Since we pre-integrate the result for the normal direction,
+            // N == V and then NdotH == LdotH. Therefore, the BRDF's pdf
+            // can be simplified:
+            // pdf = D * NdotH / (4 * LdotH) = D * 0.25;
+            //
+            // - OmegaS : Solid angle associated with the sample
+            // - OmegaP : Solid angle associated with the texel of the cubemap
 
-            float pdf       = D_GGXNoPI(NdotH, roughness) * NdotH / (4.0 * LdotH); // TODO: Check if divide PI is required here
-            float omegaS    = 1.0 / (sampleCount * pdf);                            // Solid angle associated to a sample
+            float omegaS;
+
+            if (usePrecomputedSamples)
+            {
+                omegaS = LOAD_TEXTURE2D(ggxIblSamples, uint2(i, index)).w;
+            }
+            else
+            {
+                float pdf = D_GGX(NdotH, roughness) * 0.25;
+                // TODO: check the accuracy of the sample's solid angle fit for GGX.
+                omegaS = rcp(sampleCount) / pdf;
+            }
+
             // invOmegaP is precomputed on CPU and provide as a parameter of the function
-            // float omegaP = FOUR_PI / (6.0f * cubemapWidth * cubemapWidth);   // Solid angle associated to a pixel of the cubemap
-            // Clamp is not necessary as the hardware will do it.
-            // mipLevel     = Clamp(0.5f * log2(omegaS * invOmegaP), 0, mipmapcount);
-            mipLevel        = 0.5 * log2(omegaS * invOmegaP); // Clamp is not necessary as the hardware will do it.
+            // float omegaP = FOUR_PI / (6.0f * cubemapWidth * cubemapWidth);
+            mipLevel        = 0.5 * log2(omegaS * invOmegaP);
         }
 
-        if (NdotL > 0.0f)
+        if (isValid)
         {
+            // Bias the MIP map level to compensate for the importance sampling bias.
+            // This will blur the reflection.
+            // TODO: find a more accurate MIP bias function.
+            mipLevel = lerp(mipLevel, lastMipLevel, bias);
+
+            // TODO: There is a bug currently where autogenerate mipmap for the cubemap seems to
+            // clamp the mipLevel to 6. correct it! Then remove this clamp
+            // All MIP map levels beyond UNITY_SPECCUBE_LOD_STEPS contain invalid data.
+            mipLevel = min(mipLevel, UNITY_SPECCUBE_LOD_STEPS);
+
+            // TODO: use a Gaussian-like filter to generate the MIP pyramid.
             float3 val = SAMPLE_TEXTURECUBE_LOD(tex, sampl, L, mipLevel).rgb;
 
-            // See p63 equation (53) of moving Frostbite to PBR v2 for the extra NdotL here (both in weight and value)
-            acc             += val * NdotL;
-            accWeight       += NdotL;
+            // Our goal is to use Monte-Carlo integration with importance sampling to evaluate
+            // X(V)   = Integral{Radiance(L) * CBSDF(L, N, V) dL} / Integral{CBSDF(L, N, V) dL}.
+            // CBSDF  = F * D * G * NdotL / (4 * NdotL * NdotV) = F * D * G / (4 * NdotV).
+            // PDF    = D * NdotH / (4 * LdotH).
+            // Weight = CBSDF / PDF = F * G * LdotH / (NdotV * NdotH).
+            // Since we perform filtering with the assumption that (V == N),
+            // (LdotH == NdotH) && (NdotV == 1) && (Weight == F * G).
+            // We use the approximation of Brian Karis from "Real Shading in Unreal Engine 4":
+            // Weight ≈ NdotL, which produces nearly identical results in practice.
+
+            lightInt += NdotL * val;
+            cbsdfInt += NdotL;
         }
     }
 
-    return float4(acc * (1.0 / accWeight), 1.0);
+    return float4(lightInt / cbsdfInt, 1.0);
+}
+
+// Searches the row 'j' containing 'n' elements of 'haystack' and
+// returns the index of the first element greater or equal to 'needle'.
+uint BinarySearchRow(uint j, float needle, TEXTURE2D(haystack), uint n)
+{
+	uint  i = n - 1;
+    float v = LOAD_TEXTURE2D(haystack, uint2(i, j)).r;
+
+    if (needle < v)
+    {
+        i = 0;
+
+        for (uint b = 1 << firstbithigh(n - 1); b != 0; b >>= 1)
+        {
+            uint p = i | b;
+            v = LOAD_TEXTURE2D(haystack, uint2(p, j)).r;
+            if (v <= needle) { i = p; } // Move to the right.
+        }
+    }
+
+    return i;
+}
+
+float4 IntegrateLD_MIS(TEXTURECUBE_ARGS(envMap, sampler_envMap),
+                       TEXTURE2D(marginalRowDensities),
+                       TEXTURE2D(conditionalDensities),
+                       float3 V,
+                       float3 N,
+                       float roughness,
+                       float invOmegaP,
+                       uint width,
+                       uint height,
+                       uint sampleCount,
+                       bool prefilter)
+{
+    float3x3 localToWorld = GetLocalFrame(N);
+
+    float2 randNum  = InitRandom(V.xy * 0.5 + 0.5);
+
+    float3 lightInt = float3(0.0, 0.0, 0.0);
+    float  cbsdfInt = 0.0;
+
+/*
+    // Dedicate 50% of samples to light sampling at 1.0 roughness.
+    // Only perform BSDF sampling when roughness is below 0.5.
+    const int lightSampleCount = lerp(0, sampleCount / 2, saturate(2.0 * roughness - 1.0));
+    const int bsdfSampleCount  = sampleCount - lightSampleCount;
+*/
+
+    // The value of the integral of intensity values of the environment map (as a 2D step function).
+    float envMapInt2dStep = LOAD_TEXTURE2D(marginalRowDensities, uint2(height, 0)).r;
+    // Since we are using equiareal mapping, we need to divide by the area of the sphere.
+    float envMapIntSphere = envMapInt2dStep * INV_FOUR_PI;
+
+    // Perform light importance sampling.
+    for (uint i = 0; i < sampleCount; i++)
+    {
+        float2 s = frac(randNum + Hammersley2d(i, sampleCount));
+
+        // Sample a row from the marginal distribution.
+        uint y = BinarySearchRow(0, s.x, marginalRowDensities, height - 1);
+
+        // Sample a column from the conditional distribution.
+        uint x = BinarySearchRow(y, s.y, conditionalDensities, width - 1);
+
+        // Compute the coordinates of the sample.
+        // Note: we take the sample in between two texels, and also apply the half-texel offset.
+        // We could compute fractional coordinates at the cost of 4 extra texel samples.
+        float  u = saturate((float)x / width  + 1.0 / width);
+        float  v = saturate((float)y / height + 1.0 / height);
+        float3 L = ConvertEquiarealToCubemap(u, v);
+
+        float NdotL = saturate(dot(N, L));
+
+        if (NdotL > 0.0)
+        {
+            float3 val = SAMPLE_TEXTURECUBE_LOD(envMap, sampler_envMap, L, 0).rgb;
+            float  pdf = (val.r + val.g + val.b) / envMapIntSphere;
+
+            if (pdf > 0.0)
+            {
+                // (N == V) && (acos(VdotL) == 2 * acos(NdotH)).
+                float NdotH = sqrt(NdotL * 0.5 + 0.5);
+
+                // *********************************************************************************
+                // Our goal is to use Monte-Carlo integration with importance sampling to evaluate
+                // X(V)   = Integral{Radiance(L) * CBSDF(L, N, V) dL} / Integral{CBSDF(L, N, V) dL}.
+                // CBSDF  = F * D * G * NdotL / (4 * NdotL * NdotV) = F * D * G / (4 * NdotV).
+                // Weight = CBSDF / PDF.
+                // We use two approximations of Brian Karis from "Real Shading in Unreal Engine 4":
+                // (F * G ≈ NdotL) && (NdotV == 1).
+                // Weight = D * NdotL / (4 * PDF).
+                // *********************************************************************************
+
+                float weight = D_GGX(NdotH, roughness) * NdotL / (4.0 * pdf);
+
+                lightInt += weight * val;
+                cbsdfInt += weight;
+            }
+        }
+    }
+
+    // Prevent NaNs arising from the division of 0 by 0.
+    cbsdfInt = max(cbsdfInt, FLT_MIN);
+
+    return float4(lightInt / cbsdfInt, 1.0);
 }
 
 #endif // UNITY_IMAGE_BASED_LIGHTING_INCLUDED

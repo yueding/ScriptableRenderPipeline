@@ -1,35 +1,46 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.Experimental.Rendering;
 using NUnit.Framework;
-using UnityEngine.Experimental.ScriptableRenderLoop;
 using UnityEngine.Rendering;
 
 [ExecuteInEditMode]
-public class RenderLoopTestFixture : RenderPipeline
+public class RenderLoopTestFixture : RenderPipelineAsset
 {
-    public delegate void TestDelegate(Camera camera, CullResults cullResults, RenderLoop renderLoop);
+    protected override IRenderPipeline InternalCreatePipeline()
+    {
+        return new BasicRenderLoopInstance();
+    }
+}
+
+public class RenderLoopTestFixtureInstance : RenderPipeline
+{
+    public delegate void TestDelegate(Camera camera, CullResults cullResults, ScriptableRenderContext renderContext);
+
     private static TestDelegate s_Callback;
 
     private static RenderLoopTestFixture m_Instance;
-
-    public override void Render(Camera[] cameras, RenderLoop renderLoop)
+    
+    public override void Render(ScriptableRenderContext renderContext, Camera[] cameras)
     {
+        base.Render(renderContext, cameras);
+
         foreach (var camera in cameras)
         {
+            if (!camera.enabled)
+                continue;
+
             CullingParameters cullingParams;
             bool gotCullingParams = CullResults.GetCullingParameters(camera, out cullingParams);
             Assert.IsTrue(gotCullingParams);
 
-            CullResults cullResults = CullResults.Cull(ref cullingParams, renderLoop);
+            CullResults cullResults = CullResults.Cull(ref cullingParams, renderContext);
 
             if (s_Callback != null)
-                s_Callback(camera, cullResults, renderLoop);
+                s_Callback(camera, cullResults, renderContext);
         }
 
-        renderLoop.Submit();
+        renderContext.Submit();
     }
 
     public static void Run(TestDelegate renderCallback)
@@ -42,7 +53,7 @@ public class RenderLoopTestFixture : RenderPipeline
         var sceneCamera = Camera.main;
         var camObject = sceneCamera.gameObject;
 
-        GraphicsSettings.SetRenderPipeline(m_Instance);
+        GraphicsSettings.renderPipeline = m_Instance;
         s_Callback = renderCallback;
         Transform t = camObject.transform;
 
@@ -53,6 +64,6 @@ public class RenderLoopTestFixture : RenderPipeline
         SceneView.lastActiveSceneView.LookAtDirect(t.position + t.forward * camDist, t.rotation, size);
 
         sceneCamera.Render();
-        GraphicsSettings.SetRenderPipeline(null);
+        GraphicsSettings.renderPipeline = null;
     }
 }
