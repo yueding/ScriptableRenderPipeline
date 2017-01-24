@@ -31,10 +31,10 @@ ${ShaderPropertiesHeader}
     //-------------------------------------------------------------------------------------
 
     #include "common.hlsl"
-    #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderConfig.cs.hlsl"
-    #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderVariables.hlsl"
-    #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Attributes.hlsl"
-    #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPass.cs.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderConfig.cs.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderVariables.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/FragInputs.hlsl"
+    #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
 
     //-------------------------------------------------------------------------------------
     // variable declaration
@@ -65,20 +65,20 @@ float _AlphaCutoff;
 
             HLSLPROGRAM
 
-            #pragma vertex VertDefault
+            #pragma vertex Vert
             #pragma fragment Frag
 
             #define SHADERPASS SHADERPASS_GBUFFER
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
 
 //Generated code : Begin
 #{TemplatePass|useSurfaceData:{.*}|useFragInput:{positionWS}}
 //Generated code : End
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassGBuffer.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/ShaderPassGBuffer.hlsl"
             ENDHLSL
         }
-
+		/*
         // ------------------------------------------------------------------
         //  Debug pass
         // ------------------------------------------------------------------
@@ -95,14 +95,14 @@ float _AlphaCutoff;
             #pragma fragment Frag
 
             #define SHADERPASS SHADERPASS_DEBUG_VIEW_MATERIAL
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
 
 
 //Generated code : Begin
 #{TemplatePass|useSurfaceData:{.*}|useFragInput:{.*}}
 //Generated code : End
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassDebugViewMaterial.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/ShaderPassDebugViewMaterial.hlsl"
 
             ENDHLSL
         }
@@ -128,13 +128,13 @@ float _AlphaCutoff;
             #pragma fragment Frag
 
             #define SHADERPASS SHADERPASS_LIGHT_TRANSPORT
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
             
 //Generated code : Begin
 #{TemplatePass|useSurfaceData:{.*}|useFragInput:{.*}}
 //Generated code : End
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassLightTransport.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/ShaderPassLightTransport.hlsl"
 
             ENDHLSL
         }
@@ -157,13 +157,13 @@ float _AlphaCutoff;
             #pragma fragment Frag
 
             #define SHADERPASS SHADERPASS_DEPTH_ONLY
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Material.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
 
 //Generated code : Begin
 #{TemplatePass|useSurfaceData:{opacity}|useFragInput:{nothing_at_all}}
 //Generated code : End
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassDepthOnly.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/ShaderPassDepthOnly.hlsl"
 
             ENDHLSL
         }
@@ -191,16 +191,17 @@ float _AlphaCutoff;
             #pragma multi_compile LIGHTLOOP_SINGLE_PASS
             //#pragma multi_compile SHADOWFILTERING_FIXED_SIZE_PCF
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/Lighting/Lighting.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Lighting/Lighting.hlsl"
 
 //Generated code : Begin
 #{TemplatePass|useSurfaceData:{.*}|useFragInput:{positionWS}}
 //Generated code : End
 
-            #include "Assets/ScriptableRenderLoop/HDRenderLoop/ShaderPass/ShaderPassForward.hlsl"
+            #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/ShaderPassForward.hlsl"
 
             ENDHLSL
         }
+		*/
     }
     CustomEditor "Experimental.ScriptableRenderLoop.LitGraphUI"
 }

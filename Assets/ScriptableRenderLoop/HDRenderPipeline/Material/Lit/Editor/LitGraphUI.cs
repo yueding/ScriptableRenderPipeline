@@ -1,24 +1,23 @@
 using UnityEngine;
 using System;
 using System.Linq;
+using UnityEditor;
 
-namespace UnityEditor.Experimental.ScriptableRenderLoop
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    class LitGraphUI : BaseLitGUI
+    class LitGraphUI : UnityEditor.Experimental.Rendering.HDPipeline.BaseLitGUI
     {
         private MaterialProperty[] genericProperties = new MaterialProperty[] { };
-        protected override void FindInputProperties(MaterialProperty[] props)
+
+        protected override void FindMaterialProperties(MaterialProperty[] props)
         {
             genericProperties = props.Where(p => (p.flags & MaterialProperty.PropFlags.HideInInspector) == 0 & !reservedProperties.Contains(p.name)).ToArray();
         }
 
-        protected override void FindInputOptionProperties(MaterialProperty[] props)
+        protected override void SetupMaterialKeywords(Material material)
         {
         }
 
-        protected override void SetupInputMaterial(Material material)
-        {
-        }
         protected override void ShaderInputGUI()
         {
             EditorGUI.indentLevel++;

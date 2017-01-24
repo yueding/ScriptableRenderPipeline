@@ -229,6 +229,7 @@ public abstract class TextureCache
 
     public int FetchSlice(Texture texture)
     {
+        if (texture == null) return 0;
         var texId = (uint)texture.GetInstanceID();
 
         //assert(TexID!=g_InvalidTexID);

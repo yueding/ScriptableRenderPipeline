@@ -443,7 +443,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
         {
             FindCommonOptionProperties(props); // MaterialProperties can be animated so we do not cache them but fetch them every event to ensure animated values are updated correctly
-			FindMaterialProperties(props);
+            FindMaterialProperties(props);
 
             m_MaterialEditor = materialEditor;
             Material material = materialEditor.target as Material;
@@ -524,7 +524,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         protected static string[] reservedProperties = new string[] { kSurfaceType, kBlendMode, kAlphaCutoff, kAlphaCutoffEnabled, kDoubleSidedMode };
 
         protected abstract void FindMaterialProperties(MaterialProperty[] props);
-		protected abstract void ShaderInputGUI();
+        protected abstract void ShaderInputGUI();
         protected abstract void ShaderInputOptionsGUI();
         protected abstract void SetupMaterialKeywords(Material material);
         protected abstract bool ShouldEmissionBeEnabled(Material material);

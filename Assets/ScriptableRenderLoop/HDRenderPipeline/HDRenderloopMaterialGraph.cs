@@ -7,9 +7,9 @@ using System.Text.RegularExpressions;
 using UnityEngine.MaterialGraph;
 using UnityEngine.Graphing;
 
-namespace UnityEngine.Experimental.ScriptableRenderLoop
+namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    public abstract class AbstractMaterialNodeHDRenderLoop : AbstractMaterialNode
+    public abstract class AbstractMaterialNodeHDRenderPipeline : AbstractMaterialNode
     {
         protected string GetVariableName(IEdge edge, ConcreteSlotValueType type)
         {
@@ -33,8 +33,8 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/BakeDiffuseLighting")]
-    public class BakeDiffuseLightingNode : AbstractMaterialNodeHDRenderLoop, IGeneratesBodyCode, IMayRequireNormal, IMayRequireWorldPosition, IMayRequireMeshUV
+    [Title("HDRenderPipeline/BakeDiffuseLighting")]
+    public class BakeDiffuseLightingNode : AbstractMaterialNodeHDRenderPipeline, IGeneratesBodyCode, IMayRequireNormal, IMayRequireWorldPosition, IMayRequireMeshUV
     {
         private const int PositionWSInput = 0;
         private const int NormalWSInput = 1;
@@ -54,14 +54,14 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             return GetEdge(PositionWSInput) == null;
         }
 
-        public bool RequiresMeshUV(int index)
+        public bool RequiresMeshUV(UVChannel uv)
         {
-            if (index == 1)
+            if (uv == UVChannel.uv0)
             {
                 return GetEdge(UVStaticInput) == null;
             }
 
-            if (index == 2)
+            if (uv == UVChannel.uv1)
             {
                 return GetEdge(UVDynamicInput) == null;
             }
@@ -92,8 +92,8 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
             var positionWSInputValue = ShaderGeneratorNames.WorldSpacePosition;
             var normalWSInputValue = ShaderGeneratorNames.WorldSpaceNormal;
-            var UVStaticInputValue = ShaderGeneratorNames.UV[1];
-            var UVDynamicInputValue = ShaderGeneratorNames.UV[2];
+            var UVStaticInputValue = ShaderGeneratorNames.GetUVName(UVChannel.uv1);
+            var UVDynamicInputValue = ShaderGeneratorNames.GetUVName(UVChannel.uv2);
 
             if (positionWSInputEdge != null)
             {
@@ -121,8 +121,8 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/TangentToWorldDirectionNode")]
-    public class TangentToWorldDirectionNode : AbstractMaterialNodeHDRenderLoop, IGeneratesBodyCode, IMayRequireBitangent, IMayRequireTangent, IMayRequireNormal
+    [Title("HDRenderPipeline/TangentToWorldDirectionNode")]
+    public class TangentToWorldDirectionNode : AbstractMaterialNodeHDRenderPipeline, IGeneratesBodyCode, IMayRequireBitangent, IMayRequireTangent, IMayRequireNormal
     {
         private const int TextureNormal = 0;
         private const int NormalInput = 1;
@@ -223,12 +223,24 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    public abstract class AbstractHDRenderLoopMasterNode : AbstractMasterNode
+    public abstract class AbstractHDRenderPipelineMasterNode : AbstractMasterNode
     {
-        public AbstractHDRenderLoopMasterNode()
+        public AbstractHDRenderPipelineMasterNode()
         {
             name = GetType().Name;
             UpdateNodeAfterDeserialization();
+        }
+
+        private static void DepthFirstCollectNodesFromNodeAndSlotIDList(List<INode> nodeList, INode node, List<int> slotId)
+        {
+            foreach (var slot in node.GetInputSlots<ISlot>().Select(x => x.id).Where(x => slotId.Contains(x)))
+            {
+                foreach (var edge in node.owner.GetEdges(node.GetSlotReference(slot)))
+                {
+                    var outputNode = node.owner.GetNodeFromGuid(edge.outputSlot.nodeGuid);
+                    NodeUtils.DepthFirstCollectNodesFromNode(nodeList, outputNode);
+                }
+            }
         }
 
         public sealed override void UpdateNodeAfterDeserialization()
@@ -353,11 +365,11 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             var needFragInputRegex = new Regex(useSurfaceFragInput);
             var slotIDList = GetInputSlots<MaterialSlot>().Where(s => useDataInputRegex.IsMatch(s.shaderOutputName)).Select(s => s.id).ToList();
 
-            NodeUtils.DepthFirstCollectNodesFromNodeSlotList(activeNodeList, this, slotIDList, NodeUtils.IncludeSelf.Exclude);
+            DepthFirstCollectNodesFromNodeAndSlotIDList(activeNodeList, this, slotIDList);
             var vayrings = new List<Vayring>();
             for (int iTexCoord = 0; iTexCoord < 4; ++iTexCoord)
             {
-                if (needFragInputRegex.IsMatch("texCoord" + iTexCoord) || RequiresMeshUV(iTexCoord, useDataInputRegex) || activeNodeList.OfType<IMayRequireMeshUV>().Any(x => x.RequiresMeshUV(iTexCoord)))
+                if (needFragInputRegex.IsMatch("texCoord" + iTexCoord) || RequiresMeshUV(iTexCoord, useDataInputRegex) || activeNodeList.OfType<IMayRequireMeshUV>().Any(x => x.RequiresMeshUV((UVChannel)iTexCoord)))
                 {
                     vayrings.Add(new Vayring()
                     {
@@ -366,7 +378,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                         vayringName = "texCoord" + iTexCoord,
                         type = SlotValueType.Vector2,
                         vertexCode = string.Format("output.texCoord{0} = input.texCoord{0};", iTexCoord),
-                        pixelCode = string.Format("float4 {0} = float4(fragInput.texCoord{1}, 0, 0);", ShaderGeneratorNames.UV[iTexCoord], iTexCoord)
+                        pixelCode = string.Format("float4 {0} = float4(fragInput.texCoord{1}, 0, 0);", ShaderGeneratorNames.GetUVName((UVChannel)iTexCoord), iTexCoord)
                     });
                 }
             }
@@ -568,7 +580,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
                             variableName = ShaderGeneratorNames.WorldSpaceTangent;
                             break;
                         case SurfaceDataAttributes.Semantic.BakeDiffuseLighting:
-                            variableName = string.Format("SampleBakedGI({0}, surfaceData.normalWS, {1}, {2})", ShaderGeneratorNames.WorldSpacePosition, ShaderGeneratorNames.UV[1], ShaderGeneratorNames.UV[2]);
+                            variableName = string.Format("SampleBakedGI({0}, surfaceData.normalWS, {1}, {2})", ShaderGeneratorNames.WorldSpacePosition, ShaderGeneratorNames.GetUVName(UVChannel.uv1), ShaderGeneratorNames.GetUVName(UVChannel.uv2));
                             visitorIndex = 1; //it depends of surfaceData.normalWS, do it last
                             break;
                         default: break;
@@ -593,7 +605,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             if (materialIdField != null)
             {
                 var enumValue = Enum.ToObject(materialIdField.FieldType, GetMatchingMaterialID()).ToString();
-                var define = string.Format("{0}_{1}", materialIdField.Name, ShaderGeneratorHelper.InsertUnderscore(enumValue));
+                var define = string.Format("{0}_{1}", materialIdField.Name, UnityEditor.Experimental.Rendering.ShaderGeneratorHelper.InsertUnderscore(enumValue));
                 define = define.ToUpper();
                 pixelShaderBodyVisitor[1].AddShaderChunk(string.Format("surfaceData.{0} = {1};", materialIdField.Name, define), false);
             }
@@ -609,7 +621,13 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
             return resultShader;
         }
 
-        public override string GetShader(GenerationMode mode, out List<PropertyGenerator.TextureInfo> configuredTextures)
+        public override string GetSubShader(GenerationMode mode, PropertyGenerator shaderPropertiesVisitor)
+        {
+            //TODOPAUL
+            throw new NotImplementedException();
+        }
+
+        public override string GetFullShader(GenerationMode mode, out List<PropertyGenerator.TextureInfo> configuredTextures)
         {
             configuredTextures = new List<PropertyGenerator.TextureInfo>();
 
@@ -663,7 +681,10 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
             configuredTextures = shaderPropertiesVisitor.GetConfiguredTexutres();
             resultShader = Regex.Replace(resultShader, @"\t", "    ");
-            return Regex.Replace(resultShader, @"\r\n|\n\r|\n|\r", Environment.NewLine);
+            resultShader = Regex.Replace(resultShader, @"\r\n|\n\r|\n|\r", Environment.NewLine);
+            //Test
+            System.IO.File.WriteAllText("C:/Unity/Git_ScriptableRenderLoop/ScriptableRenderLoop/Assets/UnityShaderEditor/Editor/Testing/IntegrationTests/Graphs/Test.shader", resultShader);
+            return resultShader;
         }
 
         protected abstract Type GetSurfaceType();
@@ -674,7 +695,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    public abstract class LitNode : AbstractHDRenderLoopMasterNode
+    public abstract class LitNode : AbstractHDRenderPipelineMasterNode
     {
         protected override sealed Type GetSurfaceType()
         {
@@ -688,7 +709,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
         protected sealed override string GetTemplateText()
         {
-            var templatePath = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/Lit.template";
+            var templatePath = "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Lit/Lit.template";
             if (!System.IO.File.Exists(templatePath))
                 return "";
             return System.IO.File.ReadAllText(templatePath);
@@ -696,7 +717,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
         protected sealed override string GetTemplatePassText()
         {
-            var templatePathPass = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/LitSharePass.template";
+            var templatePathPass = "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Lit/LitSharePass.template";
             if (!System.IO.File.Exists(templatePathPass))
                 return "";
             return System.IO.File.ReadAllText(templatePathPass);
@@ -704,7 +725,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/Lit/Standard")]
+    [Title("HDRenderPipeline/Lit/Standard")]
     public class StandardtLitNode : LitNode
     {
         protected override int GetMatchingMaterialID()
@@ -714,7 +735,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/Lit/SubsurfaceScattering")]
+    [Title("HDRenderPipeline/Lit/SubsurfaceScattering")]
     public class SubsurfaceScatteringLitNode : LitNode
     {
         protected override int GetMatchingMaterialID()
@@ -724,7 +745,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/Lit/SubsurfaceClearCoat")]
+    [Title("HDRenderPipeline/Lit/SubsurfaceClearCoat")]
     public class SubsurfaceClearCoatLitNode : LitNode
     {
         protected override int GetMatchingMaterialID()
@@ -734,7 +755,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/Lit/SpecularColor")]
+    [Title("HDRenderPipeline/Lit/SpecularColor")]
     public class SpecularColorLitNode : LitNode
     {
         protected override int GetMatchingMaterialID()
@@ -744,8 +765,8 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
     }
 
     [Serializable]
-    [Title("HDRenderLoop/Unlit")]
-    public class UnlitNode : AbstractHDRenderLoopMasterNode
+    [Title("HDRenderPipeline/Unlit")]
+    public class UnlitNode : AbstractHDRenderPipelineMasterNode
     {
         protected override Type GetSurfaceType()
         {
@@ -764,7 +785,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
         protected sealed override string GetTemplateText()
         {
-            var templatePath = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Unlit/Unlit.template";
+            var templatePath = "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Unlit/Unlit.template";
             if (!System.IO.File.Exists(templatePath))
                 return "";
             return System.IO.File.ReadAllText(templatePath);
@@ -772,7 +793,7 @@ namespace UnityEngine.Experimental.ScriptableRenderLoop
 
         protected sealed override string GetTemplatePassText()
         {
-            var templatePathPass = "Assets/ScriptableRenderLoop/HDRenderLoop/Material/Lit/LitSharePass.template";
+            var templatePathPass = "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Lit/LitSharePass.template";
             if (!System.IO.File.Exists(templatePathPass))
                 return "";
             return System.IO.File.ReadAllText(templatePathPass);

@@ -1,5 +1,5 @@
 #ifdef UNITY_MATERIAL_LIT
-#include "Assets/ScriptableRenderLoop/HDRenderLoop/Material/MaterialUtilities.hlsl"
+#include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/MaterialUtilities.hlsl"
 #endif
 
 #define UnpackNormal(x) UnpackNormalAG(x, 1.0)
@@ -19,7 +19,7 @@ float unity_OneOverOutputBoost;
 float unity_MaxOutputValue;
 #endif
 
-void GetSurfaceAndBuiltinData(FragInput fragInput, out SurfaceData surfaceData, out BuiltinData builtinData)
+void GetSurfaceAndBuiltinData(FragInputs fragInput, float3 V, inout PositionInputs posInput, out SurfaceData surfaceData, out BuiltinData builtinData)
 {
     ZERO_INITIALIZE(SurfaceData, surfaceData);
     ZERO_INITIALIZE(BuiltinData, builtinData);
@@ -37,6 +37,11 @@ ${PixelShaderBody}
 #endif
 }
 
+#if 1 //lazy implementation, use define approach
+//Sth with some define generated=
+#include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/VaryingMesh.hlsl"
+#else
+//WIP : old implementation (needs refactor to use this approach, should be better packing)
 struct Attributes
 {
     float3 positionOS : POSITION;
@@ -49,31 +54,31 @@ struct Varyings
 ${VaryingAttributes}
 };
 
-struct PackedVaryings
+struct PackedVaryingsToPS
 {
     float4 positionCS : SV_Position;
 ${PackedVaryingAttributes}
 };
 
-PackedVaryings PackVaryings(Varyings input)
+PackedVaryingsToPS PackVaryings(Varyings input)
 {
-    PackedVaryings output;
+    PackedVaryingsToPS output;
     output.positionCS = input.positionCS;
 ${PackingVaryingCode}
     return output;
 }
 
-FragInput UnpackVaryings(PackedVaryings input)
+FragInputs UnpackVaryingsMeshToFragInputs(PackedVaryingsToPS input)
 {
-    FragInput output;
-    ZERO_INITIALIZE(FragInput, output);
+    FragInputs output;
+    ZERO_INITIALIZE(FragInputs, output);
 
     output.unPositionSS = input.positionCS;
 ${UnpackVaryingCode}
     return output;
 }
 
-PackedVaryings VertDefault(Attributes input)
+PackedVaryingsToPS VertDefault(Attributes input)
 {
     Varyings output;
 
@@ -99,3 +104,4 @@ PackedVaryings VertDefault(Attributes input)
 ${VertexShaderBody}
     return PackVaryings(output);
 }
+#endif
