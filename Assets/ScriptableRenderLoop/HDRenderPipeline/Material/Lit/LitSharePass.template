@@ -4,21 +4,6 @@
 
 #define UnpackNormal(x) UnpackNormalAG(x, 1.0)
 
-#if SHADERPASS == SHADERPASS_LIGHT_TRANSPORT
-CBUFFER_START(UnityMetaPass)
-// x = use uv1 as raster position
-// y = use uv2 as raster position
-bool4 unity_MetaVertexControl;
-
-// x = return albedo
-// y = return normal
-bool4 unity_MetaFragmentControl;
-CBUFFER_END
-// This was not in constant buffer in original unity, so keep outiside. But should be in as ShaderRenderPass frequency
-float unity_OneOverOutputBoost;
-float unity_MaxOutputValue;
-#endif
-
 void GetSurfaceAndBuiltinData(FragInputs fragInput, float3 V, inout PositionInputs posInput, out SurfaceData surfaceData, out BuiltinData builtinData)
 {
     ZERO_INITIALIZE(SurfaceData, surfaceData);
@@ -37,9 +22,10 @@ ${PixelShaderBody}
 #endif
 }
 
-#if 1 //lazy implementation, use define approach
-//Sth with some define generated=
-#include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/VaryingMesh.hlsl"
+#if 1 //lazy implementation : use define approach
+${TemporaryAdditionnalDefines}
+	#include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/VaryingMesh.hlsl"
+	
 #else
 //WIP : old implementation (needs refactor to use this approach, should be better packing)
 struct Attributes

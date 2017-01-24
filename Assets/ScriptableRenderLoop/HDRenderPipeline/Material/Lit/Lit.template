@@ -46,6 +46,9 @@ ${ShaderPropertyUsages}
 
 float _AlphaCutoff;
 
+	#pragma vertex Vert
+	#pragma fragment Frag
+
     ENDHLSL
 
     SubShader
@@ -65,9 +68,6 @@ float _AlphaCutoff;
 
             HLSLPROGRAM
 
-            #pragma vertex Vert
-            #pragma fragment Frag
-
             #define SHADERPASS SHADERPASS_GBUFFER
             #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
 
@@ -78,7 +78,7 @@ float _AlphaCutoff;
             #include "Assets/ScriptableRenderLoop/HDRenderPipeline/ShaderPass/ShaderPassGBuffer.hlsl"
             ENDHLSL
         }
-		/*
+		
         // ------------------------------------------------------------------
         //  Debug pass
         // ------------------------------------------------------------------
@@ -90,9 +90,6 @@ float _AlphaCutoff;
             Cull[_CullMode]
 
             HLSLPROGRAM
-
-            #pragma vertex VertDefault
-            #pragma fragment Frag
 
             #define SHADERPASS SHADERPASS_DEBUG_VIEW_MATERIAL
             #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
@@ -106,7 +103,6 @@ float _AlphaCutoff;
 
             ENDHLSL
         }
-
         // ------------------------------------------------------------------
         // Extracts information for lightmapping, GI (emission, albedo, ...)
         // This pass it not used during regular rendering.
@@ -123,9 +119,6 @@ float _AlphaCutoff;
             // Lightmap memo
             // DYNAMICLIGHTMAP_ON is used when we have an "enlighten lightmap" ie a lightmap updated at runtime by enlighten.This lightmap contain indirect lighting from realtime lights and realtime emissive material.Offline baked lighting(from baked material / light, 
             // both direct and indirect lighting) will hand up in the "regular" lightmap->LIGHTMAP_ON.
-
-            #pragma vertex VertDefault
-            #pragma fragment Frag
 
             #define SHADERPASS SHADERPASS_LIGHT_TRANSPORT
             #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
@@ -153,9 +146,6 @@ float _AlphaCutoff;
 
             HLSLPROGRAM
 
-            #pragma vertex VertDefault
-            #pragma fragment Frag
-
             #define SHADERPASS SHADERPASS_DEPTH_ONLY
             #include "Assets/ScriptableRenderLoop/HDRenderPipeline/Material/Material.hlsl"
 
@@ -182,9 +172,6 @@ float _AlphaCutoff;
 
             HLSLPROGRAM
 
-            #pragma vertex VertDefault
-            #pragma fragment Frag
-
             #define SHADERPASS SHADERPASS_FORWARD
             // TEMP until pragma work in include
             // #include "../../Lighting/Forward.hlsl"
@@ -201,7 +188,6 @@ float _AlphaCutoff;
 
             ENDHLSL
         }
-		*/
     }
     CustomEditor "Experimental.ScriptableRenderLoop.LitGraphUI"
 }

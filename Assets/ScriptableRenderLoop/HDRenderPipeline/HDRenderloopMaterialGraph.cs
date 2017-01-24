@@ -355,6 +355,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public string vertexCode;
             public string pixelCode;
             public string fragInputTarget;
+
+            public string[] tempAdditionnalDefine; //only for first version purpose : use common define system
         };
 
         private string GenerateLitDataTemplate(GenerationMode mode, string useSurfaceDataInput, string useSurfaceFragInput, PropertyGenerator propertyGenerator, ShaderGenerator propertyUsagesVisitor, ShaderGenerator shaderFunctionVisitor, string litShareTemplate)
@@ -378,7 +380,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         vayringName = "texCoord" + iTexCoord,
                         type = SlotValueType.Vector2,
                         vertexCode = string.Format("output.texCoord{0} = input.texCoord{0};", iTexCoord),
-                        pixelCode = string.Format("float4 {0} = float4(fragInput.texCoord{1}, 0, 0);", ShaderGeneratorNames.GetUVName((UVChannel)iTexCoord), iTexCoord)
+                        pixelCode = string.Format("float4 {0} = float4(fragInput.texCoord{1}, 0, 0);", ShaderGeneratorNames.GetUVName((UVChannel)iTexCoord), iTexCoord),
+
+                        tempAdditionnalDefine = new string[] { "ATTRIBUTES_NEED_TEXCOORD" + iTexCoord, "VARYINGS_NEED_TEXCOORD" + iTexCoord }
                     });
                 }
             }
@@ -395,7 +399,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     type = SlotValueType.Vector3,
                     vertexCode = "output.tangentWS = TransformObjectToWorldDir(input.tangentOS.xyz);",
                     fragInputTarget = "tangentToWorld[0]",
-                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[0]);", ShaderGeneratorNames.WorldSpaceTangent)
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[0]);", ShaderGeneratorNames.WorldSpaceTangent),
+
+                    tempAdditionnalDefine = new string[] { "ATTRIBUTES_NEED_NORMAL", "ATTRIBUTES_NEED_TANGENT", "VARYINGS_NEED_TANGENT_TO_WORLD" }
                 });
             }
 
@@ -409,7 +415,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     type = SlotValueType.Vector3,
                     vertexCode = "output.normalWS = TransformObjectToWorldNormal(input.normalOS);",
                     fragInputTarget = "tangentToWorld[2]",
-                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[2]);", ShaderGeneratorNames.WorldSpaceNormal)
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[2]);", ShaderGeneratorNames.WorldSpaceNormal),
+
+                    tempAdditionnalDefine = new string[] { "ATTRIBUTES_NEED_NORMAL", "ATTRIBUTES_NEED_TANGENT", "VARYINGS_NEED_TANGENT_TO_WORLD" }
                 });
             }
 
@@ -421,7 +429,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     type = SlotValueType.Vector3,
                     vertexCode = "output.bitangentWS = CreateBitangent(output.normalWS, output.tangentWS, input.tangentOS.w);",
                     fragInputTarget = "tangentToWorld[1]",
-                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[1]);", ShaderGeneratorNames.WorldSpaceBitangent)
+                    pixelCode = string.Format("float3 {0} = normalize(fragInput.tangentToWorld[1]);", ShaderGeneratorNames.WorldSpaceBitangent),
+
+                    tempAdditionnalDefine = new string[] { "ATTRIBUTES_NEED_NORMAL", "ATTRIBUTES_NEED_TANGENT", "VARYINGS_NEED_TANGENT_TO_WORLD" }
                 });
             }
 
@@ -433,7 +443,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     vayringName = "positionWS",
                     type = SlotValueType.Vector3,
                     vertexCode = "output.positionWS = TransformObjectToWorld(input.positionOS);",
-                    pixelCode = string.Format("float3 {0} = fragInput.positionWS;", ShaderGeneratorNames.WorldSpacePosition)
+                    pixelCode = string.Format("float3 {0} = fragInput.positionWS;", ShaderGeneratorNames.WorldSpacePosition),
+
+                    tempAdditionnalDefine = new string[] { "VARYINGS_NEED_POSITION_WS" }
                 });
             }
 
@@ -454,7 +466,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     vayringName = "vertexColor",
                     type = SlotValueType.Vector4,
                     vertexCode = "output.vertexColor = input.vertexColor;",
-                    pixelCode = string.Format("float4 {0} = fragInput.vertexColor;", "vertexColor")
+                    pixelCode = string.Format("float4 {0} = fragInput.color;", ShaderGeneratorNames.VertexColor),
+
+                    tempAdditionnalDefine = new string[] { "ATTRIBUTES_NEED_COLOR", "VARYINGS_NEED_COLOR" }
                 });
             }
 
@@ -618,6 +632,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             resultShader = resultShader.Replace("${PackingVaryingCode}", packInterpolatorVisitor.GetShaderString(1));
             resultShader = resultShader.Replace("${UnpackVaryingCode}", unpackInterpolatorVisitor.GetShaderString(1));
             resultShader = resultShader.Replace("${VertexShaderBody}", vertexShaderBodyVisitor.GetShaderString(1));
+
+            /* temporary behavior : use common define system */
+            var tempAdditionnalDefine = new ShaderGenerator();
+            foreach (var define in vayrings.Where(o => o.tempAdditionnalDefine != null).SelectMany(o => o.tempAdditionnalDefine).Distinct())
+            {
+                tempAdditionnalDefine.AddShaderChunk(string.Format("#define {0}", define), false);
+            }
+            resultShader = resultShader.Replace("${TemporaryAdditionnalDefines}", tempAdditionnalDefine.GetShaderString(1));
+            
             return resultShader;
         }
 
