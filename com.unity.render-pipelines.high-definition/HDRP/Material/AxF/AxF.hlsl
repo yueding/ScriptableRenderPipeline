@@ -18,6 +18,10 @@
 
 
 
+//#define RECOMPUTE_VECTORS_AFTER_REFRACTION  1   // Define this to recompute vectors after refraction by clear coat
+
+
+
 //-----------------------------------------------------------------------------
 // Debug method (use to display values)
 //-----------------------------------------------------------------------------
@@ -591,12 +595,14 @@ void	BSDF(   float3 _viewWS, float3 _lightWS, float _NdotL, float3 _positionWS, 
     if ( _flags & 2 ) {
         clearCoatReflection = (_BSDFData.clearCoatColor / PI) * F_FresnelDieletric( _BSDFData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
         clearCoatExtinction = ComputeClearCoatExtinction( _viewWS, _lightWS, _preLightData, _BSDFData );
-//        if ( _flags & 4U ) {
-//            // Recompute half vector after refraction
-//            H = normalize( _viewWS + _lightWS );
-//            LdotH = saturate( dot( H, _lightWS ) );
-//            _preLightData.NdotV = dot( _BSDFData.normalWS, _viewWS );
-//        }
+#if RECOMPUTE_VECTORS_AFTER_REFRACTION
+        if ( _flags & 4U ) {
+            // Recompute half vector after refraction
+            H = normalize( _viewWS + _lightWS );
+            LdotH = saturate( dot( H, _lightWS ) );
+            _preLightData.NdotV = dot( _BSDFData.normalWS, _viewWS );
+        }
+#endif
     }
 
     float   NdotV = ClampNdotV( _preLightData.NdotV );
@@ -787,12 +793,14 @@ void	BSDF(   float3 _viewWS, float3 _lightWS, float _NdotL, float3 _positionWS, 
     if ( _flags & 2 ) {
         clearCoatReflection = (_BSDFData.clearCoatColor / PI) * F_FresnelDieletric( _BSDFData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
         clearCoatExtinction = ComputeClearCoatExtinction( _viewWS, _lightWS, _preLightData, _BSDFData );
+#if RECOMPUTE_VECTORS_AFTER_REFRACTION
         if ( _flags & 4U ) {
             // Recompute half vector after refraction
             H = normalize( _viewWS + _lightWS );
             LdotH = saturate( dot( H, _lightWS ) );
             _preLightData.NdotV = dot( _BSDFData.normalWS, _viewWS );
         }
+#endif
     }
 
     // Compute remaining values AFTER potential clear coat refraction
@@ -1096,9 +1104,6 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext _lightLoopContext,
 
     IndirectLighting lighting;
     ZERO_INITIALIZE(IndirectLighting, lighting);
-
-return lighting;
-
 
     if ( _GPUImageBasedLightingType != GPUIMAGEBASEDLIGHTINGTYPE_REFLECTION )
         return lighting;    // We don't support transmission
