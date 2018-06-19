@@ -15,6 +15,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 	        public static GUIContent	diffuseColorMapText = new GUIContent( "Diffuse Color (Gamma 2.2)" );
 	        public static GUIContent	specularColorMapText = new GUIContent( "Specular Color (Gamma 2.2)" );
 	        public static GUIContent	specularLobeMapText = new GUIContent( "Specular Lobe" );
+	        public static GUIContent	specularLobeMapScaleText = new GUIContent( "Specular Lobe Scale" );
 	        public static GUIContent	fresnelMapText = new GUIContent( "Fresnel (Gamma 2.2)" );
 	        public static GUIContent	normalMapText = new GUIContent( "Normal" );
 
@@ -120,8 +121,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         protected MaterialProperty  m_diffuseColorMap = null;
         static string               m_specularColorMapText = "_SVBRDF_SpecularColorMap_sRGB";
 		protected MaterialProperty  m_specularColorMap = null;
+
         static string               m_specularLobeMapText = "_SVBRDF_SpecularLobeMap";
 		protected MaterialProperty	m_specularLobeMap = null;
+        static string               m_specularLobeMap_ScaleText = "_SVBRDF_SpecularLobeMap_Scale";
+        protected MaterialProperty  m_specularLobeMap_Scale;
+
         static string               m_fresnelMapText = "_SVBRDF_FresnelMap_sRGB";
 		protected MaterialProperty	m_fresnelMap = null;
         static string               m_normalMapText = "_SVBRDF_NormalMap";
@@ -208,6 +213,7 @@ MaterialProperty    m_debug_prop4;
 			m_diffuseColorMap = FindProperty( m_diffuseColorMapText, props );
 			m_specularColorMap = FindProperty( m_specularColorMapText, props );
 			m_specularLobeMap = FindProperty( m_specularLobeMapText, props );
+            m_specularLobeMap_Scale = FindProperty( m_specularLobeMap_ScaleText, props );
 			m_fresnelMap = FindProperty( m_fresnelMapText, props );
 			m_normalMap = FindProperty( m_normalMapText, props );
 
@@ -299,7 +305,9 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     diffuseType = (SVBRDF_DIFFUSE_TYPE) EditorGUILayout.Popup( "Diffuse Type", (int) diffuseType, SVBRDF_DIFFUSE_TYPENames );
                     specularType = (SVBRDF_SPECULAR_TYPE) EditorGUILayout.Popup( "Specular Type", (int) specularType, SVBRDF_SPECULAR_TYPENames );
 
-                    fresnelVariant = (SVBRDF_FRESNEL_VARIANT) EditorGUILayout.Popup( "Fresnel Variant", (int) fresnelVariant, SVBRDF_FRESNEL_VARIANTNames );
+                    if ( specularType == SVBRDF_SPECULAR_TYPE.WARD ) {
+                        fresnelVariant = (SVBRDF_FRESNEL_VARIANT) EditorGUILayout.Popup( "Fresnel Variant", (int) fresnelVariant, SVBRDF_FRESNEL_VARIANTNames );
+                    }
                     if ( specularType == SVBRDF_SPECULAR_TYPE.WARD
                       || specularType == SVBRDF_SPECULAR_TYPE.COOK_TORRANCE
                       || specularType == SVBRDF_SPECULAR_TYPE.GGX
@@ -313,6 +321,7 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     m_MaterialEditor.TexturePropertySingleLine( Styles.diffuseColorMapText, m_diffuseColorMap );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.specularColorMapText, m_specularColorMap );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.specularLobeMapText, m_specularLobeMap );
+                    m_specularLobeMap_Scale.floatValue = EditorGUILayout.FloatField( Styles.specularLobeMapScaleText, m_specularLobeMap_Scale.floatValue );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.fresnelMapText, m_fresnelMap );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.normalMapText, m_normalMap );
 

@@ -22,6 +22,7 @@
         _SVBRDF_SpecularColorMap_sRGB("_SVBRDF_SpecularColor", 2D) = "white" {}
         _SVBRDF_NormalMap("_SVBRDF_Normal", 2D) = "bump" {}
         _SVBRDF_SpecularLobeMap("_SVBRDF_SpecularLobe", 2D) = "white" {}
+        _SVBRDF_SpecularLobeMap_Scale("_SVBRDF_SpecularLobeMap_Scale", Float) = 1         // Scale is useless if we're directly provided a RG16F format
         _SVBRDF_OpacityMap("_SVBRDF_Opacity", 2D) = "white" {}
         _SVBRDF_FresnelMap_sRGB("_SVBRDF_Fresnel (sRGB)", 2D) = "white" {}
         _SVBRDF_AnisotropicRotationAngleMap("_SVBRDF_AnisotropicRotationAngle", 2D) = "black" {}

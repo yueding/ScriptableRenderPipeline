@@ -175,6 +175,43 @@ float3  MultiLobesCookTorrance( float NdotL, float NdotV, float NdotH, float Vdo
 }
 
 
+// Simple Oren-Nayar implementation
+//  _normal, unit surface normal
+//  _light, unit vector pointing toward the light
+//  _view, unit vector pointing toward the view
+//  _roughness, Oren-Nayar roughness parameter in [0,PI/2]
+//
+float   OrenNayar( in float3 _normal, in float3 _view, in float3 _light, in float _roughness ) {
+    float3  n = _normal;
+    float3  l = _light;
+    float3  v = _view;
+
+    float   LdotN = dot( l, n );
+    float   VdotN = dot( v, n );
+
+    float   gamma = dot( v - n * VdotN, l - n * LdotN )
+                    / (sqrt( saturate( 1.0 - VdotN*VdotN ) ) * sqrt( saturate( 1.0 - LdotN*LdotN ) ));
+
+    float rough_sq = _roughness * _roughness;
+//    float A = 1.0 - 0.5 * (rough_sq / (rough_sq + 0.33));   // You can replace 0.33 by 0.57 to simulate the missing inter-reflection term, as specified in footnote of page 22 of the 1992 paper
+    float A = 1.0 - 0.5 * (rough_sq / (rough_sq + 0.57));   // You can replace 0.33 by 0.57 to simulate the missing inter-reflection term, as specified in footnote of page 22 of the 1992 paper
+    float B = 0.45 * (rough_sq / (rough_sq + 0.09));
+
+    // Original formulation
+//  float angle_vn = acos( VdotN );
+//  float angle_ln = acos( LdotN );
+//  float alpha = max( angle_vn, angle_ln );
+//  float beta  = min( angle_vn, angle_ln );
+//  float C = sin(alpha) * tan(beta);
+
+    // Optimized formulation (without tangents, arccos or sines)
+    float2  cos_alpha_beta = VdotN < LdotN ? float2( VdotN, LdotN ) : float2( LdotN, VdotN );   // Here we reverse the min/max since cos() is a monotonically decreasing function
+    float2  sin_alpha_beta = sqrt( saturate( 1.0 - cos_alpha_beta*cos_alpha_beta ) );           // Saturate to avoid NaN if ever cos_alpha > 1 (it happens with floating-point precision)
+    float   C = sin_alpha_beta.x * sin_alpha_beta.y / (1e-6 + cos_alpha_beta.y);
+
+    return A + B * max( 0.0, gamma ) * C;
+}
+
 //-----------------------------------------------------------------------------
 // conversion function for forward
 //-----------------------------------------------------------------------------
@@ -187,6 +224,7 @@ BSDFData ConvertSurfaceDataToBSDFData( uint2 positionSS, SurfaceData surfaceData
 	data.tangentWS = surfaceData.tangentWS;
 	data.biTangentWS = surfaceData.biTangentWS;
 
+    ////////////////////////////////////////////////////////////////////////////////////////
     #ifdef _AXF_BRDF_TYPE_SVBRDF
 	    data.diffuseColor = surfaceData.diffuseColor;
         data.specularColor = surfaceData.specularColor;
@@ -201,6 +239,7 @@ BSDFData ConvertSurfaceDataToBSDFData( uint2 positionSS, SurfaceData surfaceData
 data.flakesUV = 0.0;
 data.flakesMipLevel = 0.0;
 
+    ////////////////////////////////////////////////////////////////////////////////////////
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 	    data.diffuseColor = surfaceData.diffuseColor;
 	    data.flakesUV = surfaceData.flakesUV;
@@ -433,7 +472,7 @@ float3  ComputeClearCoatExtinction( inout float3 _viewWS, inout float3 _lightWS,
 
 #ifdef _AXF_BRDF_TYPE_SVBRDF
 
-float3  ComputeWard( float3 _H, float _LdotH, float _NdotL, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
+float3  ComputeWard( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
 
     // Evaluate Fresnel term
     float3  F = 0.0;
@@ -457,6 +496,66 @@ float3  ComputeWard( float3 _H, float _LdotH, float _NdotL, float3 _positionWS, 
     return _BSDFData.specularColor * F * N;
 }
 
+float3  ComputeBlinnPhong( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
+    float2  exponents = exp2( _BSDFData.roughness );
+//    float2  exponents = exp2( _SVBRDF_SpecularLobeMap_Scale * float2( _DEBUG_anisotropicRoughessX, _DEBUG_anisotropicRoughessY ) );   // DEBUG
+
+
+    // Evaluate normal distribution function
+    float3  tsH = float3( dot( _H, _BSDFData.tangentWS ), dot( _H, _BSDFData.biTangentWS ), dot( _H, _BSDFData.normalWS ) );
+    float2  rotH = tsH.x * _preLightData.anisoX + tsH.y * _preLightData.anisoY;
+
+    float3  N = 0;
+    switch ( (_SVBRDF_BRDFVariants >> 4) & 3 ) {
+        case 0: {   // Ashikmin-Shirley
+            N   = sqrt( (1+exponents.x) * (1+exponents.y) ) / (8 * PI)
+                * pow( saturate( tsH.z ), (exponents.x * Sq(rotH.x) + exponents.y * Sq(rotH.y)) / (1 - Sq(tsH.z)) )
+                / (_LdotH * max( _NdotL, _NdotV ));
+            break;
+        }
+
+        case 1: {   // Blinn
+            float   exponent = 0.5 * (exponents.x + exponents.y);    // Should be isotropic anyway...
+            N   = (exponent + 2) / (8 * PI)
+                * pow( saturate( tsH.z ), exponent );
+            break;
+        }
+
+        case 2: // VRay
+        case 3: // Lewis
+            N = 1000 * float3( 1, 0, 1 );   // Not documented...
+            break;
+    }
+
+    return _BSDFData.specularColor * N;
+}
+
+float3  ComputeCookTorrance( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
+    float   NdotH = dot( _H, _BSDFData.normalWS );
+    float   sqNdotH = Sq( NdotH );
+
+    // Evaluate Fresnel term
+    float3  F = F_Schlick( _BSDFData.fresnelF0, _LdotH );
+
+    // Evaluate (isotropic) normal distribution function (Beckmann)
+    float   sqAlpha = _BSDFData.roughness.x * _BSDFData.roughness.y;
+    float   N = exp( (sqNdotH - 1) / (sqNdotH * sqAlpha) )
+              / (Sq(sqNdotH) * sqAlpha);
+
+    // Evaluate shadowing/masking term
+    float   G = CT_G( NdotH, _NdotV, _NdotL, _LdotH );
+
+    return _BSDFData.specularColor * F * N * G;
+}
+
+float3  ComputeGGX( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
+    return 1000 * float3( 1, 0, 1 );
+}
+float3  ComputePhong( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
+    return 1000 * float3( 1, 0, 1 );
+}
+
+
 // This function applies the BSDF. Assumes that _NdotL is positive.
 void	BSDF(   float3 _viewWS, float3 _lightWS, float _NdotL, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData,
                 out float3 _diffuseLighting, out float3 _specularLighting ) {
@@ -471,24 +570,32 @@ void	BSDF(   float3 _viewWS, float3 _lightWS, float _NdotL, float3 _positionWS, 
     if ( _flags & 2 ) {
         clearCoatReflection = (_BSDFData.clearCoatColor / PI) * F_FresnelDieletric( _BSDFData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
         clearCoatExtinction = ComputeClearCoatExtinction( _viewWS, _lightWS, _preLightData, _BSDFData );
-        if ( _flags & 4U ) {
-            // Recompute half vector after refraction
+//        if ( _flags & 4U ) {
+//            // Recompute half vector after refraction
 //            H = normalize( _viewWS + _lightWS );
 //            LdotH = saturate( dot( H, _lightWS ) );
 //            _preLightData.NdotV = dot( _BSDFData.normalWS, _viewWS );
-        }
+//        }
     }
+
+    float   NdotV = ClampNdotV( _preLightData.NdotV );
 
     // Compute diffuse term
     float3  diffuseTerm = Lambert();
     if ( _SVBRDF_BRDFType & 1 ) {
-        diffuseTerm = 1000 * float3( 1, 0, 1 );    // @TODO!
+        float   diffuseRoughness = 0.5 * HALF_PI;    // Arbitrary roughness (not specified in the documentation...)
+//        float   diffuseRoughness = _DEBUG_anisotropicRoughessX * HALF_PI;    // Arbitrary roughness (not specified in the documentation...)
+        diffuseTerm = INV_PI * OrenNayar( _BSDFData.normalWS, _viewWS, _lightWS, diffuseRoughness );
     }
 
     // Compute specular term
     float3  specularTerm = float3( 1, 0, 0 );
     switch ( (_SVBRDF_BRDFType >> 1) & 7 ) {
-        case 0: specularTerm = ComputeWard( H, LdotH, _NdotL, _positionWS, _preLightData, _BSDFData ); break;
+        case 0: specularTerm = ComputeWard( H, LdotH, _NdotL, NdotV, _positionWS, _preLightData, _BSDFData ); break;
+        case 1: specularTerm = ComputeBlinnPhong( H, LdotH, _NdotL, NdotV, _positionWS, _preLightData, _BSDFData ); break;
+        case 2: specularTerm = ComputeCookTorrance( H, LdotH, _NdotL, NdotV, _positionWS, _preLightData, _BSDFData ); break;
+        case 3: specularTerm = ComputeGGX( H, LdotH, _NdotL, NdotV, _positionWS, _preLightData, _BSDFData ); break;
+        case 4: specularTerm = ComputePhong( H, LdotH, _NdotL, NdotV, _positionWS, _preLightData, _BSDFData ); break;
         default:    // @TODO
             specularTerm = 1000 * float3( 1, 0, 1 );
             break;
@@ -661,9 +768,9 @@ void	BSDF(   float3 _viewWS, float3 _lightWS, float _NdotL, float3 _positionWS, 
         clearCoatExtinction = ComputeClearCoatExtinction( _viewWS, _lightWS, _preLightData, _BSDFData );
         if ( _flags & 4U ) {
             // Recompute half vector after refraction
-//            H = normalize( _viewWS + _lightWS );
-//            LdotH = saturate( dot( H, _lightWS ) );
-//            _preLightData.NdotV = dot( _BSDFData.normalWS, _viewWS );
+            H = normalize( _viewWS + _lightWS );
+            LdotH = saturate( dot( H, _lightWS ) );
+            _preLightData.NdotV = dot( _BSDFData.normalWS, _viewWS );
         }
     }
 
@@ -968,6 +1075,9 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext _lightLoopContext,
 
     IndirectLighting lighting;
     ZERO_INITIALIZE(IndirectLighting, lighting);
+
+return lighting;
+
 
     if ( _GPUImageBasedLightingType != GPUIMAGEBASEDLIGHTINGTYPE_REFLECTION )
         return lighting;    // We don't support transmission

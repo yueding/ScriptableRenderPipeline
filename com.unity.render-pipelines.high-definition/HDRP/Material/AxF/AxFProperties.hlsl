@@ -80,6 +80,8 @@ CBUFFER_START(UnityPerMaterial)
                                             // Bit 4-5 = Blinn-Phong Variant. 0 = Ashikmin-Shirley (2000), 1 = Blinn (1977), 2 = V-Ray, 3 = Lewis (1993)
                                             //
 
+    float   _SVBRDF_SpecularLobeMap_Scale;  // Optional scale factor to the specularLob map (useful when the map contains arbitrary Phong exponents)
+
     float   _SVBRDF_heightMapMax_mm;        // Maximum height map displacement, in millimeters
 
 
