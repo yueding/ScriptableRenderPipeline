@@ -1091,6 +1091,7 @@ IndirectLighting    EvaluateBSDF_SSLighting(    LightLoopContext _lightLoopConte
     return lighting;
 }
 
+
 //-----------------------------------------------------------------------------
 // EvaluateBSDF_Env
 // ----------------------------------------------------------------------------
@@ -1165,11 +1166,6 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext _lightLoopContext,
         float   NdotH = dot( _BSDFData.normalWS, H );
         float   VdotH = dot( _viewWS, H );
 
-//NdotH = max( 1e-3, NdotH );
-//NdotL = 1;//max( 1e-1, NdotL );
-//NdotV = max( 1e-3, NdotV );
-//NdotV = 1;
-
         float   thetaH = acos( clamp( NdotH, -1, 1 ) );
         float   thetaD = acos( clamp( VdotH, -1, 1 ) );
 
@@ -1227,7 +1223,7 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext _lightLoopContext,
     // Evaluate the Clear Coat component if needed
     if ( _flags & 2 ) {
 
-            // Evaluate clear coat sampling direction
+        // Evaluate clear coat sampling direction
         float   unusedWeight = 0.0;
         float3  clearCoatSamplingDirectionWS = environmentSamplingDirectionWS;
         EvaluateLight_EnvIntersection( positionWS, _BSDFData.clearCoatNormalWS, _lightData, _influenceShapeType, clearCoatSamplingDirectionWS, unusedWeight );
@@ -1235,7 +1231,7 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext _lightLoopContext,
         // Evaluate clear coat fresnel
         #if 1   // Use LdotH ==> Makes more sense! Stick to Cook-Torrance here...
             float3  H = normalize( _viewWS + clearCoatSamplingDirectionWS );
-            float   LdotH = dot( clearCoatSamplingDirectionWS, H );
+            float   LdotH = saturate( dot( clearCoatSamplingDirectionWS, H ) );
             float3  clearCoatF = F_FresnelDieletric( _BSDFData.clearCoatIOR, LdotH );
         #else   // Use LdotN
             float   LdotN = saturate( dot( clearCoatSamplingDirectionWS, _BSDFData.clearCoatNormalWS ) );
