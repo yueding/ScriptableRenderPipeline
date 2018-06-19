@@ -104,7 +104,7 @@ void ApplyDebugToBSDFData( inout BSDFData _BSDFData ) {
 // DEBUG Anisotropy
 //_BSDFData.anisotropyAngle = _DEBUG_anisotropyAngle;
 //_BSDFData.anisotropyAngle += _DEBUG_anisotropyAngle;
-//_BSDFData.roughness = float2( _DEBUG_anisotropicRoughessX, _DEBUG_anisotropicRoughessY );
+//_BSDFData.roughness = _SVBRDF_SpecularLobeMap_Scale * float2( _DEBUG_anisotropicRoughessX, _DEBUG_anisotropicRoughessY );
 
 // DEBUG Clear coat
 //_BSDFData.clearCoatIOR = max( 1.001, _DEBUG_clearCoatIOR );
@@ -175,6 +175,7 @@ float3  MultiLobesCookTorrance( float NdotL, float NdotV, float NdotH, float Vdo
 }
 
 
+//----------------------------------------------------------------------
 // Simple Oren-Nayar implementation
 //  _normal, unit surface normal
 //  _light, unit vector pointing toward the light
@@ -211,6 +212,14 @@ float   OrenNayar( in float3 _normal, in float3 _view, in float3 _light, in floa
 
     return A + B * max( 0.0, gamma ) * C;
 }
+
+
+//----------------------------------------------------------------------
+float   G_smith( float _NdotV, float _roughness ) {
+    float   a2 = Sq( _roughness );
+    return 2 * _NdotV / (_NdotV + sqrt( a2 + (1 - a2) * Sq(_NdotV) ));
+}
+
 
 //-----------------------------------------------------------------------------
 // conversion function for forward
@@ -498,8 +507,6 @@ float3  ComputeWard( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3
 
 float3  ComputeBlinnPhong( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
     float2  exponents = exp2( _BSDFData.roughness );
-//    float2  exponents = exp2( _SVBRDF_SpecularLobeMap_Scale * float2( _DEBUG_anisotropicRoughessX, _DEBUG_anisotropicRoughessY ) );   // DEBUG
-
 
     // Evaluate normal distribution function
     float3  tsH = float3( dot( _H, _BSDFData.tangentWS ), dot( _H, _BSDFData.biTangentWS ), dot( _H, _BSDFData.normalWS ) );
@@ -540,7 +547,7 @@ float3  ComputeCookTorrance( float3 _H, float _LdotH, float _NdotL, float _NdotV
     // Evaluate (isotropic) normal distribution function (Beckmann)
     float   sqAlpha = _BSDFData.roughness.x * _BSDFData.roughness.y;
     float   N = exp( (sqNdotH - 1) / (sqNdotH * sqAlpha) )
-              / (Sq(sqNdotH) * sqAlpha);
+              / (PI * Sq(sqNdotH) * sqAlpha);
 
     // Evaluate shadowing/masking term
     float   G = CT_G( NdotH, _NdotV, _NdotL, _LdotH );
@@ -549,8 +556,22 @@ float3  ComputeCookTorrance( float3 _H, float _LdotH, float _NdotL, float _NdotV
 }
 
 float3  ComputeGGX( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
-    return 1000 * float3( 1, 0, 1 );
+    // Evaluate Fresnel term
+    float3  F = F_Schlick( _BSDFData.fresnelF0, _LdotH );
+
+    // Evaluate normal distribution function (Trowbridge-Reitz)
+    float3  tsH = float3( dot( _H, _BSDFData.tangentWS ), dot( _H, _BSDFData.biTangentWS ), dot( _H, _BSDFData.normalWS ) );
+    float3  rotH = float3( (tsH.x * _preLightData.anisoX + tsH.y * _preLightData.anisoY) / _BSDFData.roughness, tsH.z );
+    float   N = 1.0 / (PI * _BSDFData.roughness.x*_BSDFData.roughness.y) * 1.0 / Sq( dot( rotH, rotH ) );
+
+    // Evaluate shadowing/masking term
+    float   roughness = 0.5 * (_BSDFData.roughness.x + _BSDFData.roughness.y);
+    float   G = G_smith( _NdotL, roughness ) * G_smith( _NdotV, roughness );
+            G /= 4.0 * _NdotL * _NdotV;
+
+    return _BSDFData.specularColor * F * N * G;
 }
+
 float3  ComputePhong( float3 _H, float _LdotH, float _NdotL, float _NdotV, float3 _positionWS, PreLightData _preLightData, BSDFData _BSDFData ) {
     return 1000 * float3( 1, 0, 1 );
 }

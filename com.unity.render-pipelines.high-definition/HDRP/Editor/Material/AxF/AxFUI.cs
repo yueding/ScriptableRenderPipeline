@@ -307,11 +307,6 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
 
                     if ( specularType == SVBRDF_SPECULAR_TYPE.WARD ) {
                         fresnelVariant = (SVBRDF_FRESNEL_VARIANT) EditorGUILayout.Popup( "Fresnel Variant", (int) fresnelVariant, SVBRDF_FRESNEL_VARIANTNames );
-                    }
-                    if ( specularType == SVBRDF_SPECULAR_TYPE.WARD
-                      || specularType == SVBRDF_SPECULAR_TYPE.COOK_TORRANCE
-                      || specularType == SVBRDF_SPECULAR_TYPE.GGX
-                      ) {
                         wardVariant = (SVBRDF_SPECULAR_VARIANT_WARD) EditorGUILayout.Popup( "Ward Variant", (int) wardVariant, SVBRDF_SPECULAR_VARIANT_WARDNames );
                     } else if ( specularType == SVBRDF_SPECULAR_TYPE.BLINN_PHONG ) {
                         blinnVariant = (SVBRDF_SPECULAR_VARIANT_BLINN) EditorGUILayout.Popup( "Blinn Variant", (int) blinnVariant, SVBRDF_SPECULAR_VARIANT_BLINNNames );
