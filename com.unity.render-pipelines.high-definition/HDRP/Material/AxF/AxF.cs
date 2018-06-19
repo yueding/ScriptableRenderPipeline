@@ -143,13 +143,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             [SurfaceDataAttributes("", false, true)]
             public float	clearCoatIOR;
         };
-/*
+
+//*
         //-----------------------------------------------------------------------------
         // Init precomputed texture
         //-----------------------------------------------------------------------------
         //
         Material        m_preIntegratedFGDMaterial = null;
         RenderTexture   m_preIntegratedFGD = null;
+        bool            m_preIntegratedTableAvailable = false;
 
         public AxF() {}
 
@@ -160,17 +162,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 //             PreIntegratedFGD.instance.Build();
 //             LTCAreaLight.instance.Build();
 
-            HDRenderPipelineAsset   hdrp = GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset;
-
-            string  HDRenderPipelinePath = "./Resources/";// HDEditorUtils.GetHDRenderPipelinePath();
-//            Shader  preIntegratedFGD_AxFWard = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>( HDRenderPipelinePath + "Material/PreIntegratedFGD_AxFWard.shader" );
-            string[]  shaderGUIDs = UnityEditor.AssetDatabase.FindAssets( "PreIntegratedFGD_AxFWard.shader" );
-//             if ( preIntegratedFGD_AxFWard == null )
+            string[]  shaderGUIDs = UnityEditor.AssetDatabase.FindAssets( "PreIntegratedFGD_AxFWard" );
             if ( shaderGUIDs == null || shaderGUIDs.Length == 0 )
                 throw new Exception( "Shader for Ward BRDF pre-integration not found!" );
 
+Debug.Log( "Found " + shaderGUIDs.Length + " Ward DFG shaders!" );
+
             Shader  preIntegratedFGD_AxFWard = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>( UnityEditor.AssetDatabase.GUIDToAssetPath( shaderGUIDs[0] ) );
             m_preIntegratedFGDMaterial = CoreUtils.CreateEngineMaterial( preIntegratedFGD_AxFWard );
+
+//UnityEditor.AssetPostprocessor
+//UnityEditor.AssetDatabase.
 
             m_preIntegratedFGD = new RenderTexture( 128, 128, 0, RenderTextureFormat.ARGB2101010, RenderTextureReadWrite.Linear );
             m_preIntegratedFGD.hideFlags = HideFlags.HideAndDontSave;
@@ -184,26 +186,43 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public override void Cleanup() {
 //             PreIntegratedFGD.instance.Cleanup();
 //             LTCAreaLight.instance.Cleanup();
+
+Debug.Log( "Destroying Ward DFG shaders!" );
+
             CoreUtils.Destroy( m_preIntegratedFGDMaterial );
             CoreUtils.Destroy( m_preIntegratedFGD );
             m_preIntegratedFGD = null;
             m_preIntegratedFGDMaterial = null;
+            m_preIntegratedTableAvailable = false;
         }
 
         public override void RenderInit(CommandBuffer cmd) {
             if ( m_preIntegratedFGDMaterial == null )
                 return;
+            if ( m_preIntegratedTableAvailable ) {
+//Debug.Log( "****Ward DFG table already computed****" );
+                return;
+            }
+
+Debug.Log( "Rendering Ward DFG table!" );
 
             using ( new ProfilingSample(cmd, "PreIntegratedFGD Material Generation for Ward BRDF" ) ) {
                 CoreUtils.DrawFullScreen( cmd, m_preIntegratedFGDMaterial, new RenderTargetIdentifier( m_preIntegratedFGD ) );
+                m_preIntegratedTableAvailable = true;
             }
         }
 
         public override void Bind() {
+            if ( m_preIntegratedFGD == null || !m_preIntegratedTableAvailable ) {
+                throw new Exception( "Ward BRDF pre-integration table not available!" );
+            }
+
+//Debug.Log( "Binding Ward DFG table!" );
+
 //             PreIntegratedFGD.instance.Bind();
 //             LTCAreaLight.instance.Bind();
             Shader.SetGlobalTexture( "_PreIntegratedFGD", m_preIntegratedFGD );
         }
-*/
+//*/
     }
 }
