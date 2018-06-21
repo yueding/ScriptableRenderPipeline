@@ -1,4 +1,4 @@
-﻿Shader "Hidden/HDRenderPipeline/PreIntegratedFGD_AxFWard"
+﻿Shader "Hidden/HDRenderPipeline/PreIntegratedFGD_WardLambert"
 {
     SubShader
     {
@@ -24,6 +24,9 @@
             // ----------------------------------------------------------------------------
             // Importance sampling BSDF functions
             // ----------------------------------------------------------------------------
+            // Formulas come from -> Walter, B. 2005 "Notes on the Ward BRDF" (https://pdfs.semanticscholar.org/330e/59117d7da6c794750730a15f9a178391b9fe.pdf)
+            // The BRDF though, is the one most proeminently used by the AxF materials and is based on the Geisler-Moroder variation of Ward (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.169.9908&rep=rep1&type=pdf)
+            //
             void SampleWardDir( real2   u,
                                 real3   V,
                                 real3x3 localToWorld,
@@ -31,26 +34,19 @@
                             out real3   L,
                             out real    NdotL,
                             out real    NdotH,
-                            out real    VdotH,
-                                bool    VeqN = false )
+                            out real    VdotH )
             {
-                // Ward NDF sampling
-                real    cosTheta = sqrt((1.0 - u.x) / (1.0 + (roughness * roughness - 1.0) * u.x));
+                // Ward NDF sampling (eqs. 6 & 7 from above paper)
+                real    tanTheta = roughness * sqrt( -log( max( 1e-6, u.x ) ) );
                 real    phi      = TWO_PI * u.y;
 
-                real3   localH = SphericalToCartesian(phi, cosTheta);
+                real    cosTheta = rsqrt( 1 + Sq( tanTheta ) );
+                real3   localH = SphericalToCartesian( phi, cosTheta );
 
                 NdotH = cosTheta;
 
-                real3   localV;
-                if ( VeqN ) {
-                    // localV == localN
-                    localV = real3(0.0, 0.0, 1.0);
-                    VdotH  = NdotH;
-                } else {
-                    localV = mul( V, transpose(localToWorld) );
-                    VdotH  = saturate( dot(localV, localH) );
-                }
+                real3   localV = mul( V, transpose(localToWorld) );
+                VdotH  = saturate( dot( localV, localH ) );
 
                 // Compute { localL = reflect(-localV, localH) }
                 real3   localL = -localV + 2.0 * VdotH * localH;
@@ -59,30 +55,7 @@
                 L = mul( localL, localToWorld );
             }
 
-//            // weightOverPdf return the weight (without the diffuseAlbedo term) over pdf. diffuseAlbedo term must be apply by the caller.
-//            void ImportanceSampleLambert(real2   u,
-//                                         real3x3 localToWorld,
-//                                     out real3   L,
-//                                     out real    NdotL,
-//                                     out real    weightOverPdf)
-//            {
-//                real3 N = localToWorld[2];
-//
-//                L     = SampleHemisphereCosine(u.x, u.y, N);
-//                NdotL = saturate(dot(N, L));
-//
-//                // Importance sampling weight for each sample
-//                // pdf = N.L / PI
-//                // weight = fr * (N.L) with fr = diffuseAlbedo / PI
-//                // weight over pdf is:
-//                // weightOverPdf = (diffuseAlbedo / PI) * (N.L) / (N.L / PI)
-//                // weightOverPdf = diffuseAlbedo
-//                // diffuseAlbedo is apply outside the function
-//
-//                weightOverPdf = 1.0;
-//            }
-
-            // weightOverPdf return the weight (without the Fresnel term) over pdf. Fresnel term must be apply by the caller.
+            // weightOverPdf returns the weight (without the Fresnel term) over pdf. Fresnel term must be applied by the caller.
             void ImportanceSampleWard(  real2   u,
                                         real3   V,
                                         real3x3 localToWorld,
@@ -96,17 +69,14 @@
                 real    NdotH;
                 SampleWardDir( u, V, localToWorld, roughness, L, NdotL, NdotH, VdotH );
 
-                // Importance sampling weight for each sample
-                // pdf = D(H) * (N.H) / (4 * (L.H))
-                // weight = fr * (N.L) with fr = F(H) * G(V, L) * D(H) / (4 * (N.L) * (N.V))
+                // Importance sampling weight for each sample (eq. 9 from Walter, 2005)
+                // pdf = 1 / (4PI * a² * (L.H) * (H.N)^3) * exp( ((N.H)² - 1) / (a² * (N.H)²) )
+                // fr = (F(N.H) * s) / (4PI * a² * (L.H)² * (H.N)^4) * exp( ((N.H)² - 1) / (a² * (N.H)²) )     <= Moroder-Geisler version
                 // weight over pdf is:
-                // weightOverPdf = F(H) * G(V, L) * (L.H) / ((N.H) * (N.V))
-                // weightOverPdf = F(H) * 4 * (N.L) * V(V, L) * (L.H) / (N.H) with V(V, L) = G(V, L) / (4 * (N.L) * (N.V))
-                // Remind (L.H) == (V.H)
-                // F is apply outside the function
-
-                real Vis = V_SmithJointGGX(NdotL, NdotV, roughness);
-                weightOverPdf = 4.0 * Vis * NdotL * VdotH / NdotH;
+                // weightOverPdf = fr * (N.V) / pdf = s * F(N.H) * (N.V) / ((L.H) * (N.H))
+                // s * F(N.H) is applied outside the function
+                //
+                weightOverPdf = NdotV / (VdotH * NdotH);
             }
 
             float4  IntegrateWardAndLambertDiffuseFGD( float3 V, float3 N, float roughness, uint sampleCount = 8192 ) {
@@ -136,21 +106,15 @@
                         acc.y += weightOverPdf;
                     }
 
-                    // for Disney we still use a Cosine importance sampling, true Disney importance sampling imply a look up table
+                    // Regular Lambert
                     ImportanceSampleLambert( u, localToWorld, L, NdotL, weightOverPdf );
 
                     if ( NdotL > 0.0 ) {
-                        float   LdotV = dot(L, V);
-                        float   disneyDiffuse = DisneyDiffuseNoPI( NdotV, NdotL, LdotV, RoughnessToPerceptualRoughness(roughness) );
-
-                        acc.z += disneyDiffuse * weightOverPdf;
+                        acc.z += LambertNoPI() * weightOverPdf;
                     }
                 }
 
                 acc /= sampleCount;
-
-                // Remap from the [0.5, 1.5] to the [0, 1] range.
-                acc.z -= 0.5;
 
                 return acc;
             }
@@ -182,7 +146,6 @@
                 float3  V                   = float3(sqrt(1 - NdotV * NdotV), 0, NdotV);
                 float3  N                   = float3(0.0, 0.0, 1.0);
 
-                // Pre integrate GGX with smithJoint visibility as well as DisneyDiffuse
                 float4 preFGD = IntegrateWardAndLambertDiffuseFGD( V, N, PerceptualRoughnessToRoughness(perceptualRoughness) );
 
                 return float4(preFGD.xyz, 1.0);

@@ -7,7 +7,7 @@
 //#include "CoreRP/ShaderLibrary/VolumeRendering.hlsl"
 
 // Declare the BSDF specific FGD property and its fetching function
-//#include "../PreIntegratedFGD/PreIntegratedFGD.hlsl"
+#include "../PreIntegratedFGD/PreIntegratedFGD.hlsl"
 #include "./Resources/PreIntegratedFGD.hlsl"
 
 //NEWLITTODO : wireup CBUFFERs for ambientocclusion, and other uniforms and samplers used:
@@ -249,8 +249,9 @@ BSDFData ConvertSurfaceDataToBSDFData( uint2 positionSS, SurfaceData surfaceData
         data.clearCoatNormalWS = surfaceData.clearCoatNormalWS;
         data.clearCoatIOR = surfaceData.clearCoatIOR;
 
-data.flakesUV = 0.0;
-data.flakesMipLevel = 0.0;
+// Useless but pass along anyway
+data.flakesUV = surfaceData.flakesUV;
+data.flakesMipLevel = surfaceData.flakesMipLevel;
 
     ////////////////////////////////////////////////////////////////////////////////////////
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
@@ -298,11 +299,11 @@ struct PreLightData {
 
     // IBL
     float   IBLRoughness;
+    float3  IBLDominantDirectionWS;   // Dominant specular direction, used for IBL in EvaluateBSDF_Env()
     #ifdef _AXF_BRDF_TYPE_SVBRDF
+	    float3  specularFGD;
 	    float   diffuseFGD;
     #endif
-    float3  IBLDominantDirectionWS;   // Dominant specular direction, used for IBL in EvaluateBSDF_Env()
-	float3  specularFGD;
 };
 
 PreLightData    GetPreLightData( float3 _viewWS, PositionInputs _posInput, inout BSDFData _BSDFData ) {
@@ -334,10 +335,19 @@ PreLightData    GetPreLightData( float3 _viewWS, PositionInputs _posInput, inout
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         // Handle IBL +  multiscattering
-// @TODO FGD !!
         _preLightData.IBLRoughness = 0.5 * (_BSDFData.roughness.x + _BSDFData.roughness.y);    // @TODO => Anisotropic IBL?
         float specularReflectivity;
-        GetPreIntegratedFGDWard( NdotV, _preLightData.IBLRoughness, _BSDFData.fresnelF0, _preLightData.specularFGD, _preLightData.diffuseFGD, specularReflectivity );
+        switch ( (_SVBRDF_BRDFType >> 1) & 7 ) {
+            case 0: GetPreIntegratedFGDWardLambert( NdotV, _preLightData.IBLRoughness, _BSDFData.fresnelF0, _preLightData.specularFGD, _preLightData.diffuseFGD, specularReflectivity ); break;
+//            case 1: // @TODO: Support Blinn-Phong FGD?
+            case 2: GetPreIntegratedFGDCookTorranceLambert( NdotV, _preLightData.IBLRoughness, _BSDFData.fresnelF0, _preLightData.specularFGD, _preLightData.diffuseFGD, specularReflectivity ); break;
+            case 3: GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, _preLightData.IBLRoughness, _BSDFData.fresnelF0, _preLightData.specularFGD, _preLightData.diffuseFGD, specularReflectivity); break;
+//            case 4: // @TODO: Support Blinn-Phong FGD?
+            default:    // Use GGX by default
+                GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, _preLightData.IBLRoughness, _BSDFData.fresnelF0, _preLightData.specularFGD, _preLightData.diffuseFGD, specularReflectivity);
+                break;
+        }
+        
         #ifdef LIT_DIFFUSE_LAMBERT_BRDF
             _preLightData.diffuseFGD = 1.0;
         #endif
@@ -1197,10 +1207,18 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext _lightLoopContext,
                 float   coeff = _CarPaint_CT_coeffs[lobeIndex];
                 float   spread = _CarPaint_CT_spreads[lobeIndex];
 
+                float   perceptualRoughness = RoughnessToPerceptualRoughness( spread );
+
                 float   lobeIntensity = coeff * CT_D( NdotH, spread ) * CT_F( VdotH, F0 );
-                float   lobeMipLevel = PerceptualRoughnessToMipmapLevel( spread );
+                float   lobeMipLevel = PerceptualRoughnessToMipmapLevel( perceptualRoughness );
                 float4  preLD = SampleEnv( _lightLoopContext, _lightData.envIndex, environmentSamplingDirectionWS, lobeMipLevel );
-                envLighting += lobeIntensity * preLD.xyz;
+
+                // Apply FGD
+                float3  specularFGD = 1;
+                float   diffuseFGD, reflectivity;
+                GetPreIntegratedFGDCookTorranceLambert( NdotV, perceptualRoughness, F0, specularFGD, diffuseFGD, reflectivity );
+
+                envLighting += lobeIntensity * specularFGD * preLD.xyz;
                 sumWeights += preLD.w;
             }
             envLighting *= CT_G( NdotH, NdotV, NdotL, VdotH )  // Shadowing/Masking term
@@ -1216,6 +1234,11 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext _lightLoopContext,
             weight *= sumWeights / _CarPaint_lobesCount;
 
         #endif
+
+    //-----------------------------------------------------------------------------
+    #else
+
+        float3  envLighting = 0;
 
     #endif
 
@@ -1344,6 +1367,17 @@ void    PostEvaluateBSDF(   LightLoopContext _lightLoopContext,
 //_specularLighting = SamplesFlakes( _BSDFData.flakesUV, _DEBUG_clearCoatIOR, 0 );
 //#endif
 
+/*
+// DEBUG DFG Texture
+_diffuseLighting = 0;
+_specularLighting = _PreIntegratedFGD_WardLambert.SampleLevel( s_linear_clamp_sampler, _BSDFData.flakesUV, 0.0 ).xyz;
+//_specularLighting = _PreIntegratedFGD_CookTorranceLambert.SampleLevel( s_linear_clamp_sampler, _BSDFData.flakesUV, 0.0 ).xyz;
+//_specularLighting = _PreIntegratedFGD_GGXDisneyDiffuse.SampleLevel( s_linear_clamp_sampler, _BSDFData.flakesUV, 0.0 ).xyz;
+//_specularLighting = _PreIntegratedFGD_CharlieAndCloth.SampleLevel( s_linear_clamp_sampler, _BSDFData.flakesUV, 0.0 ).xyz;
+_specularLighting.z = 0;
+//_specularLighting = float3( _BSDFData.flakesUV, 0.0 );
+//_specularLighting = float3( 0.5, 0, 0 );
+*/
 }
 
 #endif // #ifdef HAS_LIGHTLOOP

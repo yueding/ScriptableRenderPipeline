@@ -52,7 +52,7 @@ UV0 *= float2( _materialSizeU_mm, _materialSizeV_mm );
 
 
 // Useless for SVBRDF
-_surfaceData.flakesUV = 0.0;
+_surfaceData.flakesUV = _input.texCoord0;
 _surfaceData.flakesMipLevel = 0.0;
 
 
