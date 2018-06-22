@@ -77,23 +77,6 @@ _DEBUG_clearCoatIOR( "Clear Coat IOR", Float ) = 1
 //      [ToggleUI] _AlbedoAffectEmissive("Albedo Affect Emissive", Float) = 0.0
 
 
-//      _DistortionVectorMap("DistortionVectorMap", 2D) = "black" {}
-//      [ToggleUI] _DistortionEnable("Enable Distortion", Float) = 0.0
-//      [ToggleUI] _DistortionOnly("Distortion Only", Float) = 0.0
-//      [ToggleUI] _DistortionDepthTest("Distortion Depth Test Enable", Float) = 1.0
-//      [Enum(Add, 0, Multiply, 1)] _DistortionBlendMode("Distortion Blend Mode", Int) = 0
-//      [HideInInspector] _DistortionSrcBlend("Distortion Blend Src", Int) = 0
-//      [HideInInspector] _DistortionDstBlend("Distortion Blend Dst", Int) = 0
-//      [HideInInspector] _DistortionBlurSrcBlend("Distortion Blur Blend Src", Int) = 0
-//      [HideInInspector] _DistortionBlurDstBlend("Distortion Blur Blend Dst", Int) = 0
-//      [HideInInspector] _DistortionBlurBlendMode("Distortion Blur Blend Mode", Int) = 0
-//      _DistortionScale("Distortion Scale", Float) = 1
-//      _DistortionVectorScale("Distortion Vector Scale", Float) = 2
-//      _DistortionVectorBias("Distortion Vector Bias", Float) = -1
-//      _DistortionBlurScale("Distortion Blur Scale", Float) = 1
-//      _DistortionBlurRemapMin("DistortionBlurRemapMin", Float) = 0.0
-//      _DistortionBlurRemapMax("DistortionBlurRemapMax", Float) = 1.0
-
 //      // Transparency
 //      [ToggleUI] _PreRefractionPass("PreRefractionPass", Float) = 0.0
 //      
@@ -269,29 +252,6 @@ _DEBUG_clearCoatIOR( "Clear Coat IOR", Float ) = 1
 		    #include "ShaderPass/AxFDepthPass.hlsl"
 		    #include "AxFData.hlsl"
 		    #include "../../ShaderPass/ShaderPassDepthOnly.hlsl"
-
-		    ENDHLSL
-	    }
-
-	    Pass
-	    {
-		    Name "Distortion" // Name is not used
-		    Tags { "LightMode" = "DistortionVectors" } // This will be only for transparent object based on the RenderQueue index
-
-		    Blend [_DistortionSrcBlend] [_DistortionDstBlend], [_DistortionBlurSrcBlend] [_DistortionBlurDstBlend]
-		    BlendOp Add, [_DistortionBlurBlendOp]
-		    ZTest [_ZTestModeDistortion]
-		    ZWrite off
-		    Cull [_CullMode]
-
-		    HLSLPROGRAM
-
-		    #define SHADERPASS SHADERPASS_DISTORTION
-		    #include "../../ShaderVariables.hlsl"
-		    #include "../../Material/Material.hlsl"
-		    #include "ShaderPass/AxFDistortionPass.hlsl"
-		    #include "AxFData.hlsl"
-		    #include "../../ShaderPass/ShaderPassDistortion.hlsl"
 
 		    ENDHLSL
 	    }

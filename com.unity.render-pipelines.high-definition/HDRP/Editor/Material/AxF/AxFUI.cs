@@ -50,49 +50,54 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 	        public static GUIContent	clearCoatIORMapText = new GUIContent( "Clear-Coat IOR" );
         }
 
-        enum	AXF_BRDF_TYPE {
+        enum	AxfBrdfType
+        {
             SVBRDF,
             CAR_PAINT,
             BTF,
         }
-        static readonly string[]	AxFBRDFTypeNames = Enum.GetNames(typeof(AXF_BRDF_TYPE));
+        static readonly string[]	AxfBrdfTypeNames = Enum.GetNames(typeof(AxfBrdfType));
 
-        enum    SVBRDF_DIFFUSE_TYPE {
+        enum    SvbrdfDiffuseType
+        {
 	        LAMBERT = 0,
 	        OREN_NAYAR = 1,
-//			DISNEY,
         }
-        static readonly string[]	SVBRDF_DIFFUSE_TYPENames = Enum.GetNames(typeof(SVBRDF_DIFFUSE_TYPE));
+        static readonly string[]	SvbrdfDiffuseTypeNames = Enum.GetNames(typeof(SvbrdfDiffuseType));
 
-        enum    SVBRDF_SPECULAR_TYPE {
+        enum    SvbrdfSpecularType
+        {
             WARD = 0,
             BLINN_PHONG = 1,
             COOK_TORRANCE = 2,
             GGX = 3,
             PHONG = 4,
         }
-        static readonly string[]	SVBRDF_SPECULAR_TYPENames = Enum.GetNames(typeof(SVBRDF_SPECULAR_TYPE));
+        static readonly string[]	SvbrdfSpecularTypeNames = Enum.GetNames(typeof(SvbrdfSpecularType));
 
-        enum    SVBRDF_SPECULAR_VARIANT_WARD {  // Ward variants
+        enum    SvbrdfSpecularVariantWard   // Ward variants
+        {
             GEISLERMORODER,		// 2010 (albedo-conservative, should always be preferred!)
             DUER,				// 2006
             WARD,				// 1992 (original paper)
         }
-        static readonly string[]	SVBRDF_SPECULAR_VARIANT_WARDNames = Enum.GetNames(typeof(SVBRDF_SPECULAR_VARIANT_WARD));
-        enum    SVBRDF_SPECULAR_VARIANT_BLINN { // Blinn-Phong variants
+        static readonly string[]	SvbrdfSpecularVariantWardNames = Enum.GetNames(typeof(SvbrdfSpecularVariantWard));
+        enum    SvbrdfSpecularVariantBlinn  // Blinn-Phong variants
+        {
             ASHIKHMIN_SHIRLEY,	// 2000
             BLINN,				// 1977 (original paper)
             VRAY,
             LEWIS,				// 1993
         }
-        static readonly string[]	SVBRDF_SPECULAR_VARIANT_BLINNNames = Enum.GetNames(typeof(SVBRDF_SPECULAR_VARIANT_BLINN));
+        static readonly string[]	SvbrdfSpecularVariantBlinnNames = Enum.GetNames(typeof(SvbrdfSpecularVariantBlinn));
 
-        enum    SVBRDF_FRESNEL_VARIANT {
+        enum    SvbrdfFresnelVariant
+        {
             NO_FRESNEL,			// No fresnel
             FRESNEL,			// Full fresnel (1818)
             SCHLICK,			// Schlick's Approximation (1994)
         }
-        static readonly string[]	SVBRDF_FRESNEL_VARIANTNames = Enum.GetNames(typeof(SVBRDF_FRESNEL_VARIANT));
+        static readonly string[]	SvbrdfFresnelVariantNames = Enum.GetNames(typeof(SvbrdfFresnelVariant));
 
         /////////////////////////////////////////////////////////////////////////////////////////////////
         // Generic Parameters
@@ -185,16 +190,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 		protected MaterialProperty	m_clearCoatIORMap = null;
 
 
-// Exemple de lit.shader pour gérer les enums de shader variants
-//     #pragma shader_feature _ _BLENDMODE_ALPHA _BLENDMODE_ADD _BLENDMODE_PRE_MULTIPLY
-
 MaterialProperty    m_debug_prop0;
 MaterialProperty    m_debug_prop1;
 MaterialProperty    m_debug_prop2;
 MaterialProperty    m_debug_prop3;
 MaterialProperty    m_debug_prop4;
 
-		override protected void FindMaterialProperties( MaterialProperty[] props ) {
+		override protected void FindMaterialProperties( MaterialProperty[] props )
+        {
 
             m_materialSizeU_mm = FindProperty( m_materialSizeU_mmText, props );
             m_materialSizeV_mm = FindProperty( m_materialSizeV_mmText, props );
@@ -278,12 +281,14 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
             m_MaterialEditor.ShaderProperty( m_materialSizeU_mm, "Material Size U (mm)" );
             m_MaterialEditor.ShaderProperty( m_materialSizeV_mm, "Material Size V (mm)" );
 
-            AXF_BRDF_TYPE	AxF_BRDFType = (AXF_BRDF_TYPE) m_AxF_BRDFType.floatValue;
-                            AxF_BRDFType = (AXF_BRDF_TYPE) EditorGUILayout.Popup( "BRDF Type", (int) AxF_BRDFType, AxFBRDFTypeNames );
+            AxfBrdfType	AxF_BRDFType = (AxfBrdfType) m_AxF_BRDFType.floatValue;
+                            AxF_BRDFType = (AxfBrdfType) EditorGUILayout.Popup( "BRDF Type", (int) AxF_BRDFType, AxfBrdfTypeNames );
 		    m_AxF_BRDFType.floatValue = (float) AxF_BRDFType;
 
-            switch ( AxF_BRDFType ) {
-                case AXF_BRDF_TYPE.SVBRDF: {
+            switch ( AxF_BRDFType )
+            {
+                case AxfBrdfType.SVBRDF:
+                {
                     EditorGUILayout.Space();
                     ++EditorGUI.indentLevel;
 
@@ -292,24 +297,27 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     uint    BRDFType = (uint) m_SVBRDF_BRDFType.floatValue;
                     uint    BRDFVariants = (uint) m_SVBRDF_BRDFVariants.floatValue;
 
-                    SVBRDF_DIFFUSE_TYPE diffuseType = (SVBRDF_DIFFUSE_TYPE) (BRDFType & 0x1);
-                    SVBRDF_SPECULAR_TYPE specularType = (SVBRDF_SPECULAR_TYPE) ((BRDFType >> 1) & 0x7);
-                    SVBRDF_FRESNEL_VARIANT fresnelVariant = (SVBRDF_FRESNEL_VARIANT) (BRDFVariants & 0x3);
-                    SVBRDF_SPECULAR_VARIANT_WARD wardVariant = (SVBRDF_SPECULAR_VARIANT_WARD) ((BRDFVariants >> 2) & 0x3);
-                    SVBRDF_SPECULAR_VARIANT_BLINN blinnVariant = (SVBRDF_SPECULAR_VARIANT_BLINN) ((BRDFVariants >> 4) & 0x3);
+                    SvbrdfDiffuseType diffuseType = (SvbrdfDiffuseType) (BRDFType & 0x1);
+                    SvbrdfSpecularType specularType = (SvbrdfSpecularType) ((BRDFType >> 1) & 0x7);
+                    SvbrdfFresnelVariant fresnelVariant = (SvbrdfFresnelVariant) (BRDFVariants & 0x3);
+                    SvbrdfSpecularVariantWard wardVariant = (SvbrdfSpecularVariantWard) ((BRDFVariants >> 2) & 0x3);
+                    SvbrdfSpecularVariantBlinn blinnVariant = (SvbrdfSpecularVariantBlinn) ((BRDFVariants >> 4) & 0x3);
 
                     // Expand as user-friendly UI
 //                     EditorGUILayout.LabelField( "Flags", EditorStyles.boldLabel );
                     EditorGUILayout.LabelField( "BRDF Variants", EditorStyles.boldLabel );
 
-                    diffuseType = (SVBRDF_DIFFUSE_TYPE) EditorGUILayout.Popup( "Diffuse Type", (int) diffuseType, SVBRDF_DIFFUSE_TYPENames );
-                    specularType = (SVBRDF_SPECULAR_TYPE) EditorGUILayout.Popup( "Specular Type", (int) specularType, SVBRDF_SPECULAR_TYPENames );
+                    diffuseType = (SvbrdfDiffuseType) EditorGUILayout.Popup( "Diffuse Type", (int) diffuseType, SvbrdfDiffuseTypeNames );
+                    specularType = (SvbrdfSpecularType) EditorGUILayout.Popup( "Specular Type", (int) specularType, SvbrdfSpecularTypeNames );
 
-                    if ( specularType == SVBRDF_SPECULAR_TYPE.WARD ) {
-                        fresnelVariant = (SVBRDF_FRESNEL_VARIANT) EditorGUILayout.Popup( "Fresnel Variant", (int) fresnelVariant, SVBRDF_FRESNEL_VARIANTNames );
-                        wardVariant = (SVBRDF_SPECULAR_VARIANT_WARD) EditorGUILayout.Popup( "Ward Variant", (int) wardVariant, SVBRDF_SPECULAR_VARIANT_WARDNames );
-                    } else if ( specularType == SVBRDF_SPECULAR_TYPE.BLINN_PHONG ) {
-                        blinnVariant = (SVBRDF_SPECULAR_VARIANT_BLINN) EditorGUILayout.Popup( "Blinn Variant", (int) blinnVariant, SVBRDF_SPECULAR_VARIANT_BLINNNames );
+                    if (specularType == SvbrdfSpecularType.WARD)
+                    {
+                        fresnelVariant = (SvbrdfFresnelVariant) EditorGUILayout.Popup( "Fresnel Variant", (int) fresnelVariant, SvbrdfFresnelVariantNames );
+                        wardVariant = (SvbrdfSpecularVariantWard) EditorGUILayout.Popup( "Ward Variant", (int) wardVariant, SvbrdfSpecularVariantWardNames );
+                    }
+                    else if (specularType == SvbrdfSpecularType.BLINN_PHONG)
+                    {
+                        blinnVariant = (SvbrdfSpecularVariantBlinn) EditorGUILayout.Popup( "Blinn Variant", (int) blinnVariant, SvbrdfSpecularVariantBlinnNames );
                     }
 
                     // Regular maps
@@ -325,7 +333,8 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
 
                     // Displacement
                     bool    useDisplacementMap = EditorGUILayout.Toggle( "Enable Displacement Map", (flags & 8) != 0 );
-                    if ( useDisplacementMap ) {
+                    if (useDisplacementMap)
+                    {
                         ++EditorGUI.indentLevel;
                         m_MaterialEditor.TexturePropertySingleLine( Styles.heightMapText, m_heightMap );
                         m_MaterialEditor.ShaderProperty( m_SVBRDF_heightMapMax_mm, "Max Displacement (mm)" );
@@ -334,7 +343,8 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
 
                     // Anisotropy
                     bool    isAnisotropic = EditorGUILayout.Toggle( "Is Anisotropic", (flags & 1) != 0 );
-                    if ( isAnisotropic ) {
+                    if (isAnisotropic)
+                    {
                         ++EditorGUI.indentLevel;
                         m_MaterialEditor.TexturePropertySingleLine( Styles.anisotropyRotationAngleMapText, m_anisotropicRotationAngleMap );
                         --EditorGUI.indentLevel;
@@ -343,12 +353,14 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     // Clear-coat
                     bool    hasClearCoat = EditorGUILayout.Toggle( "Enable Clear-Coat", (flags & 2) != 0 );
                     bool    clearCoatUsesRefraction = (flags & 4) != 0;
-                    if ( hasClearCoat ) {
+                    if ( hasClearCoat )
+                    {
                         ++EditorGUI.indentLevel;
                         m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatColorMapText, m_clearCoatColorMap );
                         m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatNormalMapText, m_clearCoatNormalMap );
                         clearCoatUsesRefraction = EditorGUILayout.Toggle( "Enable Refraction", clearCoatUsesRefraction );
-                        if ( clearCoatUsesRefraction ) {
+                        if ( clearCoatUsesRefraction )
+                        {
                             ++EditorGUI.indentLevel;
                             m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatIORMapText, m_clearCoatIORMap );
                             --EditorGUI.indentLevel;
@@ -381,7 +393,8 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     break;
                 }
 
-                case AXF_BRDF_TYPE.CAR_PAINT: {
+                case AxfBrdfType.CAR_PAINT:
+                {
                     EditorGUILayout.Space();
                     ++EditorGUI.indentLevel;
 
@@ -441,55 +454,39 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     break;
                 }
             }
-
-
-//          m_MaterialEditor.TexturePropertySingleLine( Styles.baseColorText, m_baseColorMap, m_baseColor );
-//          m_MaterialEditor.TextureScaleOffsetProperty( m_baseColorMap );
-
-//          m_MaterialEditor.TexturePropertySingleLine(Styles.emissiveText, emissiveColorMap, emissiveColor);
-//          m_MaterialEditor.TextureScaleOffsetProperty(emissiveColorMap);
-//          m_MaterialEditor.ShaderProperty(emissiveIntensity, Styles.emissiveIntensityText);
-//          m_MaterialEditor.ShaderProperty(albedoAffectEmissive, Styles.albedoAffectEmissiveText);
-
-//             var surfaceTypeValue = (SurfaceType) surfaceType.floatValue;
-//             if ( surfaceTypeValue == SurfaceType.Transparent ) {
-//                 EditorGUILayout.Space();
-//                 EditorGUILayout.LabelField( StylesBaseUnlit.TransparencyInputsText, EditorStyles.boldLabel );
-//                 ++EditorGUI.indentLevel;
-//      
-//                 DoDistortionInputsGUI();
-//      
-//                 --EditorGUI.indentLevel;
-//                }
         }
 
-        protected override void MaterialPropertiesAdvanceGUI( Material _material ) {
+        protected override void MaterialPropertiesAdvanceGUI( Material _material )
+        {
         }
 
-        protected override void VertexAnimationPropertiesGUI() {
-
+        protected override void VertexAnimationPropertiesGUI()
+        {
         }
 
-        protected override bool ShouldEmissionBeEnabled( Material _material ) {
+        protected override bool ShouldEmissionBeEnabled( Material _material )
+        {
            return false;//_material.GetFloat(kEmissiveIntensity) > 0.0f;
         }
 
-        protected override void SetupMaterialKeywordsAndPassInternal( Material _material ) {
+        protected override void SetupMaterialKeywordsAndPassInternal( Material _material )
+        {
             SetupMaterialKeywordsAndPass( _material );
         }
 
         // All Setup Keyword functions must be static. It allow to create script to automatically update the shaders with a script if code change
-        static public void SetupMaterialKeywordsAndPass( Material _material ) {
+        static public void SetupMaterialKeywordsAndPass( Material _material )
+        {
             SetupBaseUnlitKeywords( _material );
             SetupBaseUnlitMaterialPass( _material );
 
 //          CoreUtils.SetKeyword(_material, "_EMISSIVE_COLOR_MAP", _material.GetTexture(kEmissiveColorMap));
 
-            AXF_BRDF_TYPE   BRDFType = (AXF_BRDF_TYPE) _material.GetFloat( m_AxF_BRDFTypeText );
+            AxfBrdfType   BRDFType = (AxfBrdfType) _material.GetFloat( m_AxF_BRDFTypeText );
 
-            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_SVBRDF", BRDFType == AXF_BRDF_TYPE.SVBRDF );
-            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_CAR_PAINT", BRDFType == AXF_BRDF_TYPE.CAR_PAINT );
-            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_BTF", BRDFType == AXF_BRDF_TYPE.BTF );
+            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_SVBRDF", BRDFType == AxfBrdfType.SVBRDF );
+            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_CAR_PAINT", BRDFType == AxfBrdfType.CAR_PAINT );
+            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_BTF", BRDFType == AxfBrdfType.BTF );
 		}
 	}
 } // namespace UnityEditor
