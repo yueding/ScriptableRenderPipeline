@@ -473,6 +473,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         // TODO: move to postfx pass
         void PostProcessPass(ref ScriptableRenderContext context, ref CameraData cameraData)
         {
+            // Note to Unity friends: In VR, there appears to be a scaffolding issue when NaN Killer is enabled.
+            // I have mitigated this with a change to the Post-Processing Stack Copy.shader where we account for stereo offsets.
+            // Otherwise, you get a double-vision result of the Blit into the intermediate color surface.
+            // Without NaN Killer, things work out-of-box.
             CommandBuffer cmd = CommandBufferPool.Get("Render PostProcess Effects");
             LightweightPipeline.RenderPostProcess(cmd, renderer.postProcessRenderContext, ref cameraData, m_ColorFormat, GetSurface(colorAttachmentHandle), BuiltinRenderTextureType.CameraTarget, false);
             context.ExecuteCommandBuffer(cmd);

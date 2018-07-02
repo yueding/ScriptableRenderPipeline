@@ -141,7 +141,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             context.sourceFormat = colorFormat;
             context.destination = dest;
             context.command = cmd;
-            context.flip = cameraData.camera.targetTexture == null;
+            context.flip = !IsStereoEnabled(cameraData.camera) && cameraData.camera.targetTexture == null;
 
             if (opaqueOnly)
                 cameraData.postProcessLayer.RenderOpaqueOnly(context);
@@ -196,7 +196,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             cameraData.postProcessEnabled = cameraData.postProcessLayer != null && cameraData.postProcessLayer.isActiveAndEnabled;
 
             // PostProcess for VR is not working atm. Disable it for now.
-            cameraData.postProcessEnabled &= !cameraData.isStereoEnabled;
+            //cameraData.postProcessEnabled &= !cameraData.isStereoEnabled;
 
             Rect cameraRect = camera.rect;
             cameraData.isDefaultViewport = (!(Math.Abs(cameraRect.x) > 0.0f || Math.Abs(cameraRect.y) > 0.0f ||
@@ -381,7 +381,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             Shader.SetGlobalVector(PerCameraBuffer._ScaledScreenParams, new Vector4(cameraWidth, cameraHeight, 1.0f + 1.0f / cameraWidth, 1.0f + 1.0f / cameraHeight));
         }
 
-        bool IsStereoEnabled(Camera camera)
+        static bool IsStereoEnabled(Camera camera)
         {
 #if !UNITY_SWITCH
             bool isSceneViewCamera = camera.cameraType == CameraType.SceneView;
