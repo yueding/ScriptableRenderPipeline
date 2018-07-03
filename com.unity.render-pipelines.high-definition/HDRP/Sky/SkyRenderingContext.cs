@@ -191,6 +191,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     using (new ProfilingSample(cmd, "Sky Environment Pass"))
                     {
+                        skyContext.skySettings.updateHDRISkyIntensity.value = true;
+
                         using (new ProfilingSample(cmd, "Update Env: Generate Lighting Cubemap"))
                         {
                             RenderSkyToCubemap(skyContext);

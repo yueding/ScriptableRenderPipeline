@@ -40,8 +40,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             PropertyField(m_GroundColor);
 
             EditorGUILayout.Space();
+            
+            // Hide rotation in this editor
+            m_ShowProperties.value.intValue &= ~(int)SkySettingsPropertyFlags.ShowRotation;
 
-            base.CommonSkySettingsGUI(false);
+            base.CommonSkySettingsGUI();
         }
     }
 }

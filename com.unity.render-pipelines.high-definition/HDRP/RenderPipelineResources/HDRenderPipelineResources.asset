@@ -76,6 +76,7 @@ MonoBehaviour:
   opaqueAtmosphericScattering: {fileID: 4800000, guid: 326059e48e5735e46a98047eff4f0295,
     type: 3}
   hdriSky: {fileID: 4800000, guid: 9bd32a6ece529fd4f9408b8d7e00c10d, type: 3}
+  integrateHdriSky: {fileID: 4800000, guid: 561c39b8d101dfb4780e5ecb5d755310, type: 3}
   proceduralSky: {fileID: 4800000, guid: ec63f47fd265df243a7b1d40f9ef7fe7, type: 3}
   skyboxCubemap: {fileID: 103, guid: 0000000000000000f000000000000000, type: 0}
   preIntegratedFGD_GGXDisneyDiffuse: {fileID: 4800000, guid: 123f13d52852ef547b2962de4bd9eaad,
