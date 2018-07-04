@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -161,21 +161,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if ( m_preIntegratedFGDMaterial_Ward != null )
                 return; // Already initialized
 
-            string[]  shaderWardGUIDs = UnityEditor.AssetDatabase.FindAssets( "PreIntegratedFGD_WardLambert" );
-            if ( shaderWardGUIDs == null || shaderWardGUIDs.Length == 0 )
-                throw new Exception( "Shader for Ward BRDF pre-integration not found!" );
-            string[]  shaderCookTorranceGUIDs = UnityEditor.AssetDatabase.FindAssets( "PreIntegratedFGD_CookTorranceLambert" );
-            if ( shaderCookTorranceGUIDs == null || shaderCookTorranceGUIDs.Length == 0 )
-                throw new Exception( "Shader for Cook-Torrance BRDF pre-integration not found!" );
-
-// Debug.Log( "Found " + shaderWardGUIDs.Length + " Ward DFG shaders!" );
-// Debug.Log( "Found " + shaderCookTorranceGUIDs.Length + " Cook-Torrance DFG shaders!" );
-
             // Create Materials
-            Shader  preIntegratedFGD_Ward = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>( UnityEditor.AssetDatabase.GUIDToAssetPath( shaderWardGUIDs[0] ) );
-            Shader  preIntegratedFGD_CookTorrance = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>( UnityEditor.AssetDatabase.GUIDToAssetPath( shaderCookTorranceGUIDs[0] ) );
-            m_preIntegratedFGDMaterial_Ward = CoreUtils.CreateEngineMaterial( preIntegratedFGD_Ward );
-            m_preIntegratedFGDMaterial_CookTorrance = CoreUtils.CreateEngineMaterial( preIntegratedFGD_CookTorrance );
+            m_preIntegratedFGDMaterial_Ward = CoreUtils.CreateEngineMaterial( "Hidden/HDRenderPipeline/PreIntegratedFGD_WardLambert" );
+            if ( m_preIntegratedFGDMaterial_Ward == null )
+                throw new Exception( "Failed to create material for Ward BRDF pre-integration!" );
+
+            m_preIntegratedFGDMaterial_CookTorrance = CoreUtils.CreateEngineMaterial( "Hidden/HDRenderPipeline/PreIntegratedFGD_CookTorranceLambert" );
+            if ( m_preIntegratedFGDMaterial_CookTorrance == null )
+                throw new Exception( "Failed to create material for Cook-Torrance BRDF pre-integration!" );
 
             // Create render textures where we will render the FGD tables
             m_preIntegratedFGD_Ward = new RenderTexture( 128, 128, 0, RenderTextureFormat.ARGB2101010, RenderTextureReadWrite.Linear );
@@ -197,7 +190,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public override void Cleanup() {
 
-// Debug.Log( "Destroying Ward/CookieResolution-Torrance DFG shaders!" );
+// Debug.Log( "Destroying Ward/CookieResolution-Torrance FGD shaders!" );
 
             CoreUtils.Destroy( m_preIntegratedFGD_CookTorrance );
             CoreUtils.Destroy( m_preIntegratedFGD_Ward );
@@ -217,16 +210,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
 // Disable cache while developing shader
             if ( m_preIntegratedTableAvailable ) {
-//Debug.Log( "****Ward DFG table already computed****" );
+//Debug.Log( "****Ward FGD table already computed****" );
                 return;
-            }
-Debug.Log( "Rendering Ward/Cook-Torrance DFG table!" );
+            }
+
+Debug.Log( "Rendering Ward/Cook-Torrance FGD table!" );
 
             using ( new ProfilingSample( cmd, "PreIntegratedFGD Material Generation for Ward & Cook-Torrance BRDF" ) ) {
                 CoreUtils.DrawFullScreen( cmd, m_preIntegratedFGDMaterial_Ward, new RenderTargetIdentifier( m_preIntegratedFGD_Ward ) );
                 CoreUtils.DrawFullScreen( cmd, m_preIntegratedFGDMaterial_CookTorrance, new RenderTargetIdentifier( m_preIntegratedFGD_CookTorrance ) );
                 m_preIntegratedTableAvailable = true;
-Debug.Log( "*FINISHED RENDERING* Ward/Cook-Torrance DFG table!" );
+Debug.Log( "*FINISHED RENDERING* Ward/Cook-Torrance FGD table!" );
             }
         }
 
@@ -237,7 +231,7 @@ Debug.Log( "*FINISHED RENDERING* Ward/Cook-Torrance DFG table!" );
                 throw new Exception( "Ward & Cook-Torrance BRDF pre-integration table not available!" );
             }
 
-//Debug.Log( "Binding Ward DFG table!" );
+//Debug.Log( "Binding Ward FGD table!" );
 
             Shader.SetGlobalTexture( "_PreIntegratedFGD_WardLambert", m_preIntegratedFGD_Ward );
             Shader.SetGlobalTexture( "_PreIntegratedFGD_CookTorranceLambert", m_preIntegratedFGD_CookTorrance );

@@ -1,4 +1,4 @@
-﻿Shader "Hidden/HDRenderPipeline/PreIntegratedFGD_CookTorranceLambert"
+Shader "Hidden/HDRenderPipeline/PreIntegratedFGD_CookTorranceLambert"
 {
     SubShader
     {

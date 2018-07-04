@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // SurfaceData and BSDFData
 //-----------------------------------------------------------------------------
 // SurfaceData is defined in AxF.cs which generates AxF.cs.hlsl
@@ -951,7 +951,7 @@ DirectLighting  EvaluateBSDF_Punctual(  LightLoopContext lightLoopContext,
     DirectLighting	lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
 
-    float3	lightToSample = posInput.positionWS - lightData.positionWS;
+    float3	lightToSample = posInput.positionWS - lightData.positionRWS;
     int		lightType     = lightData.lightType;
 
     float3 lightWS;
