@@ -406,12 +406,6 @@ float3  GetBakedDiffuseLighting( SurfaceData surfaceData, BuiltinData builtinDat
 LightTransportData	GetLightTransportData( SurfaceData surfaceData, BuiltinData builtinData, BSDFData BsdfData ) {
     LightTransportData lightTransportData;
 
-    // diffuseColor for lightmapping should basically be diffuse color.
-    // But rough metals (black diffuse) still scatter quite a lot of light around, so we want to take some of that into account too.
-
-    //NEWLITTODO
-    //float roughness = PerceptualRoughnessToRoughness(BsdfData.perceptualRoughness);
-    //lightTransportData.diffuseColor = BsdfData.diffuseColor + BsdfData.fresnel0 * roughness * 0.5 * surfaceData.metallic;
     lightTransportData.diffuseColor = BsdfData.diffuseColor;
     lightTransportData.emissiveColor = builtinData.emissiveColor;
 
@@ -1311,6 +1305,8 @@ void    PostEvaluateBSDF(   LightLoopContext lightLoopContext,
 #endif
 
     #ifdef DEBUG_DISPLAY
+// Make this work!
+//        PostEvaluateBSDFDebugDisplay( aoFactor, bakeLightingData, lighting, bsdfData.diffuseColor, diffuseLighting, specularLighting );
         if ( _DebugLightingMode != 0 ) {
             bool keepSpecular = false;
 

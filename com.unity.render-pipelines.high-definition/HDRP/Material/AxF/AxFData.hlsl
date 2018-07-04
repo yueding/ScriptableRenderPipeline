@@ -34,6 +34,16 @@ UV0 *= float2( _materialSizeU_mm, _materialSizeV_mm );
         _surfaceData.diffuseColor = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_DiffuseColorMap_sRGB, sampler_SVBRDF_DiffuseColorMap_sRGB, UV0 ).xyz ) * _BaseColor.xyz;
         _surfaceData.specularColor = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_SpecularColorMap_sRGB, sampler_SVBRDF_SpecularColorMap_sRGB, UV0 ).xyz );
         _surfaceData.specularLobe = _SVBRDF_SpecularLobeMap_Scale * SAMPLE_TEXTURE2D( _SVBRDF_SpecularLobeMap, sampler_SVBRDF_SpecularLobeMap, UV0 ).xy;
+
+
+
+
+// Check influence of anisotropy
+//_surfaceData.specularLobe.y = lerp( _surfaceData.specularLobe.x, _surfaceData.specularLobe.y, saturate(_DEBUG_anisotropicRoughessX) );
+
+
+
+
         _surfaceData.fresnelF0 = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_FresnelMap_sRGB, sampler_SVBRDF_FresnelMap_sRGB, UV0 ).x );
         _surfaceData.height_mm = SAMPLE_TEXTURE2D( _SVBRDF_HeightMap, sampler_SVBRDF_HeightMap, UV0 ).x * _SVBRDF_heightMapMax_mm;
         _surfaceData.anisotropyAngle = PI * (2.0 * SAMPLE_TEXTURE2D( _SVBRDF_AnisotropicRotationAngleMap, sampler_SVBRDF_AnisotropicRotationAngleMap, UV0 ).x - 1.0);
