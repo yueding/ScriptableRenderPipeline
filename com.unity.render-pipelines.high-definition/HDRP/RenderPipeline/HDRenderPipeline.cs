@@ -600,6 +600,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 );
 
                 cmd.SetGlobalBuffer(HDShaderIDs._DebugScreenSpaceTracingData, m_DebugScreenSpaceTracingData);
+
+                cmd.SetGlobalTexture("g_debug_texture", m_DebugFullScreenTempBuffer);
             }
         }
 
@@ -1143,6 +1145,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     PushFullScreenDebugTexture(hdCamera, cmd, m_CameraColorBuffer, FullScreenDebugMode.ScreenSpaceTracing);
                     // Caution: RenderDebug need to take into account that we have flip the screen (so anything capture before the flip will be flipped)
                     RenderDebug(hdCamera, cmd);
+
+#if PLANAR_LIGHT_CULLING_DEBUG
+                    if (camera.name.StartsWith("__Probe") && m_DebugDisplaySettings.planarLightCullingDebugSettings.enabled)
+                        cmd.Blit(m_DebugFullScreenTempBuffer, BuiltinRenderTextureType.CameraTarget);
+#endif
 
 #if UNITY_EDITOR
                     // We need to make sure the viewport is correctly set for the editor rendering. It might have been changed by debug overlay rendering just before.

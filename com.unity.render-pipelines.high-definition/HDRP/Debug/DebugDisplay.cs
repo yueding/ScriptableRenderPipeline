@@ -87,6 +87,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public static string k_PanelScreenSpaceTracing = "Screen Space Tracing";
         public static string k_PanelDecals = "Decals";
+#if PLANAR_LIGHT_CULLING_DEBUG
+        public static string k_PanelPlanarLightCulling = "Planar Light Culling";
+#endif
 
         static readonly string[] k_HiZIntersectionKind = { "None", "Cell", "Depth" };
 
@@ -96,7 +99,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         DebugUI.Widget[] m_DebugRenderingItems;
         DebugUI.Widget[] m_DebugScreenSpaceTracingItems;
         DebugUI.Widget[] m_DebugDecalsItems;
-
+#if PLANAR_LIGHT_CULLING_DEBUG
+        DebugUI.Widget[] m_DebugPlanarLightCullingItems;
+#endif
 
         public float debugOverlayRatio = 0.33f;
         public FullScreenDebugMode  fullScreenDebugMode = FullScreenDebugMode.None;
@@ -111,6 +116,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ColorPickerDebugSettings colorPickerDebugSettings = new ColorPickerDebugSettings();
         public FalseColorDebugSettings falseColorDebugSettings = new FalseColorDebugSettings();
         public DecalsDebugSettings decalsDebugSettings = new DecalsDebugSettings();
+#if PLANAR_LIGHT_CULLING_DEBUG
+        public class PlanarLightCullingDebugSettings
+        {
+            public bool enabled;
+        }
+        public PlanarLightCullingDebugSettings planarLightCullingDebugSettings = new PlanarLightCullingDebugSettings();
+#endif
 
         public static GUIContent[] lightingFullScreenDebugStrings = null;
         public static int[] lightingFullScreenDebugValues = null;
@@ -845,6 +857,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             panel.children.Add(m_DebugDecalsItems);
         }
 
+#if PLANAR_LIGHT_CULLING_DEBUG
+        void RegisterPlanarLightCullingDebug()
+        {
+            m_DebugPlanarLightCullingItems = new DebugUI.Widget[]
+            {
+                new DebugUI.BoolField { displayName = "Enable Debug", getter = () => planarLightCullingDebugSettings.enabled, setter = value => planarLightCullingDebugSettings.enabled = value },
+            };
+
+            var panel = DebugManager.instance.GetPanel(k_PanelPlanarLightCulling, true);
+            panel.children.Add(m_DebugPlanarLightCullingItems);
+        }
+#endif
+
         public void RegisterDebug()
         {
             RegisterDecalsDebug();
@@ -853,6 +878,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             RegisterLightingDebug();
             RegisterRenderingDebug();
             RegisterScreenSpaceTracingDebug();
+#if PLANAR_LIGHT_CULLING_DEBUG
+            RegisterPlanarLightCullingDebug();
+#endif
         }
 
         public void UnregisterDebug()
@@ -863,6 +891,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             UnregisterDebugItems(k_PanelLighting, m_DebugLightingItems);
             UnregisterDebugItems(k_PanelRendering, m_DebugRenderingItems);
             UnregisterDebugItems(k_PanelScreenSpaceTracing, m_DebugScreenSpaceTracingItems);
+#if PLANAR_LIGHT_CULLING_DEBUG
+            UnregisterDebugItems(k_PanelPlanarLightCulling, m_DebugPlanarLightCullingItems);
+#endif
         }
 
         void UnregisterDebugItems(string panelName, DebugUI.Widget[] items)

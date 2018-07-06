@@ -2021,10 +2021,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.DispatchCompute(buildPerVoxelLightListShader, s_GenListPerVoxelKernel, numTilesX, numTilesY, numEyes);
         }
 
-        // DEBUG
-        static RenderTexture s = new RenderTexture(1, 1, 1, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear) { enableRandomWrite = true };
-        // END DEBUG
-
         public void BuildGPULightListsCommon(HDCamera hdCamera, CommandBuffer cmd, RenderTargetIdentifier cameraDepthBufferRT, RenderTargetIdentifier stencilTextureRT, bool skyEnabled)
         {
             var camera = hdCamera.camera;
