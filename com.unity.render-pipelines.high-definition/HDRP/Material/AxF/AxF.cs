@@ -158,6 +158,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public AxF() {}
 
         public override void Build( HDRenderPipelineAsset hdAsset ) {
+
+            LTCAreaLight.instance.Build();
+
             if ( m_preIntegratedFGDMaterial_Ward != null )
                 return; // Already initialized
 
@@ -201,6 +204,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_preIntegratedFGDMaterial_Ward = null;
             m_preIntegratedFGDMaterial_CookTorrance = null;
             m_preIntegratedTableAvailable = false;
+
+            LTCAreaLight.instance.Cleanup();
         }
 
         public override void RenderInit(CommandBuffer cmd) {
@@ -225,6 +230,9 @@ Debug.Log( "*FINISHED RENDERING* Ward/Cook-Torrance FGD table!" );
         }
 
         public override void Bind() {
+
+            LTCAreaLight.instance.Bind();
+
             if (    m_preIntegratedFGD_Ward == null
                 ||  m_preIntegratedFGD_CookTorrance == null
                 ||  !m_preIntegratedTableAvailable ) {

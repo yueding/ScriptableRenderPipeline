@@ -10,18 +10,26 @@
 #include "../PreIntegratedFGD/PreIntegratedFGD.hlsl"
 #include "./Resources/PreIntegratedFGD.hlsl"
 
-//NEWLITTODO : wireup CBUFFERs for ambientocclusion, and other uniforms and samplers used:
-//
-// We need this for AO, Depth/Color pyramids, LTC lights data, FGD pre-integrated data.
-//
-// Also add options at the top of this file, see Lit.hlsl.
+// Add support for LTC Area Lights
+#include "HDRP/Material/LTCAreaLight/LTCAreaLight.hlsl"
 
+
+//-----------------------------------------------------------------------------
+#define CLEAR_COAT_ROUGHNESS 0.03
+#define CLEAR_COAT_PERCEPTUAL_ROUGHNESS RoughnessToPerceptualRoughness(CLEAR_COAT_ROUGHNESS)
 
 
 // Define this to recompute vectors after refraction by clear coat
 // At the moment, this gives ugly results that I haven't debugged yet so I left it off... :/
 //#define RECOMPUTE_VECTORS_AFTER_REFRACTION  1
 
+
+
+//NEWLITTODO : wireup CBUFFERs for ambientocclusion, and other uniforms and samplers used:
+//
+// We need this for AO, Depth/Color pyramids, LTC lights data, FGD pre-integrated data.
+//
+// Also add options at the top of this file, see Lit.hlsl.
 
 
 //-----------------------------------------------------------------------------
@@ -295,6 +303,13 @@ struct PreLightData {
     float   clearCoatF0;
     float3  clearCoatViewWS;        // World-space view vector refracted by clear coat
 
+    // Area lights (17 VGPRs)
+    // TODO: 'orthoBasisViewNormal' is just a rotation around the normal and should thus be just 1x VGPR.
+    float3x3    orthoBasisViewNormal;   // Right-handed view-dependent orthogonal basis around the normal (6x VGPRs)
+    float3x3    ltcTransformDiffuse;    // Inverse transformation                                         (4x VGPRs)
+    float3x3    ltcTransformSpecular;   // Inverse transformation                                         (4x VGPRs)
+    float3x3    ltcTransformCoat;       // Inverse transformation for GGX                                 (4x VGPRs)
+
     // IBL
     float   IBLRoughness;
     float3  IBLDominantDirectionWS;   // Dominant specular direction, used for IBL in EvaluateBSDF_Env()
@@ -326,6 +341,8 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
         preLightData.anisoY = float2( -anisoDir.y, anisoDir.x );
     #endif
 
+
+    // ==============================================================================
     // Handle clear coat
 //  preLightData.clearCoatF0 = IorToFresnel0( BsdfData.clearCoatIOR );
     preLightData.clearCoatF0 = Sq( (BsdfData.clearCoatIOR - 1) / (BsdfData.clearCoatIOR + 1) );
@@ -339,10 +356,10 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
             case 0: GetPreIntegratedFGDWardLambert( NdotV, preLightData.IBLRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
 //            case 1: // @TODO: Support Blinn-Phong FGD?
             case 2: GetPreIntegratedFGDCookTorranceLambert( NdotV, preLightData.IBLRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
-            case 3: GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity); break;
+            case 3: GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
 //            case 4: // @TODO: Support Blinn-Phong FGD?
             default:    // Use GGX by default
-                GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity);
+                GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity );
                 break;
         }
         
@@ -365,6 +382,45 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
         preLightData.IBLRoughness = sumRoughness.x / sumRoughness.y;  // Not used if sampling the environment for each Cook-Torrance lobe
     #endif
 
+
+    // ==============================================================================
+    // Area lights
+    // UVs for sampling the LUTs
+    #ifdef _AXF_BRDF_TYPE_SVBRDF
+        float   perceptualRoughness = RoughnessToPerceptualRoughness( preLightData.IBLRoughness );
+        float2  UV = LTCGetSamplingUV( NdotV, perceptualRoughness );
+
+        // Construct a right-handed view-dependent orthogonal basis around the normal
+        preLightData.orthoBasisViewNormal[0] = normalize( viewWS - normalWS * preLightData.NdotV ); // Do not clamp NdotV here
+        preLightData.orthoBasisViewNormal[2] = normalWS;
+        preLightData.orthoBasisViewNormal[1] = cross( preLightData.orthoBasisViewNormal[2], preLightData.orthoBasisViewNormal[0] );
+
+        // Load diffuse LTC
+        preLightData.ltcTransformDiffuse = k_identity3x3;
+//#else
+//    // Get the inverse LTC matrix for Disney Diffuse
+//    preLightData.ltcTransformDiffuse      = 0.0;
+//    preLightData.ltcTransformDiffuse._m22 = 1.0;
+//    preLightData.ltcTransformDiffuse._m00_m02_m11_m20 = SAMPLE_TEXTURE2D_ARRAY_LOD(_LtcData, s_linear_clamp_sampler, uv, LTC_DISNEY_DIFFUSE_MATRIX_INDEX, 0);
+//#endif
+
+        // Load specular LTC
+        LTCSampleMatrix( UV, LTC_GGX_MATRIX_INDEX, preLightData.ltcTransformSpecular );
+
+        preLightData.ltcTransformCoat = 0.0;
+        if ( _flags & 2 ) {
+            float2  UV = LTCGetSamplingUV( NdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS );
+            LTCSampleMatrix( UV, LTC_GGX_MATRIX_INDEX, preLightData.ltcTransformCoat );
+        }
+
+    #else  // !_AXF_BRDF_TYPE_SVBRDF
+        preLightData.ltcTransformDiffuse    = 0.0;
+        preLightData.ltcTransformSpecular   = 0.0;
+        preLightData.ltcTransformCoat       = 0.0;
+    #endif  // _AXF_BRDF_TYPE_SVBRDF
+
+    // ==============================================================================
+    // IBL
     preLightData.IBLDominantDirectionWS = reflect( -viewWS, normalWS );
 
 	return preLightData;
@@ -1051,10 +1107,193 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     DirectLighting lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
 
-    //NEWLITTODO
+    float3  positionWS = posInput.positionWS;
+
+#ifdef LIT_DISPLAY_REFERENCE_AREA
+    IntegrateBSDF_AreaRef( viewWS, positionWS, preLightData, lightData, BsdfData,
+                           lighting.diffuse, lighting.specular );
+#else
+    float3  unL = lightData.positionRWS - positionWS;
+    if ( dot(lightData.forward, unL) >= 0.0001 ) {
+        return lighting;    // The light is back-facing.
+    }
+
+    // Rotate the light direction into the light space.
+    float3x3    lightToWorld = float3x3( lightData.right, lightData.up, -lightData.forward );
+    unL = mul( unL, transpose(lightToWorld) );
+
+    // TODO: This could be precomputed.
+    float   halfWidth  = lightData.size.x * 0.5;
+    float   halfHeight = lightData.size.y * 0.5;
+
+    // Define the dimensions of the attenuation volume.
+    // TODO: This could be precomputed.
+    float   radius     = rsqrt( lightData.rangeAttenuationScale ); // rangeAttenuationScale is inverse Square Radius
+    float3  invHalfDim = rcp( float3(   radius + halfWidth,
+                                        radius + halfHeight,
+                                        radius ) );
+
+    // Compute the light attenuation.
+    #ifdef ELLIPSOIDAL_ATTENUATION
+        // The attenuation volume is an axis-aligned ellipsoid s.t.
+        // r1 = (r + w / 2), r2 = (r + h / 2), r3 = r.
+        float intensity = EllipsoidalDistanceAttenuation(unL, invHalfDim);
+    #else
+        // The attenuation volume is an axis-aligned box s.t.
+        // hX = (r + w / 2), hY = (r + h / 2), hZ = r.
+        float intensity = BoxDistanceAttenuation(unL, invHalfDim);
+    #endif
+
+    // Terminate if the shaded point is too far away.
+    if ( intensity == 0.0 )
+        return lighting;
+
+    lightData.diffuseScale  *= intensity;
+    lightData.specularScale *= intensity;
+
+    // Translate the light s.t. the shaded point is at the origin of the coordinate system.
+    lightData.positionRWS -= positionWS;
+
+    // TODO: some of this could be precomputed.
+    float4x3    lightVerts;
+                lightVerts[0] = lightData.positionRWS + lightData.right *  halfWidth + lightData.up *  halfHeight;
+                lightVerts[1] = lightData.positionRWS + lightData.right *  halfWidth + lightData.up * -halfHeight;
+                lightVerts[2] = lightData.positionRWS + lightData.right * -halfWidth + lightData.up * -halfHeight;
+                lightVerts[3] = lightData.positionRWS + lightData.right * -halfWidth + lightData.up *  halfHeight;
+
+    // Rotate the endpoints into tangent space
+    lightVerts = mul( lightVerts, transpose(preLightData.orthoBasisViewNormal) );
+
+    float   ltcValue;
+
+    #ifdef _AXF_BRDF_TYPE_SVBRDF
+
+        // Evaluate the diffuse part
+        // Polygon irradiance in the transformed configuration.
+        ltcValue  = PolygonIrradiance( mul(lightVerts, preLightData.ltcTransformDiffuse) );
+        ltcValue *= lightData.diffuseScale;
+        // We don't multiply by 'bsdfData.diffuseColor' here. It's done only once in PostEvaluateBSDF().
+        // See comment for specular magnitude, it applies to diffuse as well
+        lighting.diffuse = preLightData.diffuseFGD * ltcValue;
+
+    #endif
+
+//    UNITY_BRANCH if (HasFlag(bsdfData.materialFeatures, MATERIALFEATUREFLAGS_LIT_TRANSMISSION))
+//    {
+//        // Flip the view vector and the normal. The bitangent stays the same.
+//        float3x3 flipMatrix = float3x3(-1,  0,  0,
+//                                        0,  1,  0,
+//                                        0,  0, -1);
+//
+//        // Use the Lambertian approximation for performance reasons.
+//        // The matrix multiplication should not generate any extra ALU on GCN.
+//        float3x3 ltcTransform = mul(flipMatrix, k_identity3x3);
+//
+//        // Polygon irradiance in the transformed configuration.
+//        // TODO: double evaluation is very inefficient! This is a temporary solution.
+//        ltcValue  = PolygonIrradiance(mul(lightVerts, ltcTransform));
+//        ltcValue *= lightData.diffuseScale;
+//        // We use diffuse lighting for accumulation since it is going to be blurred during the SSS pass.
+//        // We don't multiply by 'bsdfData.diffuseColor' here. It's done only once in PostEvaluateBSDF().
+//        lighting.diffuse += bsdfData.transmittance * ltcValue;
+//    }
+
+    #if defined(_AXF_BRDF_TYPE_SVBRDF)
+
+        // Evaluate the specular part
+        // Polygon irradiance in the transformed configuration.
+        ltcValue  = PolygonIrradiance( mul(lightVerts, preLightData.ltcTransformSpecular) );
+        ltcValue *= lightData.specularScale;
+        // We need to multiply by the magnitude of the integral of the BRDF
+        // ref: http://advances.realtimerendering.com/s2016/s2016_ltc_fresnel.pdf
+        // This value is what we store in specularFGD, so reuse it
+        lighting.specular += preLightData.specularFGD * ltcValue;
+
+
+    #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+        // Evaluate average BRDF response in specular direction
+// @TODO: Use FGD table! => Ward / Cook-Torrance both use Beckmann so it should be easy...
+//
+//        float3  safeLightWS = environmentSamplingDirectionWS;
+////        float3  safeLightWS = preLightData.IBLDominantDirectionWS;
+////                safeLightWS += max( 1e-2, dot( safeLightWS, BsdfData.normalWS ) ) * BsdfData.normalWS;    // Move away from surface to avoid super grazing angles
+////                safeLightWS = normalize( safeLightWS );
+//
+//        float3  H = normalize( viewWS + safeLightWS );
+//        float   NdotL = saturate( dot( BsdfData.normalWS, safeLightWS ) );
+//        float   NdotH = dot( BsdfData.normalWS, H );
+//        float   VdotH = dot( viewWS, H );
+//
+//        float   thetaH = acos( clamp( NdotH, -1, 1 ) );
+//        float   thetaD = acos( clamp( VdotH, -1, 1 ) );
+//
+//        // Multi-lobes approach
+//        // Each CT lobe samples the environment with the appropriate roughness
+//        float3  envLighting = 0.0;
+//        float   sumWeights = 0.0;
+//        for ( uint lobeIndex=0; lobeIndex < _CarPaint_lobesCount; lobeIndex++ ) {
+//            float   F0 = _CarPaint_CT_F0s[lobeIndex];
+//            float   coeff = _CarPaint_CT_coeffs[lobeIndex];
+//            float   spread = _CarPaint_CT_spreads[lobeIndex];
+//
+//            float   perceptualRoughness = RoughnessToPerceptualRoughness( spread );
+//
+//            float   lobeIntensity = coeff * CT_D( NdotH, spread ) * CT_F( VdotH, F0 );
+//            float   lobeMipLevel = PerceptualRoughnessToMipmapLevel( perceptualRoughness );
+//            float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, lobeMipLevel );
+//
+//            // Apply FGD
+//            float3  specularFGD = 1;
+//            float   diffuseFGD, reflectivity;
+//            GetPreIntegratedFGDCookTorranceLambert( NdotV, perceptualRoughness, F0, specularFGD, diffuseFGD, reflectivity );
+//
+//            envLighting += lobeIntensity * specularFGD * preLD.xyz;
+//            sumWeights += preLD.w;
+//        }
+//        envLighting *= CT_G( NdotH, NdotV, NdotL, VdotH )  // Shadowing/Masking term
+//                        / (PI * max( 1e-3, NdotV * NdotL ));
+//        envLighting *= GetBRDFColor( thetaH, thetaD );
+//
+//        // Sample flakes
+//        float   flakesMipLevel = 0;   // Flakes are supposed to be perfect mirrors...
+//        envLighting += CarPaint_BTF( thetaH, thetaD, BsdfData ) * SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, flakesMipLevel ).xyz;
+//
+//        envLighting *= NdotL;
+//
+//        weight *= sumWeights / _CarPaint_lobesCount;
+
+    #endif
+
+
+
+    // Evaluate the coat part
+//    if (HasFlag(bsdfData.materialFeatures, MATERIALFEATUREFLAGS_LIT_CLEAR_COAT))
+//    {
+//        ltcValue = PolygonIrradiance(mul(lightVerts, preLightData.ltcTransformCoat));
+//        ltcValue *= lightData.specularScale;
+//        // For clear coat we don't fetch specularFGD we can use directly the perfect fresnel coatIblF
+//        lighting.diffuse *= (1.0 - preLightData.coatIblF);
+//        lighting.specular *= (1.0 - preLightData.coatIblF);
+//        lighting.specular += preLightData.coatIblF * ltcValue;
+//    }
 
 // Apply coating
 //specularLighting += F_FresnelDieletric( BsdfData.clearCoatIOR, LdotN ) * Irradiance;
+
+    // Save ALU by applying 'lightData.color' only once.
+    lighting.diffuse *= lightData.color;
+    lighting.specular *= lightData.color;
+
+    #ifdef DEBUG_DISPLAY
+        if (_DebugLightingMode == DEBUGLIGHTINGMODE_LUX_METER) {
+            // Only lighting, not BSDF
+            // Apply area light on lambert then multiply by PI to cancel Lambert
+            lighting.diffuse = PolygonIrradiance(mul(lightVerts, k_identity3x3));
+            lighting.diffuse *= PI * lightData.diffuseScale;
+        }
+    #endif
+
+#endif // LIT_DISPLAY_REFERENCE_AREA
 
     return lighting;
 }
@@ -1372,6 +1611,15 @@ specularLighting.z = 0;
 //specularLighting = float3( BsdfData.flakesUV, 0.0 );
 //specularLighting = float3( 0.5, 0, 0 );
 */
+
+// DEBUG LTC Texture
+diffuseLighting = 0;
+specularLighting = _PreIntegratedFGD_WardLambert.SampleLevel( s_linear_clamp_sampler, BsdfData.flakesUV, 0.0 ).xyz;
+specularLighting = float3( BsdfData.flakesUV, 0.0 );
+//specularLighting = float3( 1, 0.5, 0.25 );
+
+specularLighting  = pow( specularLighting, 2.2 );
+
 }
 
 #endif // #ifdef HAS_LIGHTLOOP

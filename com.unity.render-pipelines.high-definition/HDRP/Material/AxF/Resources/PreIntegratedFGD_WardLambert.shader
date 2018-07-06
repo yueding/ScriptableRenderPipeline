@@ -1,4 +1,4 @@
-﻿Shader "Hidden/HDRenderPipeline/PreIntegratedFGD_WardLambert"
+Shader "Hidden/HDRenderPipeline/PreIntegratedFGD_WardLambert"
 {
     SubShader
     {
@@ -70,8 +70,8 @@
                 SampleWardDir( u, V, localToWorld, roughness, L, NdotL, NdotH, VdotH );
 
                 // Importance sampling weight for each sample (eq. 9 from Walter, 2005)
-                // pdf = 1 / (4PI * a² * (L.H) * (H.N)^3) * exp( ((N.H)² - 1) / (a² * (N.H)²) )
-                // fr = (F(N.H) * s) / (4PI * a² * (L.H)² * (H.N)^4) * exp( ((N.H)² - 1) / (a² * (N.H)²) )     <= Moroder-Geisler version
+                // pdf = 1 / (4PI * a² * (L.H) * (H.N)^3) * exp( ((N.H)² - 1) / (a² * (N.H)²) )                 <= From Walter, eq. 24 pdf(H) = D(H) . (N.H)
+                // fr = (F(N.H) * s) / (4PI * a² * (L.H)² * (H.N)^4) * exp( ((N.H)² - 1) / (a² * (N.H)²) )      <= Moroder-Geisler version
                 // weight over pdf is:
                 // weightOverPdf = fr * (N.V) / pdf = s * F(N.H) * (N.V) / ((L.H) * (N.H))
                 // s * F(N.H) is applied outside the function
