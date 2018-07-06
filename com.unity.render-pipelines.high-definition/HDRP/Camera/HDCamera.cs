@@ -36,17 +36,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Matrix4x4[] projMatrixStereo;
         public Vector4 centerEyeTranslationOffset;
 
-        // Non oblique projection matrix (RHS)
-        public Matrix4x4 nonObliqueProjMatrix
-        {
-            get
-            {
-                return m_AdditionalCameraData != null
-                    ? m_AdditionalCameraData.GetNonObliqueProjection(camera)
-                    : GeometryUtils.CalculateProjectionMatrix(camera);
-            }
-        }
-
         // This is the size actually used for this camera (as it can be altered by VR for example)
         int m_ActualWidth;
         int m_ActualHeight;
@@ -297,6 +286,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_ActualHeight = xrDesc.height;
 
                 ConfigureStereoMatrices();
+            }
+            else
+            {
+                projMatrixStereo[0] = projMatrix;
+                viewMatrixStereo[0] = viewMatrix;
             }
 #endif
 
