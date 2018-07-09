@@ -117,6 +117,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_BuiltinParameters.colorBuffer = m_SkyboxCubemapRT;
                 m_BuiltinParameters.depthBuffer = null;
                 m_BuiltinParameters.hdCamera = null;
+                
+                skyContext.renderer.UpdateSkybox(m_BuiltinParameters);
 
                 CoreUtils.SetRenderTarget(m_BuiltinParameters.commandBuffer, m_SkyboxCubemapRT, ClearFlag.None, 0, (CubemapFace)i);
                 skyContext.renderer.RenderSky(m_BuiltinParameters, true);
@@ -257,6 +259,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     m_BuiltinParameters.depthBuffer = depthBuffer;
                     m_BuiltinParameters.hdCamera = hdCamera;
                     m_BuiltinParameters.debugSettings = debugSettings;
+
+                    skyContext.renderer.UpdateSkybox(m_BuiltinParameters);
 
                     skyContext.renderer.SetRenderTargets(m_BuiltinParameters);
                     skyContext.renderer.RenderSky(m_BuiltinParameters, false);

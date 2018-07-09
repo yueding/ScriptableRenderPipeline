@@ -53,9 +53,9 @@ Shader "Hidden/HDRenderPipeline/Sky/HDRISky"
         float3 rotDirY = float3(sinPhi, 0, cosPhi);
         dir = float3(dot(rotDirX, dir), dir.y, dot(rotDirY, dir));
 
-        float intensity = SAMPLE_TEXTURE2D(_SkyIntensity, sampler_SkyIntensity, float2(.5, .5)).x / _SkyParam.w;
+        float intensity = _SkyParam.w / SAMPLE_TEXTURE2D_LOD(_SkyIntensity, sampler_SkyIntensity, float2(.5, .5), 0).x;
 
-        float3 skyColor = ClampToFloat16Max(SAMPLE_TEXTURECUBE_LOD(_Cubemap, sampler_Cubemap, dir, 0).rgb * exp2(_SkyParam.x) * _SkyParam.y);
+        float3 skyColor = ClampToFloat16Max(SAMPLE_TEXTURECUBE_LOD(_Cubemap, sampler_Cubemap, dir, 0).rgb * exp2(_SkyParam.x) * _SkyParam.y * intensity);
         return float4(skyColor, 1.0);
     }
 

@@ -40,27 +40,44 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 HDUtils.SetRenderTarget(builtinParams.commandBuffer, builtinParams.hdCamera, builtinParams.colorBuffer, builtinParams.depthBuffer);
             }
         }
+        
+        public override void UpdateSkybox(BuiltinSkyParameters builtinParams)
+        {
+            using (new ProfilingSample(builtinParams.commandBuffer, "Get hdri skybox intensity"))
+            {
+                if (m_HdriSkyParams.updateHDRISkyIntensity)
+                {
+                    m_IntegrateHDRISkyMaterial.SetTexture(HDShaderIDs._Cubemap, m_HdriSkyParams.hdriSky);
+
+                    CoreUtils.SetRenderTarget(builtinParams.commandBuffer, m_IntensityTexture, ClearFlag.None);
+                    CoreUtils.DrawFullScreen(builtinParams.commandBuffer, m_IntegrateHDRISkyMaterial);
+                    m_HdriSkyParams.updateHDRISkyIntensity.value = false;
+                }
+            }
+        }
 
         public override void RenderSky(BuiltinSkyParameters builtinParams, bool renderForCubemap)
         {
+            float lux = (m_HdriSkyParams.skyIntensityMode == SkyIntensityMode.Lux) ? m_HdriSkyParams.lux.value : 1;
+            float multiplier = (m_HdriSkyParams.skyIntensityMode == SkyIntensityMode.Exposure) ? m_HdriSkyParams.multiplier.value : 1;
+            float exposure = (m_HdriSkyParams.skyIntensityMode == SkyIntensityMode.Exposure) ? GetExposure(m_HdriSkyParams, builtinParams.debugSettings) : 0;
+
             m_SkyHDRIMaterial.SetTexture(HDShaderIDs._Cubemap, m_HdriSkyParams.hdriSky);
-            m_SkyHDRIMaterial.SetVector(HDShaderIDs._SkyParam, new Vector4(GetExposure(m_HdriSkyParams, builtinParams.debugSettings), m_HdriSkyParams.multiplier, -m_HdriSkyParams.rotation, m_HdriSkyParams.lux)); // -rotation to match Legacy...
-            m_SkyHDRIMaterial.SetTexture(HDShaderIDs._SkyIntensity, m_IntensityTexture);
-            
-            using (new ProfilingSample(builtinParams.commandBuffer, "Get hdri skybox intensity"))
-            {
-            // if (m_HdriSkyParams.updateHDRISkyIntensity)
-            {
-                m_IntegrateHDRISkyMaterial.SetTexture(HDShaderIDs._Cubemap, m_HdriSkyParams.hdriSky);
-                CoreUtils.DrawFullScreen(builtinParams.commandBuffer, m_IntegrateHDRISkyMaterial, m_IntensityTexture);
-                m_HdriSkyParams.updateHDRISkyIntensity.value = false;
-            }
-            }
+            m_SkyHDRIMaterial.SetVector(HDShaderIDs._SkyParam, new Vector4(exposure, multiplier, -m_HdriSkyParams.rotation, lux)); // -rotation to match Legacy...
 
-            // This matrix needs to be updated at the draw call frequency.
-            m_PropertyBlock.SetMatrix(HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
-
-            CoreUtils.DrawFullScreen(builtinParams.commandBuffer, m_SkyHDRIMaterial, m_PropertyBlock, renderForCubemap ? 0 : 1);
+            using (new ProfilingSample(builtinParams.commandBuffer, "Draw sky"))
+            {
+                // Bind a white texture if the intensity mode isn't lux so we sample an intensity of 1
+                if (m_HdriSkyParams.skyIntensityMode == SkyIntensityMode.Lux)
+                    m_SkyHDRIMaterial.SetTexture(HDShaderIDs._SkyIntensity, m_IntensityTexture);
+                else
+                    m_SkyHDRIMaterial.SetTexture(HDShaderIDs._SkyIntensity, Texture2D.whiteTexture);
+    
+                // This matrix needs to be updated at the draw call frequency.
+                m_PropertyBlock.SetMatrix(HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
+    
+                CoreUtils.DrawFullScreen(builtinParams.commandBuffer, m_SkyHDRIMaterial, m_PropertyBlock, renderForCubemap ? 0 : 1);
+            }
         }
 
         public override bool IsValid()
