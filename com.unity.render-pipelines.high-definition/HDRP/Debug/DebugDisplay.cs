@@ -122,6 +122,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public bool enabled;
             public int mode;
             public int submode;
+            public int lightIndex;
+            public bool probeCamera;
         }
         public PlanarLightCullingDebugSettings planarLightCullingDebugSettings = new PlanarLightCullingDebugSettings();
 #endif
@@ -867,6 +869,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 new DebugUI.BoolField { displayName = "Enable Debug", getter = () => planarLightCullingDebugSettings.enabled, setter = value => planarLightCullingDebugSettings.enabled = value },
                 new DebugUI.IntField { displayName = "Debug Mode", getter = () => planarLightCullingDebugSettings.mode, setter = value => planarLightCullingDebugSettings.mode = value },
                 new DebugUI.IntField { displayName = "Debug Sub Mode", getter = () => planarLightCullingDebugSettings.submode, setter = value => planarLightCullingDebugSettings.submode = value },
+                new DebugUI.IntField { displayName = "Debug Light Index", getter = () => planarLightCullingDebugSettings.lightIndex, setter = value => planarLightCullingDebugSettings.lightIndex = value },
+                new DebugUI.BoolField { displayName = "Debug Probe Camera", getter = () => planarLightCullingDebugSettings.probeCamera, setter = value => planarLightCullingDebugSettings.probeCamera = value },
             };
 
             var panel = DebugManager.instance.GetPanel(k_PanelPlanarLightCulling, true);

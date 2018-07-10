@@ -507,44 +507,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #if PLANAR_LIGHT_CULLING_DEBUG
         struct LightCullingDebug
         {
-            public Vector3 vMin0;
-            public Vector3 vMin1;
-            public Vector3 vMin2;
-            public Vector3 vMin3;
-            public Vector3 vMin4;
-            public Vector3 vMin5;
+            public Vector3 vMin;
+            public Vector3 vMax;
 
-            public Vector3 vMax0;
-            public Vector3 vMax1;
-            public Vector3 vMax2;
-            public Vector3 vMax3;
-            public Vector3 vMax4;
-            public Vector3 vMax5;
-
-            public Vector3 hullVertex00;
-            public Vector3 hullVertex01;
-            public Vector3 hullVertex02;
-            public Vector3 hullVertex03;
-            public Vector3 hullVertex10;
-            public Vector3 hullVertex11;
-            public Vector3 hullVertex12;
-            public Vector3 hullVertex13;
-            public Vector3 hullVertex20;
-            public Vector3 hullVertex21;
-            public Vector3 hullVertex22;
-            public Vector3 hullVertex23;
-            public Vector3 hullVertex30;
-            public Vector3 hullVertex31;
-            public Vector3 hullVertex32;
-            public Vector3 hullVertex33;
-            public Vector3 hullVertex40;
-            public Vector3 hullVertex41;
-            public Vector3 hullVertex42;
-            public Vector3 hullVertex43;
-            public Vector3 hullVertex50;
-            public Vector3 hullVertex51;
-            public Vector3 hullVertex52;
-            public Vector3 hullVertex53;
+            public Vector3 hullVertex0;
+            public Vector3 hullVertex1;
+            public Vector3 hullVertex2;
+            public Vector3 hullVertex3;
 
             public Vector3 center;
             public float radius;
@@ -554,7 +523,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void Build(HDRenderPipelineAsset hdAsset, ShadowSettings shadowSettings, IBLFilterGGX iblFilterGGX)
         {
 #if PLANAR_LIGHT_CULLING_DEBUG
-            debugBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightCullingDebug)));
+            debugBuffer = new ComputeBuffer(6, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightCullingDebug)));
 #endif
 
             m_Resources = hdAsset.renderPipelineResources;
@@ -2159,7 +2128,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
 #if PLANAR_LIGHT_CULLING_DEBUG
                 cmd.SetComputeBufferParam(buildScreenAABBShader, s_GenAABBKernel, "g_debug", debugBuffer);
-                cmd.SetComputeIntParam(buildScreenAABBShader, "_WriteDebug", camera.name.StartsWith("__Probe") ? 1 : 0);
 #endif
 
                 cmd.SetComputeIntParam(buildScreenAABBShader, HDShaderIDs.g_isOrthographic, isOrthographic ? 1 : 0);

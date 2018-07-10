@@ -602,6 +602,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetGlobalBuffer(HDShaderIDs._DebugScreenSpaceTracingData, m_DebugScreenSpaceTracingData);
 
 #if PLANAR_LIGHT_CULLING_DEBUG
+                cmd.SetGlobalInt("_LightLoopCullingDebugLightIndex", m_DebugDisplaySettings.planarLightCullingDebugSettings.lightIndex);
                 cmd.SetGlobalInt("_LightLoopCullingDebugMode", m_DebugDisplaySettings.planarLightCullingDebugSettings.mode);
                 cmd.SetGlobalInt("_LightLoopCullingDebugSubMode", m_DebugDisplaySettings.planarLightCullingDebugSettings.submode);
 #endif
@@ -1150,7 +1151,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     RenderDebug(hdCamera, cmd);
 
 #if PLANAR_LIGHT_CULLING_DEBUG
-                    if (camera.name.StartsWith("__Probe") && m_DebugDisplaySettings.planarLightCullingDebugSettings.enabled)
+                    if ((m_DebugDisplaySettings.planarLightCullingDebugSettings.probeCamera && camera.name.StartsWith("__Probe")
+                        || !m_DebugDisplaySettings.planarLightCullingDebugSettings.probeCamera && !camera.name.StartsWith("__Probe"))
+                        && m_DebugDisplaySettings.planarLightCullingDebugSettings.enabled)
                     {
                         using (new ProfilingSample(cmd, "Debug Light Culling", CustomSamplerId.ApplyDistortion.GetSampler()))
                         {

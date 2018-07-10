@@ -32,14 +32,18 @@ RWStructuredBuffer<float3> g_vBoundsBuffer : register( u0 );
 #ifdef PLANAR_LIGHT_CULLING_DEBUG
 struct Debug
 {
-    float3 vMin[6];
-    float3 vMax[6];
-    float3 hullVertex[24];
+    float3 vMin;
+    float3 vMax;
+    float3 hullVertex0;
+    float3 hullVertex1;
+    float3 hullVertex2;
+    float3 hullVertex3;
     float3 center;
     float radius;
 };
 RWStructuredBuffer<Debug> g_debug : register(u7);
 int _WriteDebug;
+int _LightLoopCullingDebugLightIndex;
 #endif
 
 
@@ -57,6 +61,15 @@ void CalcBound(out bool2 bIsMinValid, out bool2 bIsMaxValid, out float2 vMin, ou
 
 #include "LightingConvexHullUtils.hlsl"
 
+float4 ViewSpaceToClipSpace(float3 positionVS, float4x4 projMatrix)
+{
+    float4 positionCS = mul(projMatrix, float4(positionVS, 1));
+#if UNITY_UV_STARTS_AT_TOP
+    positionCS.y = -positionCS.y;
+#endif
+    return positionCS;
+}
+
 
 [numthreads(NR_THREADS, 1, 1)]
 void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
@@ -67,6 +80,15 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
     // The g_ is preserved in order to make cross-pipeline (FPTL) updates easier
     float4x4 g_mInvProjection = g_mInvProjectionArr[eyeIndex];
     float4x4 g_mProjection = g_mProjectionArr[eyeIndex];
+
+#if UNITY_UV_STARTS_AT_TOP
+    float4x4 invY = float4x4(   float4(1, 0, 0, 0),
+                                float4(0, -1, 0, 0),
+                                float4(0, 0, 1, 0),
+                                float4(0, 0, 0, 1));
+    g_mProjection = mul(g_mProjection, invY);
+    g_mInvProjection = mul(invY, g_mInvProjection);
+#endif
 
     //uint vindex = groupID * NR_THREADS + threadID;
     unsigned int g = groupID;
@@ -121,29 +143,21 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
             }
 
 #ifdef PLANAR_LIGHT_CULLING_DEBUG
-            if (_WriteDebug == 1 && lgtIndex == 0)
+            if (lgtIndex == _LightLoopCullingDebugLightIndex)
             {
                 Debug d = (Debug)0;
 
-                float3 vMins[6] = d.vMin;
-                vMins[sideIndex] = vMin;
-                d.vMin = vMins;
-
-                float3 vMaxs[6] = d.vMax;
-                vMaxs[sideIndex] = vMax;
-                d.vMax = vMaxs;
-
-                float3 hullVertices[24] = d.hullVertex;
-                hullVertices[sideIndex * 4 + 0] = q0;
-                hullVertices[sideIndex * 4 + 1] = q1;
-                hullVertices[sideIndex * 4 + 2] = q2;
-                hullVertices[sideIndex * 4 + 3] = q3;
-                d.hullVertex = hullVertices;
+                d.vMin = vMin;
+                d.vMax = vMax;
+                d.hullVertex0 = q0;
+                d.hullVertex1 = q1;
+                d.hullVertex2 = q2;
+                d.hullVertex3 = q3;
 
                 d.center = center;
                 d.radius = radius;
 
-                g_debug[0] = d;
+                g_debug[sideIndex] = d;
             }
 #endif
 
@@ -188,20 +202,10 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
                     vMax = max(vMax, vP); vMin = min(vMin, vP);
                 }
             }
+            // END DEBUG
 #else
 
-            float4 vP0 = mul(g_mProjection, float4(center - radius * 10, 1));
-            float4 vP1 = mul(g_mProjection, float4(center + radius * 10, 1));
-            vP0.xyz /= vP0.w;
-            vP1.xyz /= vP1.w;
-
-            vMax = max(vP0.xyz, vP1.xyz);
-            vMin = min(vP0.xyz, vP1.xyz);
-            vMax = float3(1, 1, 1);
-            vMin = float3(-1, -1, -1);
-             END DEBUG
-
-             quick acceptance or rejection
+            // quick acceptance or rejection
             unsigned int uCollectiveAnd = (unsigned int) -1;
             unsigned int uCollectiveOr = 0;
             for(f=0; f<6; f++)

@@ -3,9 +3,12 @@
 
 struct Debug
 {
-    float3 vMin[6];
-    float3 vMax[6];
-    float3 hullVertex[24];
+    float3 vMin;
+    float3 vMax;
+    float3 hullVertex0;
+    float3 hullVertex1;
+    float3 hullVertex2;
+    float3 hullVertex3;
     float3 center;
     float radius;
 };
@@ -45,7 +48,6 @@ float2 WorldToNDC(float3 p, float4x4 proj)
 [numthreads(1, 1, 1)]
 void KMain(int2 threadID : SV_DispatchThreadID)
 {
-    Debug d = _Debug[0];
     float2 uv = float2(threadID.xy * _ScreenSize.zw);
 
     // d.center is in LHS, so we need and LHS projection matrix
@@ -61,13 +63,14 @@ void KMain(int2 threadID : SV_DispatchThreadID)
     float3 color = float3(0, 0, 0);
     for (int i = 0; i < 6; ++i)
     {
+        Debug d = _Debug[i];
         if ((_LightLoopCullingDebugMode & 1) != 0)
         {
             if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
                 continue;
 
-            float2 mi = d.vMin[i].xy * 0.5 + 0.5;
-            float2 ma = d.vMax[i].xy * 0.5 + 0.5;
+            float2 mi = d.vMin.xy * 0.5 + 0.5;
+            float2 ma = d.vMax.xy * 0.5 + 0.5;
             if (GetClipFlags(uv, mi, ma) == 0)
                 color = GetIndexColor(i);
         }
@@ -77,22 +80,38 @@ void KMain(int2 threadID : SV_DispatchThreadID)
             if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
                 continue;
 
-            for (uint j = 0; j < 4; ++j)
             {
-                float2 p = WorldToNDC(d.hullVertex[i * 4 + j], lhsProjMatrix);
+                float2 p = WorldToNDC(d.hullVertex0, lhsProjMatrix);
                 if (IsNearPoint(uv, p, 0.01))
-                    color = GetIndexColor(6 + i);
+                    color = GetIndexColor(6 + 0);
+            }
+            {
+                float2 p = WorldToNDC(d.hullVertex1, lhsProjMatrix);
+                if (IsNearPoint(uv, p, 0.01))
+                    color = GetIndexColor(6 + 1);
+            }
+            {
+                float2 p = WorldToNDC(d.hullVertex2, lhsProjMatrix);
+                if (IsNearPoint(uv, p, 0.01))
+                    color = GetIndexColor(6 + 2);
+            }
+            {
+                float2 p = WorldToNDC(d.hullVertex3, lhsProjMatrix);
+                if (IsNearPoint(uv, p, 0.01))
+                    color = GetIndexColor(6 + 3);
             }
         }
     }
 
-    float2 centerNDC = WorldToNDC(d.center, lhsProjMatrix);
-
     if ((_LightLoopCullingDebugMode & 4) != 0)
     {
+        Debug d = _Debug[0];
+        float2 centerNDC = WorldToNDC(d.center, lhsProjMatrix);
+
         if (IsNearPoint(uv, centerNDC, 0.01))
             color = GetIndexColor(12);
     }
+    
 
     float4 c = LOAD_TEXTURE2D_LOD(_Input, threadID, 0);
 
