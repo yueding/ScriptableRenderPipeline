@@ -318,7 +318,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (Debug.isDebugBuild)
             {
                 m_DebugColorPickerBuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: RenderTextureFormat.ARGBHalf, sRGB: false, name: "DebugColorPicker");
-                m_DebugFullScreenTempBuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: RenderTextureFormat.ARGBHalf, sRGB: false, name: "DebugFullScreen");
+                m_DebugFullScreenTempBuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: RenderTextureFormat.ARGBHalf, sRGB: false, name: "DebugFullScreen"); 
             }
         }
 
@@ -601,7 +601,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 cmd.SetGlobalBuffer(HDShaderIDs._DebugScreenSpaceTracingData, m_DebugScreenSpaceTracingData);
 
-                cmd.SetGlobalTexture("g_debug_texture", m_DebugFullScreenTempBuffer);
+#if PLANAR_LIGHT_CULLING_DEBUG
+                cmd.SetGlobalInt("_LightLoopCullingDebugMode", m_DebugDisplaySettings.planarLightCullingDebugSettings.mode);
+                cmd.SetGlobalInt("_LightLoopCullingDebugSubMode", m_DebugDisplaySettings.planarLightCullingDebugSettings.submode);
+#endif
             }
         }
 
@@ -1148,7 +1151,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
 #if PLANAR_LIGHT_CULLING_DEBUG
                     if (camera.name.StartsWith("__Probe") && m_DebugDisplaySettings.planarLightCullingDebugSettings.enabled)
-                        cmd.Blit(m_DebugFullScreenTempBuffer, BuiltinRenderTextureType.CameraTarget);
+                    {
+                        using (new ProfilingSample(cmd, "Debug Light Culling", CustomSamplerId.ApplyDistortion.GetSampler()))
+                        {
+                            var cs = m_Asset.renderPipelineResources.lightCullingDebugCS;
+                            var k = cs.FindKernel("KMain");
+                            var id = "TempLightcullingDebug".GetHashCode();
+                            cmd.GetTemporaryRT(id, camera.pixelHeight, camera.pixelHeight, 1, FilterMode.Point, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear, 1, true);
+                            cmd.SetComputeBufferParam(cs, k, "_Debug", m_LightLoop.debugBuffer);
+                            cmd.SetComputeTextureParam(cs, k, "_Output", id);
+                            cmd.SetComputeTextureParam(cs, k, "_Input", BuiltinRenderTextureType.CameraTarget);
+                            cmd.DispatchCompute(cs, k, camera.pixelWidth, camera.pixelHeight, 1);
+                            cmd.Blit(id, BuiltinRenderTextureType.CameraTarget);
+                            cmd.ReleaseTemporaryRT(id);
+                        }
+                    }
 #endif
 
 #if UNITY_EDITOR

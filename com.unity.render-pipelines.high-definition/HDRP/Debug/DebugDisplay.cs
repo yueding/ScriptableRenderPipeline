@@ -120,6 +120,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public class PlanarLightCullingDebugSettings
         {
             public bool enabled;
+            public int mode;
+            public int submode;
         }
         public PlanarLightCullingDebugSettings planarLightCullingDebugSettings = new PlanarLightCullingDebugSettings();
 #endif
@@ -863,6 +865,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_DebugPlanarLightCullingItems = new DebugUI.Widget[]
             {
                 new DebugUI.BoolField { displayName = "Enable Debug", getter = () => planarLightCullingDebugSettings.enabled, setter = value => planarLightCullingDebugSettings.enabled = value },
+                new DebugUI.IntField { displayName = "Debug Mode", getter = () => planarLightCullingDebugSettings.mode, setter = value => planarLightCullingDebugSettings.mode = value },
+                new DebugUI.IntField { displayName = "Debug Sub Mode", getter = () => planarLightCullingDebugSettings.submode, setter = value => planarLightCullingDebugSettings.submode = value },
             };
 
             var panel = DebugManager.instance.GetPanel(k_PanelPlanarLightCulling, true);

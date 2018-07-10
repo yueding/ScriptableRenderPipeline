@@ -1,6 +1,9 @@
 // The implementation is based on the demo on "fine pruned tiled lighting" published in GPU Pro 7.
 // https://github.com/wolfgangfengel/GPU-Pro-7
 
+#define PLANAR_LIGHT_CULLING_DEBUG
+#define DEBUG_TEST
+
 #pragma kernel ScreenBoundsAABB
 
 #include "CoreRP/ShaderLibrary/Common.hlsl"
@@ -25,6 +28,19 @@ RWStructuredBuffer<float3> g_vBoundsBuffer : register( u0 );
 #define MAX_PNTS        9       // strictly this should be 10=6+4 but we get more wavefronts and 10 seems to never hit (fingers crossed)
                                 // However, worst case the plane that would be skipped if such an extreme case ever happened would be backplane
                                 // clipping gets skipped which doesn't cause any errors.
+
+#ifdef PLANAR_LIGHT_CULLING_DEBUG
+struct Debug
+{
+    float3 vMin[6];
+    float3 vMax[6];
+    float3 hullVertex[24];
+    float3 center;
+    float radius;
+};
+RWStructuredBuffer<Debug> g_debug : register(u7);
+int _WriteDebug;
+#endif
 
 
 // LDS (2496 bytes)
@@ -104,6 +120,33 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
                 vMax = max(vMax, vP); vMin = min(vMin, vP);
             }
 
+#ifdef PLANAR_LIGHT_CULLING_DEBUG
+            if (_WriteDebug == 1 && lgtIndex == 0)
+            {
+                Debug d = (Debug)0;
+
+                float3 vMins[6] = d.vMin;
+                vMins[sideIndex] = vMin;
+                d.vMin = vMins;
+
+                float3 vMaxs[6] = d.vMax;
+                vMaxs[sideIndex] = vMax;
+                d.vMax = vMaxs;
+
+                float3 hullVertices[24] = d.hullVertex;
+                hullVertices[sideIndex * 4 + 0] = q0;
+                hullVertices[sideIndex * 4 + 1] = q1;
+                hullVertices[sideIndex * 4 + 2] = q2;
+                hullVertices[sideIndex * 4 + 3] = q3;
+                d.hullVertex = hullVertices;
+
+                d.center = center;
+                d.radius = radius;
+
+                g_debug[0] = d;
+            }
+#endif
+
             clipFlags[subLigt*6+sideIndex] = (uFlag0<<0) | (uFlag1<<6) | (uFlag2<<12) | (uFlag3<<18);
 
             // store in clip buffer (only use these vMin and vMax if light is 100% visible in which case clipping isn't needed)
@@ -128,7 +171,37 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
 
         if(sideIndex==0 && lgtIndex<(int) g_iNrVisibLights)
         {
-            // quick acceptance or rejection
+#ifdef DEBUG_TEST
+            // DEBUG
+            float3 vMin=0.0, vMax=0.0;
+            for (f = 0; f < 6; ++f)
+            {
+                const int sideIndex = f;
+                float3 vFaceMi = float3(posX[subLigt*MAX_PNTS * 2 + sideIndex + 0], posY[subLigt*MAX_PNTS * 2 + sideIndex + 0], posZ[subLigt*MAX_PNTS * 2 + sideIndex + 0]);
+                float3 vFaceMa = float3(posX[subLigt*MAX_PNTS * 2 + sideIndex + 6], posY[subLigt*MAX_PNTS * 2 + sideIndex + 6], posZ[subLigt*MAX_PNTS * 2 + sideIndex + 6]);
+
+                for(int k=0; k<2; k++)
+                {
+                    float3 vP = k==0 ? vFaceMi : vFaceMa;
+                    if(f==0 && k==0) { vMin=vP; vMax=vP; }
+
+                    vMax = max(vMax, vP); vMin = min(vMin, vP);
+                }
+            }
+#else
+
+            float4 vP0 = mul(g_mProjection, float4(center - radius * 10, 1));
+            float4 vP1 = mul(g_mProjection, float4(center + radius * 10, 1));
+            vP0.xyz /= vP0.w;
+            vP1.xyz /= vP1.w;
+
+            vMax = max(vP0.xyz, vP1.xyz);
+            vMin = min(vP0.xyz, vP1.xyz);
+            vMax = float3(1, 1, 1);
+            vMin = float3(-1, -1, -1);
+             END DEBUG
+
+             quick acceptance or rejection
             unsigned int uCollectiveAnd = (unsigned int) -1;
             unsigned int uCollectiveOr = 0;
             for(f=0; f<6; f++)
@@ -330,7 +403,7 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
                     vMax = float3(-2,-2,-2);
                 }
             }
-
+#endif
 
             // we should consider doing a look-up here into a max depth mip chain
             // to see if the light is occluded: vMin.z*VIEWPORT_SCALE_Z > MipTexelMaxDepth
@@ -346,8 +419,6 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
 
             g_vBoundsBuffer[boundsIndices.min] = float3(0.5*vMin.x + 0.5, 0.5*vMin.y + 0.5, vMin.z*VIEWPORT_SCALE_Z);
             g_vBoundsBuffer[boundsIndices.max] = float3(0.5*vMax.x + 0.5, 0.5*vMax.y + 0.5, vMax.z*VIEWPORT_SCALE_Z);
-            g_vBoundsBuffer[boundsIndices.min] = float3(0.5*-1 + 0.5, 0.5*-1 + 0.5, -1*VIEWPORT_SCALE_Z);
-            g_vBoundsBuffer[boundsIndices.max] = float3(0.5*1 + 0.5, 0.5*1 + 0.5, 1*VIEWPORT_SCALE_Z);
         }
     }
 }

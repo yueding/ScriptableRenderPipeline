@@ -39,6 +39,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ComputeShader screenSpaceShadowComputeShader;
         public ComputeShader volumeVoxelizationCS;
         public ComputeShader volumetricLightingCS;
+#if PLANAR_LIGHT_CULLING_DEBUG
+        public ComputeShader lightCullingDebugCS;
+#endif
 
         public ComputeShader subsurfaceScatteringCS; // Disney SSS
         public Shader subsurfaceScattering; // Jimenez SSS

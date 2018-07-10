@@ -58,6 +58,7 @@ MonoBehaviour:
     type: 3}
   volumetricLightingCS: {fileID: 7200000, guid: b4901a10df2d1e24282725e9fbc77c97,
     type: 3}
+  lightCullingDebugCS: {fileID: 7200000, guid: b70121e96cd42474f9a566b1e1e72a04, type: 3}
   subsurfaceScatteringCS: {fileID: 7200000, guid: b06a7993621def248addd55d0fe931b1,
     type: 3}
   subsurfaceScattering: {fileID: 4800000, guid: 867b36db983aa0548889a66f8d685ff6,

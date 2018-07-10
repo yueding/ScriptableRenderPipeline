@@ -79,6 +79,9 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 newAsset.buildPerVoxelLightListShader = Load<ComputeShader>(HDRenderPipelinePath + "Lighting/LightLoop/lightlistbuild-clustered.compute");
                 newAsset.buildMaterialFlagsShader = Load<ComputeShader>(HDRenderPipelinePath + "Lighting/LightLoop/materialflags.compute");
                 newAsset.deferredComputeShader = Load<ComputeShader>(HDRenderPipelinePath + "Lighting/LightLoop/Deferred.compute");
+#if PLANAR_LIGHT_CULLING_DEBUG
+                newAsset.lightCullingDebugCS = Load<ComputeShader>(HDRenderPipelinePath + "Lighting/LightLoop/lightcullingdebug.compute");
+#endif
 
                 newAsset.screenSpaceShadowComputeShader = Load<ComputeShader>(HDRenderPipelinePath + "Lighting/ScreenSpaceShadow.compute");
                 newAsset.volumeVoxelizationCS = Load<ComputeShader>(HDRenderPipelinePath + "Lighting/Volumetrics/VolumeVoxelization.compute");

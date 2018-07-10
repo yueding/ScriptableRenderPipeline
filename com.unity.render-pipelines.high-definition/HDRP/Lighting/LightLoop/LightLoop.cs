@@ -451,6 +451,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         List<int>               m_ShadowRequests = new List<int>();
         Dictionary<int, int>    m_ShadowIndices = new Dictionary<int, int>();
 
+#if PLANAR_LIGHT_CULLING_DEBUG
+        public ComputeBuffer debugBuffer;
+#endif
+
         void InitShadowSystem(HDRenderPipelineAsset hdAsset, ShadowSettings shadowSettings)
         {
             m_ShadowSetup = new ShadowSetup(hdAsset.renderPipelineResources, hdAsset.GetRenderPipelineSettings().shadowInitParams, shadowSettings, out m_ShadowMgr);
@@ -500,8 +504,59 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return (outputSplitLighting) | (lightLoopTilePass << 1) | (shadowMask << 2) | (debugDisplay << 3);
         }
 
+#if PLANAR_LIGHT_CULLING_DEBUG
+        struct LightCullingDebug
+        {
+            public Vector3 vMin0;
+            public Vector3 vMin1;
+            public Vector3 vMin2;
+            public Vector3 vMin3;
+            public Vector3 vMin4;
+            public Vector3 vMin5;
+
+            public Vector3 vMax0;
+            public Vector3 vMax1;
+            public Vector3 vMax2;
+            public Vector3 vMax3;
+            public Vector3 vMax4;
+            public Vector3 vMax5;
+
+            public Vector3 hullVertex00;
+            public Vector3 hullVertex01;
+            public Vector3 hullVertex02;
+            public Vector3 hullVertex03;
+            public Vector3 hullVertex10;
+            public Vector3 hullVertex11;
+            public Vector3 hullVertex12;
+            public Vector3 hullVertex13;
+            public Vector3 hullVertex20;
+            public Vector3 hullVertex21;
+            public Vector3 hullVertex22;
+            public Vector3 hullVertex23;
+            public Vector3 hullVertex30;
+            public Vector3 hullVertex31;
+            public Vector3 hullVertex32;
+            public Vector3 hullVertex33;
+            public Vector3 hullVertex40;
+            public Vector3 hullVertex41;
+            public Vector3 hullVertex42;
+            public Vector3 hullVertex43;
+            public Vector3 hullVertex50;
+            public Vector3 hullVertex51;
+            public Vector3 hullVertex52;
+            public Vector3 hullVertex53;
+
+            public Vector3 center;
+            public float radius;
+        }
+#endif
+
         public void Build(HDRenderPipelineAsset hdAsset, ShadowSettings shadowSettings, IBLFilterGGX iblFilterGGX)
         {
+#if PLANAR_LIGHT_CULLING_DEBUG
+            debugBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightCullingDebug)));
+#endif
+
             m_Resources = hdAsset.renderPipelineResources;
 
             m_DebugViewTilesMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugViewTilesShader);
@@ -622,6 +677,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public void Cleanup()
         {
+#if PLANAR_LIGHT_CULLING_DEBUG
+            debugBuffer.Release();
+#endif
             DeinitShadowSystem();
 
             CoreUtils.Destroy(m_DefaultTexture2DArray);
@@ -2021,6 +2079,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.DispatchCompute(buildPerVoxelLightListShader, s_GenListPerVoxelKernel, numTilesX, numTilesY, numEyes);
         }
 
+#if PLANAR_LIGHT_CULLING_DEBUG
+        static RenderTexture onePixel = new RenderTexture(1, 1, 1, GraphicsFormat.R32G32B32A32_SFloat) { enableRandomWrite = true };
+#endif
+
         public void BuildGPULightListsCommon(HDCamera hdCamera, CommandBuffer cmd, RenderTargetIdentifier cameraDepthBufferRT, RenderTargetIdentifier stencilTextureRT, bool skyEnabled)
         {
             var camera = hdCamera.camera;
@@ -2056,7 +2118,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Once we generate this non-oblique projection matrix, it can be shared across both eyes (un-array)
                 for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
                 {
-                    projArr[eyeIndex] = hdCamera.projMatrixStereo[eyeIndex] * Matrix4x4.Scale(new Vector3(1, 1, -1));
+                    projArr[eyeIndex] = hdCamera.projMatrixStereo[eyeIndex] * Matrix4x4.Scale(new Vector3(1, 1, -1));  // convex bounds are LHS, so we need to use an LHS projection matrix
                     projscrArr[eyeIndex] = temp * projArr[eyeIndex];
                     invProjscrArr[eyeIndex] = projscrArr[eyeIndex].inverse;
                     invProjArr[eyeIndex] = projArr[eyeIndex].inverse;
@@ -2064,7 +2126,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
             else
             {
-                projArr[0] = hdCamera.projMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1));
+                projArr[0] = hdCamera.projMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1)); // convex bounds are LHS, so we need to use an LHS projection matrix
                 projscrArr[0] = temp * projArr[0];
                 invProjscrArr[0] = projscrArr[0].inverse;
                 invProjArr[0] = projArr[0].inverse;
@@ -2095,14 +2157,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     invProjhArr[0] = projhArr[0].inverse;
                 }
 
+#if PLANAR_LIGHT_CULLING_DEBUG
+                cmd.SetComputeBufferParam(buildScreenAABBShader, s_GenAABBKernel, "g_debug", debugBuffer);
+                cmd.SetComputeIntParam(buildScreenAABBShader, "_WriteDebug", camera.name.StartsWith("__Probe") ? 1 : 0);
+#endif
+
                 cmd.SetComputeIntParam(buildScreenAABBShader, HDShaderIDs.g_isOrthographic, isOrthographic ? 1 : 0);
 
                 // In the stereo case, we have two sets of light bounds to iterate over (bounds are in per-eye view space)
                 cmd.SetComputeIntParam(buildScreenAABBShader, HDShaderIDs.g_iNrVisibLights, m_lightCount);
                 cmd.SetComputeBufferParam(buildScreenAABBShader, s_GenAABBKernel, HDShaderIDs.g_data, s_ConvexBoundsBuffer);
 
-                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mProjectionArr, projhArr);
-                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mInvProjectionArr, invProjhArr);
+                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mProjectionArr, projArr);
+                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mInvProjectionArr, invProjArr);
 
                 // In stereo, we output two sets of AABB bounds
                 cmd.SetComputeBufferParam(buildScreenAABBShader, s_GenAABBKernel, HDShaderIDs.g_vBoundsBuffer, s_AABBBoundsBuffer);

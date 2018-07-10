@@ -19,6 +19,8 @@ uniform uint2 g_viDimensions;
 
 uniform float4x4 g_mInvScrProjectionArr[2];
 uniform float4x4 g_mScrProjectionArr[2];
+uniform float4x4 _InvProjMatrixStereo[2];
+uniform float4x4 _InvProjMatrix;
 
 uniform float g_fNearPlane;
 uniform float g_fFarPlane;
@@ -38,46 +40,6 @@ RWStructuredBuffer<uint> g_vLightList : register( u0 );     // don't support RWB
 // 2kB (room for roughly 30 wavefronts)
 groupshared unsigned int lightsListLDS[MAX_NR_BIG_TILE_LIGHTS_PLUS_ONE];
 groupshared uint lightOffs;
-
-// TODO: Remove this function and g_mInvScrProjectionArr from constants.
-// Only usage of that constant.
-float GetLinearDepth(float zDptBufSpace)    // 0 is near 1 is far
-{
-    float4x4 g_mInvScrProjection = g_mInvScrProjectionArr[0];
-
-    // for perspective projection m22 is zero and m23 is +1/-1 (depends on left/right hand proj)
-    // however this function must also work for orthographic projection so we keep it like this.
-    float m22 = g_mInvScrProjection[2].z, m23 = g_mInvScrProjection[2].w;
-    float m32 = g_mInvScrProjection[3].z, m33 = g_mInvScrProjection[3].w;
-
-    return (m22*zDptBufSpace+m23) / (m32*zDptBufSpace+m33);
-
-    //float3 vP = float3(0.0f,0.0f,zDptBufSpace);
-    //float4 v4Pres = mul(g_mInvScrProjection, float4(vP,1.0));
-    //return v4Pres.z / v4Pres.w;
-}
-
-float3 GetViewPosFromLinDepth(float2 v2ScrPos, float fLinDepth, uint eyeIndex)
-{
-    float4x4 g_mScrProjection = g_mScrProjectionArr[eyeIndex];
-
-    bool isOrthographic = g_isOrthographic!=0;
-    float fSx = g_mScrProjection[0].x;
-    float fSy = g_mScrProjection[1].y;
-    float fCx = isOrthographic ? g_mScrProjection[0].w : g_mScrProjection[0].z;
-    float fCy = isOrthographic ? g_mScrProjection[1].w : g_mScrProjection[1].z;
-
-#if USE_LEFT_HAND_CAMERA_SPACE
-    bool useLeftHandVersion = true;
-#else
-    bool useLeftHandVersion = isOrthographic;
-#endif
-
-    float s = useLeftHandVersion ? 1 : (-1);
-    float2 p = float2( (s*v2ScrPos.x-fCx)/fSx, (s*v2ScrPos.y-fCy)/fSy);
-
-    return float3(isOrthographic ? p.xy : (fLinDepth*p.xy), fLinDepth);
-}
 
 float GetOnePixDiagWorldDistAtDepthOne(uint eyeIndex)
 {
@@ -180,10 +142,13 @@ void BigTileLightListGen(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_Gro
 #ifdef PERFORM_SPHERICAL_INTERSECTION_TESTS
 void SphericalIntersectionTests(uint threadID, int iNrCoarseLights, float2 screenCoordinate, uint eyeIndex)
 {
-#if USE_LEFT_HAND_CAMERA_SPACE
-    float3 V = GetViewPosFromLinDepth( screenCoordinate, 1.0, eyeIndex);
-#else
-    float3 V = GetViewPosFromLinDepth( screenCoordinate, -1.0, eyeIndex);
+    float3 V = ComputeViewSpacePosition(
+        screenCoordinate / float2(g_viDimensions.xy - 1),
+        1,
+        _InvProjMatrix
+    );
+#if !USE_LEFT_HAND_CAMERA_SPACE
+    V.z *= -1;
 #endif
 
     float onePixDiagDist = GetOnePixDiagWorldDistAtDepthOne(eyeIndex);
@@ -216,10 +181,17 @@ float3 GetTileVertex(uint2 viTilLL, uint2 viTilUR, int i, float fTileFarPlane, u
     float x = (i&1)==0 ? viTilLL.x : viTilUR.x;
     float y = (i&2)==0 ? viTilLL.y : viTilUR.y;
     float z = (i&4)==0 ? g_fNearPlane : fTileFarPlane;
+
+    float3 V = ComputeViewSpacePosition(
+        float2(x, y) / float2(g_viDimensions.xy - 1),
+        z,
+        _InvProjMatrixStereo[eyeIndex]
+    );
 #if !USE_LEFT_HAND_CAMERA_SPACE
-    z = -z;
+    V.z *= -1;
 #endif
-    return GetViewPosFromLinDepth( float2(x, y), z, eyeIndex);
+
+    return V;
 }
 
 void GetFrustEdge(out float3 vP0, out float3 vE0, const int e0, uint2 viTilLL, uint2 viTilUR, float fTileFarPlane, uint eyeIndex)

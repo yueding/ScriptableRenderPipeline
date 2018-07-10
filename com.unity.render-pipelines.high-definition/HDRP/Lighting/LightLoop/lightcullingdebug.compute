@@ -1,0 +1,100 @@
+#include "CoreRP/ShaderLibrary/Common.hlsl"
+#include "CoreRP/ShaderLibrary/Debug.hlsl"
+
+struct Debug
+{
+    float3 vMin[6];
+    float3 vMax[6];
+    float3 hullVertex[24];
+    float3 center;
+    float radius;
+};
+StructuredBuffer<Debug> _Debug;
+
+Texture2D<float4> _Input;
+RWTexture2D<float4> _Output : register(u0);
+
+CBUFFER_START(UnityDefault)
+float4 _ScreenSize;
+float4x4 _ProjMatrix;
+int _LightLoopCullingDebugMode;
+int _LightLoopCullingDebugSubMode;
+CBUFFER_END
+
+uint GetClipFlags(float2 uv, float2 mi, float2 ma)
+{
+    return (uv.x < mi.x ? 1 : 0)
+        | (uv.x > ma.x ? 2 : 0)
+        | (uv.y < mi.y ? 4 : 0)
+        | (uv.y > ma.y ? 8 : 0);
+}
+
+bool IsNearPoint(float2 uv, float2 p, float2 size)
+{
+    return GetClipFlags(uv, p - size, p + size) == 0;
+}
+
+float2 WorldToNDC(float3 p, float4x4 proj)
+{
+    float4 cs = mul(proj, float4(p, 1));
+    cs /= cs.w;
+    return cs.xy * 0.5 + 0.5;
+}
+
+#pragma kernel KMain
+[numthreads(1, 1, 1)]
+void KMain(int2 threadID : SV_DispatchThreadID)
+{
+    Debug d = _Debug[0];
+    float2 uv = float2(threadID.xy * _ScreenSize.zw);
+
+    // d.center is in LHS, so we need and LHS projection matrix
+    float4x4 lhsProjMatrix = mul(_ProjMatrix, float4x4(float4(1, 0, 0, 0),
+#if UNITY_UV_STARTS_AT_TOP
+                                                    float4(0, -1, 0, 0),
+#else
+                                                    float4(0, 1, 0, 0),
+#endif
+                                                    float4(0, 0, -1, 0),
+                                                    float4(0, 0, 0, 1)));
+
+    float3 color = float3(0, 0, 0);
+    for (int i = 0; i < 6; ++i)
+    {
+        if ((_LightLoopCullingDebugMode & 1) != 0)
+        {
+            if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
+                continue;
+
+            float2 mi = d.vMin[i].xy * 0.5 + 0.5;
+            float2 ma = d.vMax[i].xy * 0.5 + 0.5;
+            if (GetClipFlags(uv, mi, ma) == 0)
+                color = GetIndexColor(i);
+        }
+
+        if ((_LightLoopCullingDebugMode & 2) != 0)
+        {
+            if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
+                continue;
+
+            for (uint j = 0; j < 4; ++j)
+            {
+                float2 p = WorldToNDC(d.hullVertex[i * 4 + j], lhsProjMatrix);
+                if (IsNearPoint(uv, p, 0.01))
+                    color = GetIndexColor(6 + i);
+            }
+        }
+    }
+
+    float2 centerNDC = WorldToNDC(d.center, lhsProjMatrix);
+
+    if ((_LightLoopCullingDebugMode & 4) != 0)
+    {
+        if (IsNearPoint(uv, centerNDC, 0.01))
+            color = GetIndexColor(12);
+    }
+
+    float4 c = LOAD_TEXTURE2D_LOD(_Input, threadID, 0);
+
+    _Output[threadID] = float4(color * 0.95 + c * 0.05, 1);
+}
