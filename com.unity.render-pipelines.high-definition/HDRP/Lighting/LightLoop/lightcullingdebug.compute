@@ -11,6 +11,17 @@ struct Debug
     float3 hullVertex3;
     float3 center;
     float radius;
+    uint allVisibleOrInvisible;
+    float3 allVMin;
+    float3 allVMax;
+    float3 BSVMin;
+    float3 BSVMax;
+    float3 BSVMin2;
+    float3 BSVMax2;
+    float3 FinalVMin;
+    float3 FinalVMax;
+    float3 clippedConvexVMin;
+    float3 clippedConvexVMax;
 };
 StructuredBuffer<Debug> _Debug;
 
@@ -61,44 +72,47 @@ void KMain(int2 threadID : SV_DispatchThreadID)
                                                     float4(0, 0, 0, 1)));
 
     float3 color = float3(0, 0, 0);
-    for (int i = 0; i < 6; ++i)
+    if ((_LightLoopCullingDebugMode & 3) != 0)
     {
-        Debug d = _Debug[i];
-        if ((_LightLoopCullingDebugMode & 1) != 0)
+        for (int i = 0; i < 6; ++i)
         {
-            if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
-                continue;
+            Debug d = _Debug[i];
+            if ((_LightLoopCullingDebugMode & 1) != 0)
+            {
+                if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
+                    continue;
 
-            float2 mi = d.vMin.xy * 0.5 + 0.5;
-            float2 ma = d.vMax.xy * 0.5 + 0.5;
-            if (GetClipFlags(uv, mi, ma) == 0)
-                color = GetIndexColor(i);
-        }
+                float2 mi = d.vMin.xy * 0.5 + 0.5;
+                float2 ma = d.vMax.xy * 0.5 + 0.5;
+                if (GetClipFlags(uv, mi, ma) == 0)
+                    color = GetIndexColor(i);
+            }
 
-        if ((_LightLoopCullingDebugMode & 2) != 0)
-        {
-            if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
-                continue;
+            if ((_LightLoopCullingDebugMode & 2) != 0)
+            {
+                if ((_LightLoopCullingDebugSubMode & (1 << i)) == 0)
+                    continue;
 
-            {
-                float2 p = WorldToNDC(d.hullVertex0, lhsProjMatrix);
-                if (IsNearPoint(uv, p, 0.01))
-                    color = GetIndexColor(6 + 0);
-            }
-            {
-                float2 p = WorldToNDC(d.hullVertex1, lhsProjMatrix);
-                if (IsNearPoint(uv, p, 0.01))
-                    color = GetIndexColor(6 + 1);
-            }
-            {
-                float2 p = WorldToNDC(d.hullVertex2, lhsProjMatrix);
-                if (IsNearPoint(uv, p, 0.01))
-                    color = GetIndexColor(6 + 2);
-            }
-            {
-                float2 p = WorldToNDC(d.hullVertex3, lhsProjMatrix);
-                if (IsNearPoint(uv, p, 0.01))
-                    color = GetIndexColor(6 + 3);
+                {
+                    float2 p = WorldToNDC(d.hullVertex0, lhsProjMatrix);
+                    if (IsNearPoint(uv, p, 0.01))
+                        color = GetIndexColor(6 + 0);
+                }
+                {
+                    float2 p = WorldToNDC(d.hullVertex1, lhsProjMatrix);
+                    if (IsNearPoint(uv, p, 0.01))
+                        color = GetIndexColor(6 + 1);
+                }
+                {
+                    float2 p = WorldToNDC(d.hullVertex2, lhsProjMatrix);
+                    if (IsNearPoint(uv, p, 0.01))
+                        color = GetIndexColor(6 + 2);
+                }
+                {
+                    float2 p = WorldToNDC(d.hullVertex3, lhsProjMatrix);
+                    if (IsNearPoint(uv, p, 0.01))
+                        color = GetIndexColor(6 + 3);
+                }
             }
         }
     }
@@ -111,7 +125,48 @@ void KMain(int2 threadID : SV_DispatchThreadID)
         if (IsNearPoint(uv, centerNDC, 0.01))
             color = GetIndexColor(12);
     }
-    
+
+    if ((_LightLoopCullingDebugMode & 8) != 0)
+    {
+        Debug d = _Debug[0];
+        if (GetClipFlags(uv, d.allVMin * 0.5 + 0.5, d.allVMax * 0.5 + 0.5) == 0)
+            color = GetIndexColor(13);
+    }
+
+    if ((_LightLoopCullingDebugMode & 16) != 0)
+    {
+        Debug d = _Debug[0];
+        if (IsNearPoint(uv, float2(1, 0), 0.01))
+            color = GetIndexColor((d.allVisibleOrInvisible & 1) + (d.allVisibleOrInvisible & 2));
+    }
+
+    if ((_LightLoopCullingDebugMode & 32) != 0)
+    {
+        Debug d = _Debug[0];
+        if (GetClipFlags(uv, d.BSVMin * 0.5 + 0.5, d.BSVMax * 0.5 + 0.5) == 0)
+            color = GetIndexColor(0);
+    }
+
+    if ((_LightLoopCullingDebugMode & 64) != 0)
+    {
+        Debug d = _Debug[0];
+        if (GetClipFlags(uv, d.BSVMin2 * 0.5 + 0.5, d.BSVMax2 * 0.5 + 0.5) == 0)
+            color = GetIndexColor(1);
+    }
+
+    if ((_LightLoopCullingDebugMode & 128) != 0)
+    {
+        Debug d = _Debug[0];
+        if (GetClipFlags(uv, d.FinalVMin * 0.5 + 0.5, d.FinalVMax * 0.5 + 0.5) == 0)
+            color = GetIndexColor(1);
+    }
+
+    if ((_LightLoopCullingDebugMode & 256) != 0)
+    {
+        Debug d = _Debug[0];
+        if (GetClipFlags(uv, d.clippedConvexVMin * 0.5 + 0.5, d.clippedConvexVMax * 0.5 + 0.5) == 0)
+            color = GetIndexColor(1);
+    }
 
     float4 c = LOAD_TEXTURE2D_LOD(_Input, threadID, 0);
 

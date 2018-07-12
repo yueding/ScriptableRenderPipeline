@@ -517,6 +517,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             public Vector3 center;
             public float radius;
+            public uint allVisibleOrInvisible;
+            public Vector3 allVMin;
+            public Vector3 allVMax;
+            public Vector3 BSVMin;
+            public Vector3 BSVMax;
+            public Vector3 BSVMin2;
+            public Vector3 BSVMax2;
+            public Vector3 FinalVMin;
+            public Vector3 FinalVMax;
+            public Vector3 clippedConvexVMin;
+            public Vector3 clippedConvexVMax;
         }
 #endif
 
@@ -2047,10 +2058,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             //cmd.DispatchCompute(buildPerVoxelLightListShader, s_GenListPerVoxelKernel, numTilesX, numTilesY, 1);
             cmd.DispatchCompute(buildPerVoxelLightListShader, s_GenListPerVoxelKernel, numTilesX, numTilesY, numEyes);
         }
-
-#if PLANAR_LIGHT_CULLING_DEBUG
-        static RenderTexture onePixel = new RenderTexture(1, 1, 1, GraphicsFormat.R32G32B32A32_SFloat) { enableRandomWrite = true };
-#endif
 
         public void BuildGPULightListsCommon(HDCamera hdCamera, CommandBuffer cmd, RenderTargetIdentifier cameraDepthBufferRT, RenderTargetIdentifier stencilTextureRT, bool skyEnabled)
         {
