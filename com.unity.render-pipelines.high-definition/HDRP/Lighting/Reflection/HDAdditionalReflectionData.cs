@@ -48,5 +48,44 @@ namespace UnityEngine.Experimental.Rendering
 
         public float sphereBlendRadiusOffset { get { return -blendDistancePositive.x; } }
         public float sphereBlendNormalRadiusOffset { get { return -blendNormalDistancePositive.x; } }
+
+        private void Awake()
+        {
+            Init();
+        }
+
+        private void Init()
+        {
+            proxyVolumeComponent = null;
+
+            influenceShape = ShapeType.Box;
+            multiplier = 1.0f;
+            weight = 1.0f;
+            influenceSphereRadius = 3.0f;
+            sphereReprojectionVolumeRadius = 1.0f;
+            useSeparateProjectionVolume = false;
+            boxReprojectionVolumeSize = Vector3.one;
+            boxReprojectionVolumeCenter = Vector3.zero;
+            maxSearchDistance = 8.0f;
+            blendDistancePositive = Vector3.zero;
+            blendDistanceNegative = Vector3.zero;
+            blendNormalDistancePositive = Vector3.zero;
+            blendNormalDistanceNegative = Vector3.zero;
+            boxSideFadePositive = Vector3.one;
+            boxSideFadeNegative = Vector3.one;
+
+            editorAdvancedModeBlendDistancePositive = Vector3.zero;
+            editorAdvancedModeBlendDistanceNegative = Vector3.zero;
+            editorSimplifiedModeBlendDistance = 0f;
+            editorAdvancedModeBlendNormalDistancePositive = Vector3.zero;
+            editorAdvancedModeBlendNormalDistanceNegative = Vector3.zero;
+            editorSimplifiedModeBlendNormalDistance = 0f;
+            editorAdvancedModeEnabled = false;
+        }
+
+        public void Reset()
+        {
+            Init();
+        }
     }
 }
