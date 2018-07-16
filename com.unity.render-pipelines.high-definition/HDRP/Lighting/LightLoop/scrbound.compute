@@ -2,7 +2,6 @@
 // https://github.com/wolfgangfengel/GPU-Pro-7
 
 #define PLANAR_LIGHT_CULLING_DEBUG
-//#define DEBUG_TEST
 
 #pragma kernel ScreenBoundsAABB
 
@@ -72,15 +71,6 @@ void CalcBound(out bool2 bIsMinValid, out bool2 bIsMaxValid, out float2 vMin, ou
 
 #include "LightingConvexHullUtils.hlsl"
 
-float4 ViewSpaceToClipSpace(float3 positionVS, float4x4 projMatrix)
-{
-    float4 positionCS = mul(projMatrix, float4(positionVS, 1));
-#if UNITY_UV_STARTS_AT_TOP
-    positionCS.y = -positionCS.y;
-#endif
-    return positionCS;
-}
-
 
 [numthreads(NR_THREADS, 1, 1)]
 void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
@@ -91,15 +81,6 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
     // The g_ is preserved in order to make cross-pipeline (FPTL) updates easier
     float4x4 g_mInvProjection = g_mInvProjectionArr[eyeIndex];
     float4x4 g_mProjection = g_mProjectionArr[eyeIndex];
-
-#if UNITY_UV_STARTS_AT_TOP
-    float4x4 invY = float4x4(   float4(1, 0, 0, 0),
-                                float4(0, -1, 0, 0),
-                                float4(0, 0, 1, 0),
-                                float4(0, 0, 0, 1));
-    g_mProjection = mul(g_mProjection, invY);
-    g_mInvProjection = mul(invY, g_mInvProjection);
-#endif
 
     //uint vindex = groupID * NR_THREADS + threadID;
     unsigned int g = groupID;
@@ -196,26 +177,6 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
 
         if(sideIndex==0 && lgtIndex<(int) g_iNrVisibLights)
         {
-#ifdef DEBUG_TEST
-            // DEBUG
-            float3 vMin=0.0, vMax=0.0;
-            for (f = 0; f < 6; ++f)
-            {
-                const int sideIndex = f;
-                float3 vFaceMi = float3(posX[subLigt*MAX_PNTS * 2 + sideIndex + 0], posY[subLigt*MAX_PNTS * 2 + sideIndex + 0], posZ[subLigt*MAX_PNTS * 2 + sideIndex + 0]);
-                float3 vFaceMa = float3(posX[subLigt*MAX_PNTS * 2 + sideIndex + 6], posY[subLigt*MAX_PNTS * 2 + sideIndex + 6], posZ[subLigt*MAX_PNTS * 2 + sideIndex + 6]);
-
-                for(int k=0; k<2; k++)
-                {
-                    float3 vP = k==0 ? vFaceMi : vFaceMa;
-                    if(f==0 && k==0) { vMin=vP; vMax=vP; }
-
-                    vMax = max(vMax, vP); vMin = min(vMin, vP);
-                }
-            }
-            // END DEBUG
-#else
-
             // quick acceptance or rejection
             unsigned int uCollectiveAnd = (unsigned int) -1;
             unsigned int uCollectiveOr = 0;
@@ -439,37 +400,35 @@ void ScreenBoundsAABB(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupI
 #endif
                 }
 
-                // Currently, Z AABB refinment does not work with oblique projection
-//#if USE_LEFT_HAND_CAMERA_SPACE
-//                if((center.z-radius)>0.0)
-//                {
-//                    float4 vPosF = mul(g_mProjection, float4(0,0,center.z-radius,1));
-//                    vMin.z = max(vMin.z, vPosF.z/vPosF.w);
-//                }
-//                if((center.z+radius)>0.0)
-//                {
-//                    float4 vPosB = mul(g_mProjection, float4(0,0,center.z+radius,1));
-//                    vMax.z = min(vMax.z, vPosB.z/vPosB.w);
-//                }
-//#else
-//                if((center.z+radius)<0.0)
-//                {
-//                    float4 vPosF = mul(g_mProjection, float4(0,0,center.z+radius,1));
-//                    vMin.z = max(vMin.z, vPosF.z/vPosF.w);
-//                }
-//                if((center.z-radius)<0.0)
-//                {
-//                    float4 vPosB = mul(g_mProjection, float4(0,0,center.z-radius,1));
-//                    vMax.z = min(vMax.z, vPosB.z/vPosB.w);
-//                }
-//#endif
-//                else
-//                {
-//                    vMin = float3(-3,-3,-3);
-//                    vMax = float3(-2,-2,-2);
-//                }
-            }
+#if USE_LEFT_HAND_CAMERA_SPACE
+                if((center.z-radius)>0.0)
+                {
+                    float4 vPosF = mul(g_mProjection, float4(0,0,center.z-radius,1));
+                    vMin.z = max(vMin.z, vPosF.z/vPosF.w);
+                }
+                if((center.z+radius)>0.0)
+                {
+                    float4 vPosB = mul(g_mProjection, float4(0,0,center.z+radius,1));
+                    vMax.z = min(vMax.z, vPosB.z/vPosB.w);
+                }
+#else
+                if((center.z+radius)<0.0)
+                {
+                    float4 vPosF = mul(g_mProjection, float4(0,0,center.z+radius,1));
+                    vMin.z = max(vMin.z, vPosF.z/vPosF.w);
+                }
+                if((center.z-radius)<0.0)
+                {
+                    float4 vPosB = mul(g_mProjection, float4(0,0,center.z-radius,1));
+                    vMax.z = min(vMax.z, vPosB.z/vPosB.w);
+                }
 #endif
+                else
+                {
+                    vMin = float3(-3,-3,-3);
+                    vMax = float3(-2,-2,-2);
+                }
+            }
 
 #ifdef PLANAR_LIGHT_CULLING_DEBUG
             if (lgtIndex == _LightLoopCullingDebugLightIndex)

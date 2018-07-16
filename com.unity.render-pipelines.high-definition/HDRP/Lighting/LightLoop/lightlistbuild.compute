@@ -73,6 +73,46 @@ groupshared uint ldsFeatureFlags;
 RWStructuredBuffer<uint> g_TileFeatureFlags;
 #endif
 
+//float GetLinearDepth(float3 vP)
+//{
+//  float4 v4Pres = mul(g_mInvScrProjection, float4(vP,1.0));
+//  return v4Pres.z / v4Pres.w;
+//}
+
+float GetLinearDepth(float zDptBufSpace)    // 0 is near 1 is far
+{
+    // for perspective projection m22 is zero and m23 is +1/-1 (depends on left/right hand proj)
+    // however this function must also work for orthographic projection so we keep it like this.
+    float m22 = g_mInvScrProjection[2].z, m23 = g_mInvScrProjection[2].w;
+    float m32 = g_mInvScrProjection[3].z, m33 = g_mInvScrProjection[3].w;
+
+    return (m22*zDptBufSpace+m23) / (m32*zDptBufSpace+m33);
+
+    //float3 vP = float3(0.0f,0.0f,zDptBufSpace);
+    //float4 v4Pres = mul(g_mInvScrProjection, float4(vP,1.0));
+    //return v4Pres.z / v4Pres.w;
+}
+
+float3 GetViewPosFromLinDepth(float2 v2ScrPos, float fLinDepth)
+{
+    bool isOrthographic = g_isOrthographic!=0;
+    float fSx = g_mScrProjection[0].x;
+    float fSy = g_mScrProjection[1].y;
+    float fCx = isOrthographic ? g_mScrProjection[0].w : g_mScrProjection[0].z;
+    float fCy = isOrthographic ? g_mScrProjection[1].w : g_mScrProjection[1].z;
+
+#if USE_LEFT_HAND_CAMERA_SPACE
+    bool useLeftHandVersion = true;
+#else
+    bool useLeftHandVersion = isOrthographic;
+#endif
+
+    float s = useLeftHandVersion ? 1 : (-1);
+    float2 p = float2( (s*v2ScrPos.x-fCx)/fSx, (s*v2ScrPos.y-fCy)/fSy);
+
+    return float3(isOrthographic ? p.xy : (fLinDepth*p.xy), fLinDepth);
+}
+
 float GetOnePixDiagWorldDistAtDepthOne()
 {
     float fSx = g_mScrProjection[0].x;
@@ -86,7 +126,7 @@ int SphericalIntersectionTests(uint threadID, int iNrCoarseLights, float2 screen
 #endif
 
 #ifdef FINE_PRUNING_ENABLED
-void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float3 vVPoss[4]);
+void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float4 vLinDepths);
 #endif
 
 [numthreads(NR_THREADS, 1, 1)]
@@ -124,7 +164,7 @@ void LIGHTLISTGEN(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
     float dpt_mi=asfloat(uFltMax), dpt_ma=0.0;
 
 
-    float3 vVPoss[4];
+    float4 vLinDepths;
     {
         // Fetch depths and calculate min/max
         UNITY_UNROLL
@@ -132,12 +172,8 @@ void LIGHTLISTGEN(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
         {
             int idx = i * NR_THREADS + t;
             uint2 uCrd = min( uint2(viTilLL.x+(idx&0xf), viTilLL.y+(idx>>4)), uint2(iWidth-1, iHeight-1) );
-            const float fDepth = LOAD_TEXTURE2D_LOD(g_depth_tex, uCrd, 0).r;
-            vVPoss[i] = ComputeViewSpacePosition(
-                uCrd / float2(g_viDimensions.xy - 1),
-                fDepth,
-                _InvProjMatrix
-            );
+            const float fDepth = FetchDepth(g_depth_tex, uCrd);
+            vLinDepths[i] = GetLinearDepth(fDepth);
             if(fDepth<VIEWPORT_SCALE_Z)     // if not skydome
             {
                 dpt_mi = min(fDepth, dpt_mi);
@@ -212,7 +248,7 @@ void LIGHTLISTGEN(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
     {
         // initializes ldsNrLightsFinal with the number of accepted lights.
         // all accepted entries delivered in prunedList[].
-        FinePruneLights(t, iNrCoarseLights, viTilLL, vVPoss);
+        FinePruneLights(t, iNrCoarseLights, viTilLL, vLinDepths);
     }
 #endif
 
@@ -303,13 +339,10 @@ int SphericalIntersectionTests(uint threadID, int iNrCoarseLights, float2 screen
     GroupMemoryBarrierWithGroupSync();
 #endif
 
-    float3 V = ComputeViewSpacePosition(
-        screenCoordinate / float2(g_viDimensions.xy - 1),
-        1,
-        _InvProjMatrix
-    );
-#if !USE_LEFT_HAND_CAMERA_SPACE
-    v.z *= -1;
+#if USE_LEFT_HAND_CAMERA_SPACE
+    float3 V = GetViewPosFromLinDepth( screenCoordinate, 1.0);
+#else
+    float3 V = GetViewPosFromLinDepth( screenCoordinate, -1.0);
 #endif
 
     float onePixDiagDist = GetOnePixDiagWorldDistAtDepthOne();
@@ -339,7 +372,7 @@ int SphericalIntersectionTests(uint threadID, int iNrCoarseLights, float2 screen
 #ifdef FINE_PRUNING_ENABLED
 // initializes ldsNrLightsFinal with the number of accepted lights.
 // all accepted entries delivered in prunedList[].
-void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float3 vVPoss[4])
+void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float4 vLinDepths)
 {
     uint t = threadID;
     uint iWidth = g_viDimensions.x;
@@ -369,7 +402,7 @@ void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float3 v
                 int idx = t + i*NR_THREADS;
 
                 uint2 uPixLoc = min(uint2(viTilLL.x+(idx&0xf), viTilLL.y+(idx>>4)), uint2(iWidth-1, iHeight-1));
-                float3 vVPos = vVPoss[i];
+                float3 vVPos = GetViewPosFromLinDepth(uPixLoc + float2(0.5,0.5), vLinDepths[i]);
 
                 // check pixel
                 float3 fromLight = vVPos-lightData.lightPos.xyz;
@@ -399,7 +432,7 @@ void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float3 v
                 int idx = t + i*NR_THREADS;
 
                 uint2 uPixLoc = min(uint2(viTilLL.x+(idx&0xf), viTilLL.y+(idx>>4)), uint2(iWidth-1, iHeight-1));
-                float3 vVPos = vVPoss[i];
+                float3 vVPos = GetViewPosFromLinDepth(uPixLoc + float2(0.5,0.5), vLinDepths[i]);
 
                 // check pixel
                 float3 vLp = lightData.lightPos.xyz;
@@ -426,7 +459,7 @@ void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float3 v
                 int idx = t + i*NR_THREADS;
 
                 uint2 uPixLoc = min(uint2(viTilLL.x+(idx&0xf), viTilLL.y+(idx>>4)), uint2(iWidth-1, iHeight-1));
-                float3 vVPos = vVPoss[i];
+                float3 vVPos = GetViewPosFromLinDepth(uPixLoc + float2(0.5,0.5), vLinDepths[i]);
 
                 // check pixel
                 float3 toLight  = lightData.lightPos.xyz - vVPos;

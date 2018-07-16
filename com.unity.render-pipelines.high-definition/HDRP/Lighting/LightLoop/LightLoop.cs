@@ -837,6 +837,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return Matrix4x4.Scale(new Vector3(1, 1, -1)) * camera.GetStereoViewMatrix(eyeIndex);
         }
 
+        // For light culling system, we need non oblique projection matrices
+        static Matrix4x4 CameraProjectionNonObliqueLHS(HDCamera camera)
+        {
+            // camera.projectionMatrix expect RHS data and Unity's transforms are LHS
+            // We need to flip it to work with transforms
+            return camera.nonObliqueProjMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1));
+        }
+
         static Matrix4x4 CameraProjectionStereoLHS(Camera camera, Camera.StereoscopicEye eyeIndex)
         {
             return camera.GetStereoProjectionMatrix(eyeIndex) * Matrix4x4.Scale(new Vector3(1, 1, -1));
@@ -2082,7 +2090,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             var projArr = new Matrix4x4[2];
             var projscrArr = new Matrix4x4[2];
             var invProjscrArr = new Matrix4x4[2];
-            var invProjArr = new Matrix4x4[2];
             if (m_FrameSettings.enableStereo)
             {
                 // XRTODO: If possible, we could generate a non-oblique stereo projection
@@ -2094,18 +2101,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Once we generate this non-oblique projection matrix, it can be shared across both eyes (un-array)
                 for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
                 {
-                    projArr[eyeIndex] = hdCamera.projMatrixStereo[eyeIndex] * Matrix4x4.Scale(new Vector3(1, 1, -1));  // convex bounds are LHS, so we need to use an LHS projection matrix
+                    projArr[eyeIndex] = CameraProjectionStereoLHS(hdCamera.camera, (Camera.StereoscopicEye)eyeIndex);
                     projscrArr[eyeIndex] = temp * projArr[eyeIndex];
                     invProjscrArr[eyeIndex] = projscrArr[eyeIndex].inverse;
-                    invProjArr[eyeIndex] = projArr[eyeIndex].inverse;
                 }
             }
             else
             {
-                projArr[0] = hdCamera.projMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1)); // convex bounds are LHS, so we need to use an LHS projection matrix
+                projArr[0] = CameraProjectionNonObliqueLHS(hdCamera);
                 projscrArr[0] = temp * projArr[0];
                 invProjscrArr[0] = projscrArr[0].inverse;
-                invProjArr[0] = projArr[0].inverse;
             }
 
 
@@ -2143,8 +2148,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeIntParam(buildScreenAABBShader, HDShaderIDs.g_iNrVisibLights, m_lightCount);
                 cmd.SetComputeBufferParam(buildScreenAABBShader, s_GenAABBKernel, HDShaderIDs.g_data, s_ConvexBoundsBuffer);
 
-                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mProjectionArr, projArr);
-                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mInvProjectionArr, invProjArr);
+                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mProjectionArr, projhArr);
+                cmd.SetComputeMatrixArrayParam(buildScreenAABBShader, HDShaderIDs.g_mInvProjectionArr, invProjhArr);
 
                 // In stereo, we output two sets of AABB bounds
                 cmd.SetComputeBufferParam(buildScreenAABBShader, s_GenAABBKernel, HDShaderIDs.g_vBoundsBuffer, s_AABBBoundsBuffer);
@@ -2165,7 +2170,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeIntParam(buildPerBigTileLightListShader, HDShaderIDs._DecalIndexShift, m_lightList.lights.Count + m_lightList.envLights.Count);
 
                 cmd.SetComputeMatrixArrayParam(buildPerBigTileLightListShader, HDShaderIDs.g_mScrProjectionArr, projscrArr);
-                cmd.SetComputeMatrixArrayParam(buildPerBigTileLightListShader, HDShaderIDs._InvProjMatrixStereo, invProjArr);
+                cmd.SetComputeMatrixArrayParam(buildPerBigTileLightListShader, HDShaderIDs.g_mInvScrProjectionArr, invProjscrArr);
 
                 cmd.SetComputeFloatParam(buildPerBigTileLightListShader, HDShaderIDs.g_fNearPlane, camera.nearClipPlane);
                 cmd.SetComputeFloatParam(buildPerBigTileLightListShader, HDShaderIDs.g_fFarPlane, camera.farClipPlane);
