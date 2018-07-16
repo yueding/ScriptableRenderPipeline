@@ -21,6 +21,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
         class Styles
         {
             public readonly GUIContent SpotAngle = new GUIContent("Spot Angle", "Controls the angle in degrees at the base of a Spot light's cone.");
+            public readonly GUIContent InnerSpotAngleFalloff = new GUIContent("Inner Spot Angle", ".");
 
             public readonly GUIContent Cookie = new GUIContent("Cookie", "Specifies the Texture mask to cast shadows, create silhouettes, or patterned illumination for the light.");
             public readonly GUIContent CookieSize = new GUIContent("Cookie Size", "Controls the size of the cookie mask currently assigned to the light.");
@@ -178,6 +179,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
         void DrawSpotAngle()
         {
             EditorGUILayout.Slider(settings.spotAngle, 1f, 179f, s_Styles.SpotAngle);
+            EditorGUILayout.Slider(settings.innerSpotAngleFalloff, 1f, 179f, s_Styles.InnerSpotAngleFalloff);
         }
 
         void DrawCookie()
