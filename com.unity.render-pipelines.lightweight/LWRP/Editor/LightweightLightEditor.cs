@@ -21,7 +21,9 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
         class Styles
         {
             public readonly GUIContent SpotAngle = new GUIContent("Spot Angle", "Controls the angle in degrees at the base of a Spot light's cone.");
-            public readonly GUIContent InnerSpotAngleFalloff = new GUIContent("Inner Spot Angle", ".");
+            public readonly GUIContent InnerSpotAngleFalloff = new GUIContent("Inner Angle", ".");
+            public readonly GUIContent OuterSpotAngleFalloff = new GUIContent("Outer Angle", ".");
+            public readonly GUIContent InnerOuterSpotAngle = new GUIContent("Inner Outer Spot Angle", ".");
 
             public readonly GUIContent Cookie = new GUIContent("Cookie", "Specifies the Texture mask to cast shadows, create silhouettes, or patterned illumination for the light.");
             public readonly GUIContent CookieSize = new GUIContent("Cookie Size", "Controls the size of the cookie mask currently assigned to the light.");
@@ -178,8 +180,59 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 
         void DrawSpotAngle()
         {
-            EditorGUILayout.Slider(settings.spotAngle, 1f, 179f, s_Styles.SpotAngle);
-            EditorGUILayout.Slider(settings.innerSpotAngleFalloff, 1f, 179f, s_Styles.InnerSpotAngleFalloff);
+            float textFieldWidth = 45f;
+
+            float min = settings.innerSpotAngleFalloff.floatValue;
+            float max = settings.spotAngle.floatValue;
+
+            EditorGUILayout.BeginHorizontal();
+
+            EditorGUI.BeginChangeCheck();
+
+            EditorGUILayout.PrefixLabel("Inner / Outer Angle");
+            min = float.Parse(EditorGUILayout.TextField(min.ToString("0.00"), GUILayout.Width(textFieldWidth)));
+
+            EditorGUILayout.MinMaxSlider(ref min, ref max, 0f, 180f);
+
+            max = float.Parse(EditorGUILayout.TextField(max.ToString("0.00"), GUILayout.Width(textFieldWidth)));
+            //Rect newRect
+            //EditorGUI.LabelField(new Rect(0,0,30,10), min.ToString());
+
+
+
+            EditorGUILayout.EndHorizontal();
+
+            //EditorGUILayout.BeginHorizontal();
+
+            //EditorGUILayout.PrefixLabel(" ");
+            //GUILayout.TextField(min.ToString());
+            //GUILayout.FlexibleSpace();
+            //GUILayout.TextField(max.ToString());
+
+
+
+
+//            var rect = EditorGUILayout.GetControlRect(true, EditorGUI.GetPropertyHeight(SerializedPropertyType.Vector2, new GUIContent(" ")), EditorStyles.numberField);
+//            var values = new[] { min, max };
+//            EditorGUI.MultiFloatField(rect, new GUIContent(" "), new []{new GUIContent("Min"), new GUIContent("Max")}, values);
+//            min = values[0];
+//            max = values[1];
+            //EditorGUILayout.EndHorizontal();
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                settings.innerSpotAngleFalloff.floatValue = min;
+                settings.spotAngle.floatValue = max;
+            }
+
+
+            //EditorGUILayout.Slider(settings.innerSpotAngleFalloff, 0f, max, s_Styles.InnerSpotAngleFalloff);
+            //EditorGUILayout.Slider(settings.spotAngle, min, 180, s_Styles.OuterSpotAngleFalloff);
+
+
+
+            //EditorGUILayout.Slider(settings.spotAngle, 1f, 179f, s_Styles.SpotAngle);
+            //EditorGUILayout.Slider(settings.innerSpotAngleFalloff, 1f, 179f, s_Styles.InnerSpotAngleFalloff);
         }
 
         void DrawCookie()
