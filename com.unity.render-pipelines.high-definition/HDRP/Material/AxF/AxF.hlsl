@@ -27,6 +27,13 @@
 // Define this to sample the environment maps for each lobe, instead of a single sample for an average lobe
 #define USE_COOK_TORRANCE_MULTI_LOBES   1
 
+// Enable reference mode for IBL and area lights
+// Both reference define below can be define only if LightLoop is present, else we get a compile error
+#ifdef HAS_LIGHTLOOP
+// #define AXF_DISPLAY_REFERENCE_AREA
+// #define AXF_DISPLAY_REFERENCE_IBL
+#endif
+
 
 //-----------------------------------------------------------------------------
 // Debug method (use to display values)
@@ -127,15 +134,18 @@ void ApplyDebugToBSDFData( inout BSDFData BsdfData ) {
 // From Walter 2007 eq. 40
 // Expects incoming pointing AWAY from the surface
 // eta = IOR_above / IOR_below
+// rayIntensity returns 0 in case of total internal reflection
 //
-float3	Refract( float3 incoming, float3 normal, float _eta ) {
+float3	Refract( float3 incoming, float3 normal, float eta, out float rayIntensity ) {
 	float	c = dot( incoming, normal );
-	float	b = 1.0 + _eta * (c*c - 1.0);
+	float	b = 1.0 + eta * (c*c - 1.0);
 	if ( b >= 0.0 ) {
-		float	k = _eta * c - sign(c) * sqrt( b );
-		float3	R = k * normal - _eta * incoming;
+		float	k = eta * c - sign(c) * sqrt( b );
+		float3	R = k * normal - eta * incoming;
+        rayIntensity = 1;
 		return normalize( R );
 	} else {
+        rayIntensity = 0;
 		return -incoming;	// Total internal reflection
 	}
 }
@@ -311,7 +321,7 @@ struct PreLightData {
 
     // IBL
     float   IBLPerceptualRoughness;
-    float3  IBLDominantDirectionWS; // Dominant specular direction, used for IBL in EvaluateBSDF_Env()
+    float3  IBLDominantDirectionWS; // Dominant specular direction, used for IBL in EvaluateBSDF_Env() and also in area lights when clear coat is enabled
     #ifdef _AXF_BRDF_TYPE_SVBRDF
 	    float3  specularFGD;
 	    float   diffuseFGD;
@@ -358,7 +368,8 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
     // Handle clear coat
 //  preLightData.clearCoatF0 = IorToFresnel0( BsdfData.clearCoatIOR );
     preLightData.clearCoatF0 = Sq( (BsdfData.clearCoatIOR - 1) / (BsdfData.clearCoatIOR + 1) );
-    preLightData.clearCoatViewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR );    // This is independent of lighting
+    float   TIRIntensity;
+    preLightData.clearCoatViewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );    // This is independent of lighting
 
     if ( (_flags & 0x6U) == 0x6U ) {
         // If refraction is enabled then bend view vector and update NdotV
@@ -419,7 +430,7 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
         // Load diffuse LTC
         if ( _SVBRDF_BRDFType & 1 ) {
             preLightData.ltcTransformDiffuse = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_OREN_NAYAR );
-            preLightData.ltcTransformDiffuse_Amplitude = 1.0;   // @TODO: Sample Oren-Nayar FDG!
+            preLightData.ltcTransformDiffuse_Amplitude = 1.0;   // @TODO: Sample Oren-Nayar FGD!
         } else {
             preLightData.ltcTransformDiffuse = k_identity3x3;   // Lambert
             preLightData.ltcTransformDiffuse_Amplitude = 1.0;
@@ -572,13 +583,16 @@ float3  ComputeClearCoatExtinction( inout float3 viewWS, inout float3 lightWS, P
     float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
 
     // Apply optional refraction
+    float   TIRIntensity = 1.0;
     if ( _flags & 4U ) {
-        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR );
-        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR );
+        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
+        float   TIRIntensityView;
+        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensityView );
+        TIRIntensity *= TIRIntensityView;
 //        viewWS = preLightData.clearCoatViewWS;
     }
 
-    return (1-Fin) * (1-Fout);
+    return TIRIntensity * (1-Fin) * (1-Fout);
 }
 
 
@@ -1020,8 +1034,8 @@ DirectLighting  EvaluateBSDF_Directional(   LightLoopContext lightLoopContext,
             lighting.diffuse = color * intensity * lightData.diffuseScale;	// Only lighting, not BSDF
         }
 
-
-//lighting.specular = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR );
+//float   TIRIntensity;
+//lighting.specular = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
 //lighting.specular = dot( -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
 //lighting.specular = dot( -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
 
@@ -1115,8 +1129,7 @@ DirectLighting  EvaluateBSDF_Punctual(  LightLoopContext lightLoopContext,
 	return lighting;
 }
 
-// NEWLITTODO: For a refence rendering option for area light, like LIT_DISPLAY_REFERENCE_AREA option in eg EvaluateBSDF_<area light type> :
-//#include "LitReference.hlsl"
+#include "AxFReference.hlsl"
 
 //-----------------------------------------------------------------------------
 // EvaluateBSDF_Line - Approximation with Linearly Transformed Cosines
@@ -1150,7 +1163,7 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
     float3  positionWS = posInput.positionWS;
 
-#ifdef LIT_DISPLAY_REFERENCE_AREA
+#ifdef AXF_DISPLAY_REFERENCE_AREA
     IntegrateBSDF_AreaRef( viewWS, positionWS, preLightData, lightData, BsdfData,
                            lighting.diffuse, lighting.specular );
 #else
@@ -1216,12 +1229,11 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         lighting.diffuse = preLightData.ltcTransformDiffuse_Amplitude * ltcValue;
         
 
-
         // Evaluate the specular part
         // Polygon irradiance in the transformed configuration.
         ltcValue  = PolygonIrradiance( mul(lightVerts, preLightData.ltcTransformSpecular) );
         ltcValue *= lightData.specularScale;
-        lighting.specular += preLightData.ltcTransformSpecular_Amplitude * ltcValue;
+        lighting.specular = BsdfData.specularColor * preLightData.ltcTransformSpecular_Amplitude * ltcValue;
         
 
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
@@ -1282,13 +1294,24 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     // Evaluate the clear-coat
     if ( _flags & 2 ) {
 
-        float3  averageLightWS = normalize( lightLS );
-        float3  H = normalize( viewWS + averageLightWS );
-        float   LdotH = saturate( dot( averageLightWS, H ) );
+        // Here we compute the reflected view direction and use it as optimal light direction
+//        float3  reflectedViewWS = reflect( -viewWS, BsdfData.normalWS );
+        float3  reflectedViewWS = preLightData.IBLDominantDirectionWS;
+
+        // But we also clip it to the area light's rectangle...
+        float   t = dot( lightLS, lightData.forward ) / dot( reflectedViewWS, lightData.forward );                  // Distance until we intercept light plane following light direction
+        float3  hitPosLS = t * reflectedViewWS;                                                                     // Position of intersection with light plane
+        float2  hitPosTS = float2( dot( hitPosLS, lightData.right ), dot( hitPosLS, lightData.up ) );               // Same but in tangent space
+                hitPosTS = clamp( hitPosTS, float2( -halfWidth, -halfHeight ), float2( halfWidth, halfHeight ) );   // Clip to rectangle
+        hitPosLS = lightLS + hitPosTS.x * lightData.right + hitPosTS.y * lightData.up;                              // Recompose clipped intersection
+        float3  bestLightWS = normalize( hitPosLS );                                                                // Now use that direction as best light vector
+
+        float3  H = normalize( viewWS + bestLightWS );
+        float   LdotH = saturate( dot( bestLightWS, H ) );
         float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
 
         float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, averageLightWS, preLightData, BsdfData );
+        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, bestLightWS, preLightData, BsdfData );
 
         // Apply clear-coat extinction to existing lighting
         lighting.diffuse *= clearCoatExtinction;
@@ -1313,7 +1336,30 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         }
     #endif
 
-#endif // LIT_DISPLAY_REFERENCE_AREA
+
+
+/*
+float3  averageLightWS = normalize( lightLS );
+float   TIRIntensity;
+//lighting.specular = -Refract( averageLightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
+//lighting.specular = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
+//lighting.specular = dot( -Refract( averageLightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
+//lighting.specular = dot( -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
+//lighting.specular *= TIRIntensity;
+
+lighting.specular = ComputeClearCoatExtinction( viewWS, averageLightWS, preLightData, BsdfData );
+
+lighting.diffuse = 0;
+//lighting.specular = 0;
+*/
+
+
+#endif // AXF_DISPLAY_REFERENCE_AREA
+
+
+//lighting.diffuse = 0.0;
+//lighting.specular = 0.0;
+
 
     return lighting;
 }

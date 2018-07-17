@@ -1,4 +1,4 @@
-﻿//-------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------
 // Fill SurfaceData/Builtin data function
 //-------------------------------------------------------------------------------------
 #include "../MaterialUtilities.hlsl"
@@ -9,7 +9,7 @@ float3  ReadsRGBColor( float3 _gammaColor ) {
     #if APPLY_MANUAL_GAMMA
         return Gamma22ToLinear _gammaColor );
     #else
-        return _gammaColor; // Taken care of by the hardware
+        return _gammaColor; // Taken care of by the hardware via "_sRGB" textures
     #endif
 }
 
@@ -51,14 +51,24 @@ UV0 *= float2( _materialSizeU_mm, _materialSizeV_mm );
 
         float  clearCoatF0 = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatIORMap_sRGB, sampler_SVBRDF_ClearCoatIORMap_sRGB, UV0 ).x ).x;
         float  sqrtF0 = sqrt( clearCoatF0 );
-        _surfaceData.clearCoatIOR = (1.0 + sqrtF0) / (1.00001 - sqrtF0);        // We make sure it's working for IOR=1
-        _surfaceData.clearCoatIOR = max( 1.001, _surfaceData.clearCoatIOR );    // Can't be exactly 1 otherwise the precise fresnel divides by 0!
+        _surfaceData.clearCoatIOR = max( 1.0, (1.0 + sqrtF0) / (1.00001 - sqrtF0) );    // We make sure it's working for F0=1
 
         // TBN
         GetNormalWS( _input, _viewWS, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_NormalMap, sampler_SVBRDF_NormalMap, UV0 ).xyz - 1.0, _surfaceData.normalWS );
         GetNormalWS( _input, _viewWS, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0 ).xyz - 1.0, _surfaceData.clearCoatNormalWS );
 
         float alpha = SAMPLE_TEXTURE2D( _SVBRDF_OpacityMap, sampler_SVBRDF_OpacityMap, UV0 ).x * _BaseColor.w;
+
+
+
+
+// Hardcoded values for debug purpose
+//_surfaceData.normalWS = _input.worldToTangent[2].xyz;
+//_surfaceData.fresnelF0 = 0.04;
+//_surfaceData.diffuseColor = pow( float3( 48, 54, 60 ) / 255.0, 2.2 );
+//_surfaceData.specularColor = 1.0;
+//_surfaceData.specularLobe = PerceptualSmoothnessToRoughness( 0.785 );
+
 
 
 // Useless for SVBRDF
