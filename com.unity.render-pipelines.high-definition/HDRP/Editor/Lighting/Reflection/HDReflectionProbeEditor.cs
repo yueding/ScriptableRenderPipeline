@@ -25,7 +25,7 @@ namespace UnityEditor.Experimental.Rendering
             Undo.DestroyObjectImmediate(go.GetComponent<MeshRenderer>());
             Undo.DestroyObjectImmediate(go.GetComponent<MeshFilter>());
         }
-        
+
         [MenuItem("CONTEXT/ReflectionProbe/Reset", false, 0)]
         static void ResetReflectionProbe(MenuCommand menuCommand)
         {
@@ -42,7 +42,9 @@ namespace UnityEditor.Experimental.Rendering
             Undo.SetCurrentGroupName("Reset HD Reflection Probe");
             Undo.RecordObjects(new UnityEngine.Object[] { reflectionProbe, reflectionProbeAdditionalData }, "Reset HD Reflection Probe");
             reflectionProbe.Reset();
-            reflectionProbeAdditionalData.Reset();
+            // To avoid duplicating init code we copy default settings to Reset additional data
+            // Note: we can't call this code inside the HDAdditionalReflectionData, thus why we don't wrap it in Reset() function
+            HDUtils.s_DefaultHDAdditionalReflectionData.CopyTo(reflectionProbeAdditionalData);
         }
 
         static Dictionary<ReflectionProbe, HDReflectionProbeEditor> s_ReflectionProbeEditors = new Dictionary<ReflectionProbe, HDReflectionProbeEditor>();

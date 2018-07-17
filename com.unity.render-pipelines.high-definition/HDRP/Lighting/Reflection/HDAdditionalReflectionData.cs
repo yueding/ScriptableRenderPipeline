@@ -9,7 +9,7 @@ namespace UnityEngine.Experimental.Rendering
         [HideInInspector]
         public float version = 1.0f;
 
-        public ShapeType influenceShape;
+        public ShapeType influenceShape = ShapeType.Box;
         [FormerlySerializedAsAttribute("dimmer")]
         public float multiplier = 1.0f;
         [Range(0.0f, 1.0f)]
@@ -30,13 +30,20 @@ namespace UnityEngine.Experimental.Rendering
 
         //editor value that need to be saved for easy passing from simplified to advanced and vice et versa
         // /!\ must not be used outside editor code
-        [SerializeField] private Vector3 editorAdvancedModeBlendDistancePositive;
-        [SerializeField] private Vector3 editorAdvancedModeBlendDistanceNegative;
-        [SerializeField] private float editorSimplifiedModeBlendDistance;
-        [SerializeField] private Vector3 editorAdvancedModeBlendNormalDistancePositive;
-        [SerializeField] private Vector3 editorAdvancedModeBlendNormalDistanceNegative;
-        [SerializeField] private float editorSimplifiedModeBlendNormalDistance;
-        [SerializeField] private bool editorAdvancedModeEnabled;
+        [SerializeField]
+        private Vector3 editorAdvancedModeBlendDistancePositive = Vector3.zero;
+        [SerializeField]
+        private Vector3 editorAdvancedModeBlendDistanceNegative = Vector3.zero;
+        [SerializeField]
+        private float editorSimplifiedModeBlendDistance = 0f;
+        [SerializeField]
+        private Vector3 editorAdvancedModeBlendNormalDistancePositive = Vector3.zero;
+        [SerializeField]
+        private Vector3 editorAdvancedModeBlendNormalDistanceNegative = Vector3.zero;
+        [SerializeField]
+        private float editorSimplifiedModeBlendNormalDistance = 0f;
+        [SerializeField]
+        private bool editorAdvancedModeEnabled = false;
 
         public ReflectionProxyVolumeComponent proxyVolumeComponent;
 
@@ -49,43 +56,33 @@ namespace UnityEngine.Experimental.Rendering
         public float sphereBlendRadiusOffset { get { return -blendDistancePositive.x; } }
         public float sphereBlendNormalRadiusOffset { get { return -blendNormalDistancePositive.x; } }
 
-        private void Awake()
+        public void CopyTo(HDAdditionalReflectionData data)
         {
-            Init();
-        }
+            data.proxyVolumeComponent = proxyVolumeComponent;
 
-        private void Init()
-        {
-            proxyVolumeComponent = null;
+            data.influenceShape = influenceShape;
+            data.multiplier = multiplier;
+            data.weight = weight;
+            data.influenceSphereRadius = influenceSphereRadius;
+            data.sphereReprojectionVolumeRadius = sphereReprojectionVolumeRadius;
+            data.useSeparateProjectionVolume = useSeparateProjectionVolume;
+            data.boxReprojectionVolumeSize = boxReprojectionVolumeSize;
+            data.boxReprojectionVolumeCenter = boxReprojectionVolumeCenter;
+            data.maxSearchDistance = maxSearchDistance;
+            data.blendDistancePositive = blendDistancePositive;
+            data.blendDistanceNegative = blendDistanceNegative;
+            data.blendNormalDistancePositive = blendNormalDistancePositive;
+            data.blendNormalDistanceNegative = blendNormalDistanceNegative;
+            data.boxSideFadePositive = boxSideFadePositive;
+            data.boxSideFadeNegative = boxSideFadeNegative;
 
-            influenceShape = ShapeType.Box;
-            multiplier = 1.0f;
-            weight = 1.0f;
-            influenceSphereRadius = 3.0f;
-            sphereReprojectionVolumeRadius = 1.0f;
-            useSeparateProjectionVolume = false;
-            boxReprojectionVolumeSize = Vector3.one;
-            boxReprojectionVolumeCenter = Vector3.zero;
-            maxSearchDistance = 8.0f;
-            blendDistancePositive = Vector3.zero;
-            blendDistanceNegative = Vector3.zero;
-            blendNormalDistancePositive = Vector3.zero;
-            blendNormalDistanceNegative = Vector3.zero;
-            boxSideFadePositive = Vector3.one;
-            boxSideFadeNegative = Vector3.one;
-
-            editorAdvancedModeBlendDistancePositive = Vector3.zero;
-            editorAdvancedModeBlendDistanceNegative = Vector3.zero;
-            editorSimplifiedModeBlendDistance = 0f;
-            editorAdvancedModeBlendNormalDistancePositive = Vector3.zero;
-            editorAdvancedModeBlendNormalDistanceNegative = Vector3.zero;
-            editorSimplifiedModeBlendNormalDistance = 0f;
-            editorAdvancedModeEnabled = false;
-        }
-
-        public void Reset()
-        {
-            Init();
+            data.editorAdvancedModeBlendDistancePositive = editorAdvancedModeBlendDistancePositive;
+            data.editorAdvancedModeBlendDistanceNegative = editorAdvancedModeBlendDistanceNegative;
+            data.editorSimplifiedModeBlendDistance = editorSimplifiedModeBlendDistance;
+            data.editorAdvancedModeBlendNormalDistancePositive = editorAdvancedModeBlendNormalDistancePositive;
+            data.editorAdvancedModeBlendNormalDistanceNegative = editorAdvancedModeBlendNormalDistanceNegative;
+            data.editorSimplifiedModeBlendNormalDistance = editorSimplifiedModeBlendNormalDistance;
+            data.editorAdvancedModeEnabled = editorAdvancedModeEnabled;
         }
     }
 }
