@@ -1188,6 +1188,34 @@ float3  ComputeBestLightDirection( float3 lightPositionLS, float3 lightWS, Light
     return normalize( hitPosLS );                                                                               // Now use that direction as best light vector
 }
 
+// Expects non-normalized vertex positions.
+// Same as regular PolygonIrradiance found in AreaLighting.hlsl except I need the form factor F
+// (cf. http://blog.selfshadow.com/publications/s2016-advances/s2016_ltc_rnd.pdf pp. 92 for an explanation on the meaning of that sphere approximation)
+real PolygonIrradiance( real4x3 L, out float3 F ) {
+    UNITY_UNROLL
+    for (uint i = 0; i < 4; i++) {
+        L[i] = normalize(L[i]);
+    }
+
+    F = 0.0;
+
+    UNITY_UNROLL
+    for (uint edge = 0; edge < 4; edge++) {
+        real3 V1 = L[edge];
+        real3 V2 = L[(edge + 1) % 4];
+
+        F += INV_TWO_PI * ComputeEdgeFactor(V1, V2);
+    }
+
+    // Clamp invalid values to avoid visual artifacts.
+    real f2         = saturate(dot(F, F));
+    real sinSqSigma = min(sqrt(f2), 0.999);
+    real cosOmega   = clamp(F.z * rsqrt(f2), -1, 1);
+
+    return DiffuseSphereLightIrradiance(sinSqSigma, cosOmega);
+}
+
+
 DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
                                     float3 viewWS, PositionInputs posInput,
                                     PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
@@ -1200,14 +1228,15 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     IntegrateBSDF_AreaRef( viewWS, positionWS, preLightData, lightData, BsdfData,
                            lighting.diffuse, lighting.specular );
 #else
-    float3  unL = lightData.positionRWS - positionWS;
-    if ( dot(lightData.forward, unL) >= 0.0001 ) {
+    // Translate the light s.t. the shaded point is at the origin of the coordinate system.
+    float3  lightLS = lightData.positionRWS - positionWS;
+    if ( dot( lightData.forward, lightLS) >= 0.0001 ) {
         return lighting;    // The light is back-facing.
     }
 
     // Rotate the light direction into the light space.
     float3x3    lightToWorld = float3x3( lightData.right, lightData.up, -lightData.forward );
-    unL = mul( unL, transpose(lightToWorld) );
+    float3      unL = mul( lightLS, transpose(lightToWorld) );
 
     // TODO: This could be precomputed.
     float   halfWidth  = lightData.size.x * 0.5;
@@ -1237,9 +1266,6 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
     lightData.diffuseScale  *= intensity;
     lightData.specularScale *= intensity;
-
-    // Translate the light s.t. the shaded point is at the origin of the coordinate system.
-    float3  lightLS = lightData.positionRWS - positionWS;
 
     // TODO: some of this could be precomputed.
     float4x3    lightVerts;
@@ -1273,11 +1299,31 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
         float   NdotV = ClampNdotV( preLightData.NdotV );
 
+        // =====================================================
         // Use Lambert for diffuse
+//        float3  bestLightWS_Diffuse;
+//        ltcValue  = PolygonIrradiance( lightVerts, bestLightWS_Diffuse );    // No transform: Lambert uses identity
+//        bestLightWS_Diffuse = normalize( bestLightWS_Diffuse );
         ltcValue  = PolygonIrradiance( lightVerts );    // No transform: Lambert uses identity
         ltcValue *= lightData.diffuseScale;
         lighting.diffuse = ltcValue;
 
+        // Evaluate average BRDF response in diffuse direction
+        // We project the point onto the area light's plane using the light's forward direction and recompute the light direction from this position
+//        float3  bestLightWS_Diffuse = BsdfData.normalWS;
+        float3  bestLightWS_Diffuse = ComputeBestLightDirection( lightLS, -lightData.forward, lightData );
+
+        float3  H = normalize( viewWS + bestLightWS_Diffuse );
+        float   NdotH = dot( BsdfData.normalWS, H );
+        float   VdotH = dot( viewWS, H );
+
+        float   thetaH = acos( clamp( NdotH, -1, 1 ) );
+        float   thetaD = acos( clamp( VdotH, -1, 1 ) );
+
+        lighting.diffuse *= GetBRDFColor( thetaH, thetaD );
+
+
+        // =====================================================
         // Evaluate multi-lobes Cook-Torrance
         // Each CT lobe samples the environment with the appropriate roughness
         for ( uint lobeIndex=0; lobeIndex < _CarPaint_lobesCount; lobeIndex++ ) {
@@ -1302,19 +1348,21 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         lighting.specular *= lightData.specularScale;
 
         // Evaluate average BRDF response in specular direction
-        float3  bestLightWS = ComputeBestLightDirection( lightLS, preLightData.IBLDominantDirectionWS, lightData );
+        // We project the point onto the area light's plane using the reflected view direction and recompute the light direction from this position
+        float3  bestLightWS_Specular = ComputeBestLightDirection( lightLS, preLightData.IBLDominantDirectionWS, lightData );
 
-        float3  H = normalize( viewWS + bestLightWS );
-        float   NdotH = dot( BsdfData.normalWS, H );
-        float   VdotH = dot( viewWS, H );
+        H = normalize( viewWS + bestLightWS_Specular );
+        NdotH = dot( BsdfData.normalWS, H );
+        VdotH = dot( viewWS, H );
 
-        float   thetaH = acos( clamp( NdotH, -1, 1 ) );
-        float   thetaD = acos( clamp( VdotH, -1, 1 ) );
+        thetaH = acos( clamp( NdotH, -1, 1 ) );
+        thetaD = acos( clamp( VdotH, -1, 1 ) );
 
-        lighting.diffuse *= GetBRDFColor( thetaH, thetaD );
         lighting.specular *= GetBRDFColor( thetaH, thetaD );
 
-        // Sample flakes
+
+        // =====================================================
+        // Sample flakes as tiny mirrors
         float2      UV = LTCGetSamplingUV( NdotV, FLAKES_PERCEPTUAL_ROUGHNESS );
         float3x3    ltcTransformFlakes = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_GGX );
 
@@ -1334,18 +1382,10 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     // Evaluate the clear-coat
     if ( _flags & 2 ) {
 
-        // Here we compute the reflected view direction and use it as optimal light direction
+        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
 //        float3  reflectedViewWS = reflect( -viewWS, BsdfData.normalWS );
         float3  reflectedViewWS = preLightData.IBLDominantDirectionWS;
-
-        // But we also clip it to the area light's rectangle...
         float3  bestLightWS = ComputeBestLightDirection( lightLS, reflectedViewWS, lightData );
-//        float   t = dot( lightLS, lightData.forward ) / dot( reflectedViewWS, lightData.forward );                  // Distance until we intercept light plane following light direction
-//        float3  hitPosLS = t * reflectedViewWS;                                                                     // Position of intersection with light plane
-//        float2  hitPosTS = float2( dot( hitPosLS, lightData.right ), dot( hitPosLS, lightData.up ) );               // Same but in tangent space
-//                hitPosTS = clamp( hitPosTS, float2( -halfWidth, -halfHeight ), float2( halfWidth, halfHeight ) );   // Clip to rectangle
-//        hitPosLS = lightLS + hitPosTS.x * lightData.right + hitPosTS.y * lightData.up;                              // Recompose clipped intersection
-//        float3  bestLightWS = normalize( hitPosLS );                                                                // Now use that direction as best light vector
 
         float3  H = normalize( viewWS + bestLightWS );
         float   LdotH = saturate( dot( bestLightWS, H ) );
@@ -1378,8 +1418,7 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     #endif
 
 
-
-//*
+/*
 float3  averageLightWS = normalize( lightLS );
 float   TIRIntensity;
 //lighting.specular = -Refract( averageLightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
