@@ -18,6 +18,10 @@
 #define CLEAR_COAT_ROUGHNESS 0.03
 #define CLEAR_COAT_PERCEPTUAL_ROUGHNESS RoughnessToPerceptualRoughness(CLEAR_COAT_ROUGHNESS)
 
+#define FLAKES_ROUGHNESS 0.03
+#define FLAKES_PERCEPTUAL_ROUGHNESS RoughnessToPerceptualRoughness(FLAKES_ROUGHNESS)
+#define FLAKES_F0 1.0
+
 
 // Define this to recompute vectors after refraction by clear coat
 // At the moment, this gives ugly results that I haven't debugged yet so I left it off... :/
@@ -1161,6 +1165,25 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
 
 // #define ELLIPSOIDAL_ATTENUATION
 
+// Computes the best light direction given an initial light direction
+// The direction will be projected onto the area light's plane and clipped by the rectangle's bounds, the resulting normalized vector is returned
+//
+//  lightPositionLS, the rectangular area light's position in local space (i.e. relative to the point currently being lit)
+//  lightWS, the light direction in world-space
+//
+float3  ComputeBestLightDirection( float3 lightPositionLS, float3 lightWS, LightData lightData ) {
+//        float   t = dot( lightLS, lightData.forward ) / dot( reflectedViewWS, lightData.forward );                  // Distance until we intercept light plane following light direction
+    float   halfWidth  = lightData.size.x * 0.5;
+    float   halfHeight = lightData.size.y * 0.5;
+
+    float   t = dot( lightPositionLS, lightData.forward ) / dot( lightWS, lightData.forward );                  // Distance until we intercept the light plane following light direction
+    float3  hitPosLS = t * lightWS;                                                                             // Position of intersection with light plane
+    float2  hitPosTS = float2( dot( hitPosLS, lightData.right ), dot( hitPosLS, lightData.up ) );               // Same but in tangent space
+            hitPosTS = clamp( hitPosTS, float2( -halfWidth, -halfHeight ), float2( halfWidth, halfHeight ) );   // Clip to rectangle
+    hitPosLS = lightWS + hitPosTS.x * lightData.right + hitPosTS.y * lightData.up;                              // Recompose clipped intersection
+    return normalize( hitPosLS );                                                                               // Now use that direction as best light vector
+}
+
 DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
                                     float3 viewWS, PositionInputs posInput,
                                     PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
@@ -1243,56 +1266,57 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         
 
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+
+        float   NdotV = ClampNdotV( preLightData.NdotV );
+
+        // Each CT lobe samples the environment with the appropriate roughness
+        for ( uint lobeIndex=0; lobeIndex < _CarPaint_lobesCount; lobeIndex++ ) {
+            float   F0 = _CarPaint_CT_F0s[lobeIndex];
+            float   coeff = _CarPaint_CT_coeffs[lobeIndex];
+            float   spread = _CarPaint_CT_spreads[lobeIndex];
+
+            float   perceptualRoughness = RoughnessToPerceptualRoughness( spread );
+
+            float2      UV = LTCGetSamplingUV( NdotV, perceptualRoughness );
+            float3x3    ltcTransformSpecular = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_COOK_TORRANCE );
+
+            ltcValue  = PolygonIrradiance( mul( lightVerts, ltcTransformSpecular ) );
+            ltcValue *= lightData.specularScale;
+            ltcValue *= coeff;  // Apply lobe scale
+
+            // Apply FGD
+            float3  specularFGD = 1;
+            float   diffuseFGD, reflectivity;
+            GetPreIntegratedFGDCookTorranceLambert( NdotV, perceptualRoughness, F0, specularFGD, diffuseFGD, reflectivity );
+
+            lighting.specular += specularFGD * ltcValue;
+        }
+
         // Evaluate average BRDF response in specular direction
-// @TODO: Use FGD table! => Ward / Cook-Torrance both use Beckmann so it should be easy...
-//
-//        float3  safeLightWS = environmentSamplingDirectionWS;
-////        float3  safeLightWS = preLightData.IBLDominantDirectionWS;
-////                safeLightWS += max( 1e-2, dot( safeLightWS, BsdfData.normalWS ) ) * BsdfData.normalWS;    // Move away from surface to avoid super grazing angles
-////                safeLightWS = normalize( safeLightWS );
-//
-//        float3  H = normalize( viewWS + safeLightWS );
-//        float   NdotL = saturate( dot( BsdfData.normalWS, safeLightWS ) );
-//        float   NdotH = dot( BsdfData.normalWS, H );
-//        float   VdotH = dot( viewWS, H );
-//
-//        float   thetaH = acos( clamp( NdotH, -1, 1 ) );
-//        float   thetaD = acos( clamp( VdotH, -1, 1 ) );
-//
-//        // Multi-lobes approach
-//        // Each CT lobe samples the environment with the appropriate roughness
-//        float3  envLighting = 0.0;
-//        float   sumWeights = 0.0;
-//        for ( uint lobeIndex=0; lobeIndex < _CarPaint_lobesCount; lobeIndex++ ) {
-//            float   F0 = _CarPaint_CT_F0s[lobeIndex];
-//            float   coeff = _CarPaint_CT_coeffs[lobeIndex];
-//            float   spread = _CarPaint_CT_spreads[lobeIndex];
-//
-//            float   perceptualRoughness = RoughnessToPerceptualRoughness( spread );
-//
-//            float   lobeIntensity = coeff * CT_D( NdotH, spread ) * CT_F( VdotH, F0 );
-//            float   lobeMipLevel = PerceptualRoughnessToMipmapLevel( perceptualRoughness );
-//            float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, lobeMipLevel );
-//
-//            // Apply FGD
-//            float3  specularFGD = 1;
-//            float   diffuseFGD, reflectivity;
-//            GetPreIntegratedFGDCookTorranceLambert( NdotV, perceptualRoughness, F0, specularFGD, diffuseFGD, reflectivity );
-//
-//            envLighting += lobeIntensity * specularFGD * preLD.xyz;
-//            sumWeights += preLD.w;
-//        }
-//        envLighting *= CT_G( NdotH, NdotV, NdotL, VdotH )  // Shadowing/Masking term
-//                        / (PI * max( 1e-3, NdotV * NdotL ));
-//        envLighting *= GetBRDFColor( thetaH, thetaD );
-//
-//        // Sample flakes
-//        float   flakesMipLevel = 0;   // Flakes are supposed to be perfect mirrors...
-//        envLighting += CarPaint_BTF( thetaH, thetaD, BsdfData ) * SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, flakesMipLevel ).xyz;
-//
-//        envLighting *= NdotL;
-//
-//        weight *= sumWeights / _CarPaint_lobesCount;
+        float3  bestLightWS = ComputeBestLightDirection( lightLS, preLightData.IBLDominantDirectionWS, lightData );
+
+        float3  H = normalize( viewWS + bestLightWS );
+        float   NdotH = dot( BsdfData.normalWS, H );
+        float   VdotH = dot( viewWS, H );
+
+        float   thetaH = acos( clamp( NdotH, -1, 1 ) );
+        float   thetaD = acos( clamp( VdotH, -1, 1 ) );
+
+        lighting.specular *= GetBRDFColor( thetaH, thetaD );
+
+        // Sample flakes
+        float2      UV = LTCGetSamplingUV( NdotV, FLAKES_PERCEPTUAL_ROUGHNESS );
+        float3x3    ltcTransformFlakes = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_GGX );
+
+        ltcValue = PolygonIrradiance( mul( lightVerts, ltcTransformFlakes ) );
+        ltcValue *= lightData.specularScale;
+
+            // Apply FGD
+        float3  flakes_FGD;
+        float   specularReflectivity, dummyDiffuseFGD;
+        GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, FLAKES_PERCEPTUAL_ROUGHNESS, FLAKES_F0, flakes_FGD, dummyDiffuseFGD, specularReflectivity );
+
+        lighting.specular += flakes_FGD * ltcValue * CarPaint_BTF( thetaH, thetaD, BsdfData );
 
     #endif
 
@@ -1305,12 +1329,13 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         float3  reflectedViewWS = preLightData.IBLDominantDirectionWS;
 
         // But we also clip it to the area light's rectangle...
-        float   t = dot( lightLS, lightData.forward ) / dot( reflectedViewWS, lightData.forward );                  // Distance until we intercept light plane following light direction
-        float3  hitPosLS = t * reflectedViewWS;                                                                     // Position of intersection with light plane
-        float2  hitPosTS = float2( dot( hitPosLS, lightData.right ), dot( hitPosLS, lightData.up ) );               // Same but in tangent space
-                hitPosTS = clamp( hitPosTS, float2( -halfWidth, -halfHeight ), float2( halfWidth, halfHeight ) );   // Clip to rectangle
-        hitPosLS = lightLS + hitPosTS.x * lightData.right + hitPosTS.y * lightData.up;                              // Recompose clipped intersection
-        float3  bestLightWS = normalize( hitPosLS );                                                                // Now use that direction as best light vector
+        float3  bestLightWS = ComputeBestLightDirection( lightLS, reflectedViewWS, lightData );
+//        float   t = dot( lightLS, lightData.forward ) / dot( reflectedViewWS, lightData.forward );                  // Distance until we intercept light plane following light direction
+//        float3  hitPosLS = t * reflectedViewWS;                                                                     // Position of intersection with light plane
+//        float2  hitPosTS = float2( dot( hitPosLS, lightData.right ), dot( hitPosLS, lightData.up ) );               // Same but in tangent space
+//                hitPosTS = clamp( hitPosTS, float2( -halfWidth, -halfHeight ), float2( halfWidth, halfHeight ) );   // Clip to rectangle
+//        hitPosLS = lightLS + hitPosTS.x * lightData.right + hitPosTS.y * lightData.up;                              // Recompose clipped intersection
+//        float3  bestLightWS = normalize( hitPosLS );                                                                // Now use that direction as best light vector
 
         float3  H = normalize( viewWS + bestLightWS );
         float   LdotH = saturate( dot( bestLightWS, H ) );
