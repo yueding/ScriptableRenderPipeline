@@ -186,6 +186,8 @@ void LIGHTLISTGEN(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
                 float3 vPos = GetViewPosFromDepth(float2(uCrd) + 0.5, fDepth);
                 g_debugtex[uCrd] = float4(frac(vPos), 1);
             }
+            else
+                g_debugtex[uCrd] = float4(0.1, 0, 0, 1); // set something to be sure the debug is applied
 #endif
             if(fDepth<VIEWPORT_SCALE_Z)     // if not skydome
             {
@@ -453,6 +455,7 @@ void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float4 v
                 float distSq = dot(toLight,toLight);
 
 #ifdef PLANAR_LIGHT_CULLING_DEBUG
+                g_debugtex[uPixLoc] = float4(0, 0.1, 0, 1);
                 if ((_LightLoopCullingDebugMode & LIGHTCULLINGDEBUG_LIGHTLIST_DISTANCETOLIGHT) != 0)
                 {
                     g_debugtex[uPixLoc] = float4(float3(1, 1, 1) * frac(sqrt(distSq)), 1);
