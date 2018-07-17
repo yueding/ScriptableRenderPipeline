@@ -29,28 +29,7 @@ RWStructuredBuffer<float3> g_vBoundsBuffer : register( u0 );
                                 // clipping gets skipped which doesn't cause any errors.
 
 #ifdef PLANAR_LIGHT_CULLING_DEBUG
-struct Debug
-{
-    float3 vMin;
-    float3 vMax;
-    float3 hullVertex0;
-    float3 hullVertex1;
-    float3 hullVertex2;
-    float3 hullVertex3;
-    float3 center;
-    float radius;
-    uint allVisibleOrInvisible;
-    float3 allVMin;
-    float3 allVMax;
-    float3 BSVMin;
-    float3 BSVMax;
-    float3 BSVMin2;
-    float3 BSVMax2;
-    float3 FinalVMin;
-    float3 FinalVMax;
-    float3 clippedConvexVMin;
-    float3 clippedConvexVMax;
-};
+#include "HDRP/Lighting/LightLoop/lightcullingdebug.hlsl"
 RWStructuredBuffer<Debug> g_debug : register(u7);
 int _WriteDebug;
 int _LightLoopCullingDebugLightIndex;

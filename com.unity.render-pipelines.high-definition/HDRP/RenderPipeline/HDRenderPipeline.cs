@@ -1159,11 +1159,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         {
                             var cs = m_Asset.renderPipelineResources.lightCullingDebugCS;
                             var k = cs.FindKernel("KMain");
-                            var id = "TempLightcullingDebug".GetHashCode();
-                            cmd.GetTemporaryRT(id, camera.pixelHeight, camera.pixelHeight, 1, FilterMode.Point, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear, 1, true);
+                            var id = Shader.PropertyToID("TempLightcullingDebug");
+                            cmd.GetTemporaryRT(id, camera.pixelWidth, camera.pixelHeight, 1, FilterMode.Point, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear, 1, true);
                             cmd.SetComputeBufferParam(cs, k, "_Debug", m_LightLoop.debugBuffer);
                             cmd.SetComputeTextureParam(cs, k, "_Output", id);
                             cmd.SetComputeTextureParam(cs, k, "_Input", BuiltinRenderTextureType.CameraTarget);
+                            cmd.SetComputeTextureParam(cs, k, "_InputDeb", m_LightLoop.debugRT);
                             cmd.DispatchCompute(cs, k, camera.pixelWidth, camera.pixelHeight, 1);
                             cmd.Blit(id, BuiltinRenderTextureType.CameraTarget);
                             cmd.ReleaseTemporaryRT(id);
@@ -1998,6 +1999,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         HDUtils.SetRenderTarget(cmd, hdCamera, m_CameraColorBuffer, m_CameraDepthStencilBuffer, ClearFlag.Depth);
                     }
                 }
+
+#if PLANAR_LIGHT_CULLING_DEBUG
+                cmd.Blit(Texture2D.blackTexture, m_LightLoop.debugRT);
+#endif
 
                 // Clear the HDR target
                 using (new ProfilingSample(cmd, "Clear HDR target", CustomSamplerId.ClearHDRTarget.GetSampler()))

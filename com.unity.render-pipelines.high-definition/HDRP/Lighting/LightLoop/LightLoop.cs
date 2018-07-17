@@ -453,6 +453,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
 #if PLANAR_LIGHT_CULLING_DEBUG
         public ComputeBuffer debugBuffer;
+        public RTHandleSystem.RTHandle debugRT;
 #endif
 
         void InitShadowSystem(HDRenderPipelineAsset hdAsset, ShadowSettings shadowSettings)
@@ -534,7 +535,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void Build(HDRenderPipelineAsset hdAsset, ShadowSettings shadowSettings, IBLFilterGGX iblFilterGGX)
         {
 #if PLANAR_LIGHT_CULLING_DEBUG
-            debugBuffer = new ComputeBuffer(6, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightCullingDebug)));
+            debugBuffer = new ComputeBuffer(7, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightCullingDebug)));
+            debugRT = RTHandles.Alloc(Vector2.one, enableRandomWrite: true, autoGenerateMips: false, useMipMap: false);
 #endif
 
             m_Resources = hdAsset.renderPipelineResources;
@@ -659,6 +661,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
 #if PLANAR_LIGHT_CULLING_DEBUG
             debugBuffer.Release();
+            debugRT.Release();
 #endif
             DeinitShadowSystem();
 
@@ -2088,6 +2091,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // camera to screen matrix (and it's inverse)
             var projArr = new Matrix4x4[2];
+            var invProjArr = new Matrix4x4[2];
+            var nonObliqueProjArr = new Matrix4x4[2];
             var projscrArr = new Matrix4x4[2];
             var invProjscrArr = new Matrix4x4[2];
             if (m_FrameSettings.enableStereo)
@@ -2101,15 +2106,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Once we generate this non-oblique projection matrix, it can be shared across both eyes (un-array)
                 for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
                 {
-                    projArr[eyeIndex] = CameraProjectionStereoLHS(hdCamera.camera, (Camera.StereoscopicEye)eyeIndex);
-                    projscrArr[eyeIndex] = temp * projArr[eyeIndex];
+                    projArr[eyeIndex] = hdCamera.projMatrixStereo[eyeIndex] * Matrix4x4.Scale(new Vector3(1, 1, -1));
+                    invProjArr[eyeIndex] = projArr[eyeIndex].inverse;
+                    nonObliqueProjArr[eyeIndex] = CameraProjectionStereoLHS(hdCamera.camera, (Camera.StereoscopicEye)eyeIndex);
+                    projscrArr[eyeIndex] = temp * nonObliqueProjArr[eyeIndex];
                     invProjscrArr[eyeIndex] = projscrArr[eyeIndex].inverse;
                 }
             }
             else
             {
-                projArr[0] = CameraProjectionNonObliqueLHS(hdCamera);
-                projscrArr[0] = temp * projArr[0];
+                projArr[0] = hdCamera.projMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1));
+                invProjArr[0] = projArr[0].inverse;
+                nonObliqueProjArr[0] = CameraProjectionNonObliqueLHS(hdCamera);
+                projscrArr[0] = temp * nonObliqueProjArr[0];
                 invProjscrArr[0] = projscrArr[0].inverse;
             }
 
@@ -2128,13 +2137,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
                     {
-                        projhArr[eyeIndex] = temp * projArr[eyeIndex];
+                        projhArr[eyeIndex] = temp * nonObliqueProjArr[eyeIndex];
                         invProjhArr[eyeIndex] = projhArr[eyeIndex].inverse;
                     }
                 }
                 else
                 {
-                    projhArr[0] = temp * projArr[0];
+                    projhArr[0] = temp * nonObliqueProjArr[0];
                     invProjhArr[0] = projhArr[0].inverse;
                 }
 
@@ -2202,7 +2211,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeBufferParam(buildPerTileLightListShader, s_GenListPerTileKernel, HDShaderIDs.g_data, s_ConvexBoundsBuffer);
 
                 cmd.SetComputeMatrixParam(buildPerTileLightListShader, HDShaderIDs.g_mScrProjection, projscrArr[0]);
-                cmd.SetComputeMatrixParam(buildPerTileLightListShader, HDShaderIDs.g_mInvScrProjection, invProjscrArr[0]);
+                cmd.SetComputeMatrixParam(buildPerTileLightListShader, "g_mInvProjection", invProjArr[0]);
 
                 cmd.SetComputeTextureParam(buildPerTileLightListShader, s_GenListPerTileKernel, HDShaderIDs.g_depth_tex, cameraDepthBufferRT);
                 cmd.SetComputeBufferParam(buildPerTileLightListShader, s_GenListPerTileKernel, HDShaderIDs.g_vLightList, s_LightList);
@@ -2227,6 +2236,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     cmd.SetComputeIntParam(buildPerTileLightListShader, HDShaderIDs.g_BaseFeatureFlags, (int)baseFeatureFlags);
                     cmd.SetComputeBufferParam(buildPerTileLightListShader, s_GenListPerTileKernel, HDShaderIDs.g_TileFeatureFlags, s_TileFeatureFlags);
                 }
+
+#if PLANAR_LIGHT_CULLING_DEBUG
+                cmd.SetComputeBufferParam(buildPerTileLightListShader, s_GenListPerTileKernel, "g_debug", debugBuffer);
+                cmd.SetComputeTextureParam(buildPerTileLightListShader, s_GenListPerTileKernel, "g_debugtex", debugRT);
+#endif
 
                 cmd.DispatchCompute(buildPerTileLightListShader, s_GenListPerTileKernel, numTilesX, numTilesY, 1);
             }
