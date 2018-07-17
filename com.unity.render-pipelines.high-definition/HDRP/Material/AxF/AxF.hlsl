@@ -320,9 +320,9 @@ struct PreLightData {
     float3  clearCoatViewWS;        // World-space view vector refracted by clear coat
 
     // IBL
-    float   IBLPerceptualRoughness;
     float3  IBLDominantDirectionWS; // Dominant specular direction, used for IBL in EvaluateBSDF_Env() and also in area lights when clear coat is enabled
     #ifdef _AXF_BRDF_TYPE_SVBRDF
+        float   IBLPerceptualRoughness;
 	    float3  specularFGD;
 	    float   diffuseFGD;
     #endif
@@ -335,6 +335,7 @@ struct PreLightData {
         float       ltcTransformDiffuse_Amplitude;
         float3x3    ltcTransformSpecular;   // Inverse transformation                                         (4x VGPRs)
         float3      ltcTransformSpecular_Amplitude;
+    #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
     #endif
     float3x3    ltcTransformClearCoat;      // Inverse transformation for GGX                                 (4x VGPRs)
     float3      ltcTransformClearCoat_Amplitude;
@@ -398,7 +399,7 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
         }
 
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
-        #if USE_COOK_TORRANCE_MULTI_LOBES
+        #if !USE_COOK_TORRANCE_MULTI_LOBES
             // ==============================================================================
             // Computes weighted average of roughness values
             // Used to sample IBL with a single roughness but useless if we sample as many times as there are lobes?? (*gasp*)
@@ -418,14 +419,15 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
 
     // ==============================================================================
     // Area lights
-    // UVs for sampling the LUTs
-    #ifdef _AXF_BRDF_TYPE_SVBRDF
-        float2  UV = LTCGetSamplingUV( NdotV, preLightData.IBLPerceptualRoughness );
 
-        // Construct a right-handed view-dependent orthogonal basis around the normal
-        preLightData.orthoBasisViewNormal[0] = normalize( viewWS - normalWS * preLightData.NdotV ); // Do not clamp NdotV here
-        preLightData.orthoBasisViewNormal[2] = normalWS;
-        preLightData.orthoBasisViewNormal[1] = cross( preLightData.orthoBasisViewNormal[2], preLightData.orthoBasisViewNormal[0] );
+    // Construct a right-handed view-dependent orthogonal basis around the normal
+    preLightData.orthoBasisViewNormal[0] = normalize( viewWS - normalWS * preLightData.NdotV ); // Do not clamp NdotV here
+    preLightData.orthoBasisViewNormal[2] = normalWS;
+    preLightData.orthoBasisViewNormal[1] = cross( preLightData.orthoBasisViewNormal[2], preLightData.orthoBasisViewNormal[0] );
+
+    #ifdef _AXF_BRDF_TYPE_SVBRDF
+        // UVs for sampling the LUTs
+        float2  UV = LTCGetSamplingUV( NdotV, preLightData.IBLPerceptualRoughness );
 
         // Load diffuse LTC
         if ( _SVBRDF_BRDFType & 1 ) {
@@ -463,6 +465,10 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
         // ref: http://advances.realtimerendering.com/s2016/s2016_ltc_fresnel.pdf
         preLightData.ltcTransformSpecular_Amplitude = preLightData.specularFGD;
 
+    #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+
+
+
     #endif  // _AXF_BRDF_TYPE_SVBRDF
 
     // Load clear-coat LTC
@@ -471,7 +477,7 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
     if ( _flags & 2 ) {
         float2  UV = LTCGetSamplingUV( clearCoatNdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS );
         preLightData.ltcTransformClearCoat = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_GGX );
-        float   dummyDiffuseFGD;
+        float   specularReflectivity, dummyDiffuseFGD;
         GetPreIntegratedFGDGGXAndDisneyDiffuse( clearCoatNdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS, preLightData.clearCoatF0, preLightData.ltcTransformClearCoat_Amplitude, dummyDiffuseFGD, specularReflectivity );
     }
 
@@ -1423,30 +1429,30 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
 
     float3  environmentSamplingDirectionWS = preLightData.IBLDominantDirectionWS;
 
-    if ( (lightData.envIndex & 1) == ENVCACHETYPE_CUBEMAP ) {
-        // When we are rough, we tend to see outward shifting of the reflection when at the boundary of the projection volume
-        // Also it appear like more sharp. To avoid these artifact and at the same time get better match to reference we lerp to original unmodified reflection.
-        // Formula is empirical.
-        environmentSamplingDirectionWS = GetSpecularDominantDir( BsdfData.normalWS, environmentSamplingDirectionWS, preLightData.IBLPerceptualRoughness, NdotV );
-        float   IBLRoughness = PerceptualRoughnessToRoughness( preLightData.IBLPerceptualRoughness );
-        environmentSamplingDirectionWS = lerp( environmentSamplingDirectionWS, preLightData.IBLDominantDirectionWS, saturate(smoothstep(0, 1, IBLRoughness * IBLRoughness)) );
-    }
-
-    // Note: using _influenceShapeType and projectionShapeType instead of (lightData|proxyData).shapeType allow to make compiler optimization in case the type is know (like for sky)
-    EvaluateLight_EnvIntersection( positionWS, BsdfData.normalWS, lightData, _influenceShapeType, environmentSamplingDirectionWS, weight );
-
-    // TODO: We need to match the PerceptualRoughnessToMipmapLevel formula for planar, so we don't do this test (which is specific to our current lightloop)
-    // Specific case for Texture2Ds, their convolution is a gaussian one and not a GGX one - So we use another roughness mip mapping.
-    float   IBLMipLevel;
-    if ( IsEnvIndexTexture2D( lightData.envIndex ) ) {
-        // Empirical remapping
-        IBLMipLevel = PositivePow( preLightData.IBLPerceptualRoughness, 0.8 ) * uint( max( 0, _ColorPyramidScale.z - 1 ) );
-    } else {
-        IBLMipLevel = PerceptualRoughnessToMipmapLevel( preLightData.IBLPerceptualRoughness );
-    }
-
-    //-----------------------------------------------------------------------------
     #if defined(_AXF_BRDF_TYPE_SVBRDF)
+        if ( (lightData.envIndex & 1) == ENVCACHETYPE_CUBEMAP ) {
+            // When we are rough, we tend to see outward shifting of the reflection when at the boundary of the projection volume
+            // Also it appear like more sharp. To avoid these artifact and at the same time get better match to reference we lerp to original unmodified reflection.
+            // Formula is empirical.
+            environmentSamplingDirectionWS = GetSpecularDominantDir( BsdfData.normalWS, environmentSamplingDirectionWS, preLightData.IBLPerceptualRoughness, NdotV );
+            float   IBLRoughness = PerceptualRoughnessToRoughness( preLightData.IBLPerceptualRoughness );
+            environmentSamplingDirectionWS = lerp( environmentSamplingDirectionWS, preLightData.IBLDominantDirectionWS, saturate(smoothstep(0, 1, IBLRoughness * IBLRoughness)) );
+        }
+
+        // Note: using _influenceShapeType and projectionShapeType instead of (lightData|proxyData).shapeType allow to make compiler optimization in case the type is know (like for sky)
+        EvaluateLight_EnvIntersection( positionWS, BsdfData.normalWS, lightData, _influenceShapeType, environmentSamplingDirectionWS, weight );
+
+        // TODO: We need to match the PerceptualRoughnessToMipmapLevel formula for planar, so we don't do this test (which is specific to our current lightloop)
+        // Specific case for Texture2Ds, their convolution is a gaussian one and not a GGX one - So we use another roughness mip mapping.
+        float   IBLMipLevel;
+        if ( IsEnvIndexTexture2D( lightData.envIndex ) ) {
+            // Empirical remapping
+            IBLMipLevel = PositivePow( preLightData.IBLPerceptualRoughness, 0.8 ) * uint( max( 0, _ColorPyramidScale.z - 1 ) );
+        } else {
+            IBLMipLevel = PerceptualRoughnessToMipmapLevel( preLightData.IBLPerceptualRoughness );
+        }
+
+        //-----------------------------------------------------------------------------
         // Use FGD as factor for the env map
         float3  envBRDF = preLightData.specularFGD;
 
