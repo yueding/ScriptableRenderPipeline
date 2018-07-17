@@ -339,7 +339,6 @@ struct PreLightData {
         float       ltcTransformDiffuse_Amplitude;
         float3x3    ltcTransformSpecular;   // Inverse transformation                                         (4x VGPRs)
         float3      ltcTransformSpecular_Amplitude;
-    #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
     #endif
     float3x3    ltcTransformClearCoat;      // Inverse transformation for GGX                                 (4x VGPRs)
     float3      ltcTransformClearCoat_Amplitude;
@@ -774,6 +773,11 @@ float3  GetBRDFColor( float thetaH, float thetaD ) {
     // BMAYAUX: But the acos yields values in [0,PI] and the texture seems to be indicating the entire PI range is covered so...
     float2  UV = float2( thetaH / PI, thetaD / PI );
 #endif
+
+    // Rescale UVs to account for 0.5 texel offset
+    uint2   textureSize;
+    _CarPaint_BRDFColorMap_sRGB.GetDimensions( textureSize.x, textureSize.y );
+    UV = (0.5 + UV * (textureSize-1)) / textureSize;
 
     return _CarPaint_BRDFColorMap_Scale * SAMPLE_TEXTURE2D_LOD( _CarPaint_BRDFColorMap_sRGB, sampler_CarPaint_BRDFColorMap_sRGB, float2( UV.x, 1 - UV.y ), 0 ).xyz;
 }
@@ -1269,6 +1273,12 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
         float   NdotV = ClampNdotV( preLightData.NdotV );
 
+        // Use Lambert for diffuse
+        ltcValue  = PolygonIrradiance( lightVerts );    // No transform: Lambert uses identity
+        ltcValue *= lightData.diffuseScale;
+        lighting.diffuse = ltcValue;
+
+        // Evaluate multi-lobes Cook-Torrance
         // Each CT lobe samples the environment with the appropriate roughness
         for ( uint lobeIndex=0; lobeIndex < _CarPaint_lobesCount; lobeIndex++ ) {
             float   F0 = _CarPaint_CT_F0s[lobeIndex];
@@ -1281,16 +1291,15 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
             float3x3    ltcTransformSpecular = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_COOK_TORRANCE );
 
             ltcValue  = PolygonIrradiance( mul( lightVerts, ltcTransformSpecular ) );
-            ltcValue *= lightData.specularScale;
-            ltcValue *= coeff;  // Apply lobe scale
 
             // Apply FGD
             float3  specularFGD = 1;
             float   diffuseFGD, reflectivity;
             GetPreIntegratedFGDCookTorranceLambert( NdotV, perceptualRoughness, F0, specularFGD, diffuseFGD, reflectivity );
 
-            lighting.specular += specularFGD * ltcValue;
+            lighting.specular += coeff * specularFGD * ltcValue;
         }
+        lighting.specular *= lightData.specularScale;
 
         // Evaluate average BRDF response in specular direction
         float3  bestLightWS = ComputeBestLightDirection( lightLS, preLightData.IBLDominantDirectionWS, lightData );
@@ -1302,6 +1311,7 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         float   thetaH = acos( clamp( NdotH, -1, 1 ) );
         float   thetaD = acos( clamp( VdotH, -1, 1 ) );
 
+        lighting.diffuse *= GetBRDFColor( thetaH, thetaD );
         lighting.specular *= GetBRDFColor( thetaH, thetaD );
 
         // Sample flakes
@@ -1369,7 +1379,7 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
 
 
-/*
+//*
 float3  averageLightWS = normalize( lightLS );
 float   TIRIntensity;
 //lighting.specular = -Refract( averageLightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
@@ -1378,11 +1388,11 @@ float   TIRIntensity;
 //lighting.specular = dot( -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
 //lighting.specular *= TIRIntensity;
 
-lighting.specular = ComputeClearCoatExtinction( viewWS, averageLightWS, preLightData, BsdfData );
+//lighting.specular = ComputeClearCoatExtinction( viewWS, averageLightWS, preLightData, BsdfData );
 
-lighting.diffuse = 0;
-//lighting.specular = 0;
-*/
+//lighting.diffuse = 0;
+lighting.specular = 0;
+//*/
 
 
 #endif // AXF_DISPLAY_REFERENCE_AREA
