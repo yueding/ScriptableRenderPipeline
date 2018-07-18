@@ -240,38 +240,6 @@ float   G_smith( float NdotV, float roughness ) {
     return 2 * NdotV / (NdotV + sqrt( a2 + (1 - a2) * Sq(NdotV) ));
 }
 
-//----------------------------------------------------------------------
-// Computes Fresnel reflection/refraction of view and light vectors
-// Returns the ratios of the incoming reflected and refracted energy
-// Also refracts the provided view and light vectors if refraction is enabled
-//
-void    ComputeClearCoatReflectionAndExtinction( inout float3 viewWS, inout float3 lightWS, BSDFData BsdfData, out float3 reflectedRatio, out float3 refractedRatio ) {
-
-    // Computes perfect mirror reflection
-    float3  H = normalize( viewWS + lightWS );
-    float   LdotH = saturate( dot( lightWS, H ) );
-
-    reflectedRatio = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH );    // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-
-    // Compute input/output Fresnel reflections
-    float   LdotN = saturate( dot( lightWS, BsdfData.clearCoatNormalWS ) );
-    float3  Fin = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotN );
-
-    float   VdotN = saturate( dot( viewWS, BsdfData.clearCoatNormalWS ) );
-    float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
-
-    // Apply optional refraction
-    float   TIRIntensity = 1.0;
-    if ( _flags & 4U ) {
-        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
-        float   TIRIntensityView;
-        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensityView );
-        TIRIntensity *= TIRIntensityView;
-    }
-
-    refractedRatio = TIRIntensity * (1-Fin) * (1-Fout);
-}
-
 
 //-----------------------------------------------------------------------------
 // conversion function for forward
@@ -506,9 +474,71 @@ PreLightData    GetPreLightData( float3 viewWS_ClearCoat, PositionInputs posInpu
         preLightData.ltcTransformClearCoat = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_GGX );
         float   specularReflectivity, dummyDiffuseFGD;
         GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV_ClearCoat, CLEAR_COAT_PERCEPTUAL_ROUGHNESS, clearCoatF0, preLightData.ltcTransformClearCoat_Amplitude, dummyDiffuseFGD, specularReflectivity );
+
+        // Cheat a little and make the amplitude go to 0 when F0 is 0 (which the actual diecletric Fresnel should do!)
+        preLightData.ltcTransformClearCoat_Amplitude *= smoothstep( 0, 0.01, clearCoatF0 );
     }
 
 	return preLightData;
+}
+
+
+//----------------------------------------------------------------------
+// Computes Fresnel reflection/refraction of view and light vectors
+// Returns the ratios of the incoming reflected and refracted energy
+// Also refracts the provided view and light vectors if refraction is enabled
+//
+//void    ComputeClearCoatReflectionAndExtinction( inout float3 viewWS, inout float3 lightWS, BSDFData BsdfData, out float3 reflectedRatio, out float3 refractedRatio ) {
+//
+//    // Computes perfect mirror reflection
+//    float3  H = normalize( viewWS + lightWS );
+//    float   LdotH = saturate( dot( lightWS, H ) );
+//
+//    reflectedRatio = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH );    // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+//
+//    // Compute input/output Fresnel reflections
+//    float   LdotN = saturate( dot( lightWS, BsdfData.clearCoatNormalWS ) );
+//    float3  Fin = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotN );
+//
+//    float   VdotN = saturate( dot( viewWS, BsdfData.clearCoatNormalWS ) );
+//    float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
+//
+//    // Apply optional refraction
+//    float   TIRIntensity = 1.0;
+//    if ( _flags & 4U ) {
+//        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
+//        float   TIRIntensityView;
+//        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensityView );
+//        TIRIntensity *= TIRIntensityView;
+//    }
+//
+//    refractedRatio = TIRIntensity * (1-Fin) * (1-Fout);
+//}
+
+void    ComputeClearCoatReflectionAndExtinction_UsePreLightData( inout float3 viewWS, inout float3 lightWS, BSDFData BsdfData, PreLightData preLightData, out float3 reflectedRatio, out float3 refractedRatio ) {
+
+    // Computes perfect mirror reflection
+    float3  H = normalize( viewWS + lightWS );
+    float   LdotH = saturate( dot( lightWS, H ) );
+
+    reflectedRatio = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH );    // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+
+    // Compute input/output Fresnel reflections
+    float   LdotN = saturate( dot( lightWS, BsdfData.clearCoatNormalWS ) );
+    float3  Fin = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotN );
+
+    float   VdotN = saturate( dot( viewWS, BsdfData.clearCoatNormalWS ) );
+    float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
+
+    // Apply optional refraction
+    float   TIRIntensity = 1.0;
+    if ( _flags & 4U ) {
+        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
+        viewWS =  preLightData.viewWS_UnderCoat;
+        TIRIntensity *= preLightData.viewTIR_Intensity;
+    }
+
+    refractedRatio = TIRIntensity * (1-Fin) * (1-Fout);
 }
 
 
@@ -707,22 +737,21 @@ float3  ComputePhong( float3 H, float LdotH, float NdotL, float NdotV, float3 po
 
 
 // This function applies the BSDF. Assumes that NdotL is positive.
-void	BSDF(   float3 viewWS_ClearCoat, float3 lightWS, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
+void	BSDF(   float3 viewWS_UnderCoat, float3 lightWS_UnderCoat, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
                 out float3 diffuseLighting, out float3 specularLighting ) {
+
+    float3  viewWS_ClearCoat = viewWS_UnderCoat;    // Keep copy before possible refraction
 
     // Apply clear coat
     float3  clearCoatExtinction = 1.0;
     float3  clearCoatReflection = 0.0;
     if ( _flags & 2 ) {
-//        clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-//        clearCoatExtinction = ComputeClearCoatExtinction( viewWS_ClearCoat, lightWS, preLightData.viewTIR_Intensity, BsdfData );
-        float3  viewWS = viewWS_ClearCoat;  // Copy to a temp variable, we don't want to modify the clear-coat version of the view vector!
-        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS, BsdfData, clearCoatReflection, clearCoatExtinction );
+        ComputeClearCoatReflectionAndExtinction_UsePreLightData( viewWS_UnderCoat, lightWS_UnderCoat, BsdfData, preLightData, clearCoatReflection, clearCoatExtinction );
         clearCoatReflection *= BsdfData.clearCoatColor / PI;
     }
 
-    float3  H = normalize( preLightData.viewWS_UnderCoat + lightWS );
-    float   LdotH = saturate( dot( H, lightWS ) );
+    float3  H = normalize( viewWS_UnderCoat + lightWS_UnderCoat );
+    float   LdotH = saturate( dot( H, lightWS_UnderCoat ) );
     float   NdotV = ClampNdotV( preLightData.NdotV_UnderCoat );
 
     // Compute diffuse term
@@ -730,7 +759,7 @@ void	BSDF(   float3 viewWS_ClearCoat, float3 lightWS, float NdotL, float3 positi
     if ( _SVBRDF_BRDFType & 1 ) {
         float   diffuseRoughness = 0.5 * HALF_PI;    // Arbitrary roughness (not specified in the documentation...)
 //        float   diffuseRoughness = _DEBUG_anisotropicRoughessX * HALF_PI;
-        diffuseTerm = INV_PI * OrenNayar( BsdfData.normalWS, preLightData.viewWS_UnderCoat, lightWS, diffuseRoughness );
+        diffuseTerm = INV_PI * OrenNayar( BsdfData.normalWS, viewWS_UnderCoat, lightWS_UnderCoat, diffuseRoughness );
     }
 
     // Compute specular term
@@ -903,28 +932,27 @@ float3  CarPaint_BTF( float thetaH, float thetaD, BSDFData BsdfData ) {
 
 
 // This function applies the BSDF. Assumes that NdotL is positive.
-void	BSDF(   float3 viewWS_ClearCoat, float3 lightWS, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
+void	BSDF(   float3 viewWS_UnderCoat, float3 lightWS_UnderCoat, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
                 out float3 diffuseLighting, out float3 specularLighting ) {
+
+    float3  viewWS_ClearCoat = viewWS_UnderCoat;    // Keep copy before possible refraction
 
     // Apply clear coat
     float3  clearCoatExtinction = 1.0;
     float3  clearCoatReflection = 0.0;
     if ( _flags & 2 ) {
-//        clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-//        clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS, preLightData.viewTIR_Intensity, BsdfData );
-        float3  viewWS = viewWS_ClearCoat;  // Copy to a temp variable, we don't want to modify the clear-coat version of the view vector!
-        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS, BsdfData, clearCoatReflection, clearCoatExtinction );
+        ComputeClearCoatReflectionAndExtinction_UsePreLightData( viewWS_UnderCoat, lightWS_UnderCoat, BsdfData, preLightData, clearCoatReflection, clearCoatExtinction );
         clearCoatReflection *= BsdfData.clearCoatColor / PI;
     }
 
     // Compute half vector used by various components of the BSDF
-    float3  H = normalize( preLightData.viewWS_UnderCoat + lightWS );
+    float3  H = normalize( viewWS_UnderCoat + lightWS_UnderCoat );
     float   NdotH = dot( BsdfData.normalWS, H );
-    float   LdotH = dot( H, lightWS );
+    float   LdotH = dot( H, lightWS_UnderCoat );
     float   VdotH = LdotH;
 
     float   NdotV = ClampNdotV( preLightData.NdotV_UnderCoat );
-            NdotL = dot( BsdfData.normalWS, lightWS );
+            NdotL = dot( BsdfData.normalWS, lightWS_UnderCoat );
 
     float   thetaH = acos( clamp( NdotH, -1, 1 ) );
     float   thetaD = acos( clamp( LdotH, -1, 1 ) );
