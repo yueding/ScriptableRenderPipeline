@@ -848,20 +848,66 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return camera.nonObliqueProjMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1));
         }
 
-        static Matrix4x4 CameraProjectionLHS(HDCamera camera)
+        /// <summary>
+        /// Take a projection matrix from HDCamera and convert it so:
+        /// - y is always positive (not inverted)
+        /// - z is in range 0..1, with 0 = near plane, 1 = far plane
+        /// </summary>
+        /// <param name="projMatrix">Matrix to convert.</param>
+        /// <returns>The converted matrix.</returns>
+        static Matrix4x4 CameraProjectionLHS(Matrix4x4 projMatrix)
         {
-            // HDCamera.projMatrix is already preprocessed:
+            // HDCamera.projMatrix is already preprocessed with a call to GL.GetGPUProjectionMatrix
             // The z range is in 1..0/0..1 (depending on SystemInfo.usesReversedZBuffer)
             // The y component is negated if SystemInfo.graphicsUVStartsAtTop
             // The z is reversed if SystemInfo.usesReversedZBuffer
-            // Here we don't want the y to be negated, so we negate it back
-            return camera.projMatrix * Matrix4x4.Scale(new Vector3(1, SystemInfo.graphicsUVStartsAtTop ? -1 : 1, -1));
-        }
+            // Now convert it back.
 
-        static Matrix4x4 CameraProjectionStereoLHS(HDCamera camera, int eyeIndex)
-        {
-            // See comment in CameraProjectionLHS(HDCamera)
-            return camera.projMatrixStereo[eyeIndex] * Matrix4x4.Scale(new Vector3(1, SystemInfo.graphicsUVStartsAtTop ? -1 : 1, -1));
+            var invertY = SystemInfo.graphicsUVStartsAtTop;
+            var revertZ = SystemInfo.usesReversedZBuffer;
+
+            // Make it LHS
+            projMatrix.m02 *= -1;
+            projMatrix.m12 *= -1;
+            projMatrix.m22 *= -1;
+            projMatrix.m32 *= -1;
+
+            // Case of OpenGL matrices
+            if (!invertY)
+            {
+                // Revert back the z
+                if (revertZ)
+                {
+                    projMatrix.m02 *= -1;
+                    projMatrix.m12 *= -1;
+                    projMatrix.m22 *= -1;
+                    projMatrix.m32 *= -1;
+                }
+
+                return projMatrix;
+            }
+
+            // Case of D3D like matrices
+            // Revert back the z
+            if (revertZ)
+            {
+                projMatrix.m02 *= -1;
+                projMatrix.m12 *= -1;
+                projMatrix.m22 *= -1;
+                projMatrix.m32 *= -1;
+            }
+
+            // Invert the y
+            // We should intert the Y as well in that case, but is not working?
+            //if (invertY)
+            //{
+            //    projMatrix.m01 *= -1;
+            //    projMatrix.m11 *= -1;
+            //    projMatrix.m21 *= -1;
+            //    projMatrix.m31 *= -1;
+            //}
+
+            return projMatrix;
         }
 
         static Matrix4x4 CameraProjectionStereoLHS(Camera camera, Camera.StereoscopicEye eyeIndex)
@@ -2122,7 +2168,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Once we generate this non-oblique projection matrix, it can be shared across both eyes (un-array)
                 for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
                 {
-                    projArr[eyeIndex] = CameraProjectionStereoLHS(hdCamera, eyeIndex);
+                    projArr[eyeIndex] = CameraProjectionLHS(hdCamera.projMatrixStereo[eyeIndex]);
                     invProjArr[eyeIndex] = projArr[eyeIndex].inverse;
                     nonObliqueProjArr[eyeIndex] = CameraProjectionStereoLHS(hdCamera.camera, (Camera.StereoscopicEye)eyeIndex);
                     projscrArr[eyeIndex] = temp * nonObliqueProjArr[eyeIndex];
@@ -2131,7 +2177,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
             else
             {
-                projArr[0] = CameraProjectionLHS(hdCamera);
+                projArr[0] = CameraProjectionLHS(hdCamera.projMatrix);
                 invProjArr[0] = projArr[0].inverse;
                 nonObliqueProjArr[0] = CameraProjectionNonObliqueLHS(hdCamera);
                 projscrArr[0] = temp * nonObliqueProjArr[0];

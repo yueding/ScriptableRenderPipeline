@@ -178,7 +178,7 @@ void LIGHTLISTGEN(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
 #ifdef PLANAR_LIGHT_CULLING_DEBUG
             if ((_LightLoopCullingDebugMode & LIGHTCULLINGDEBUG_LIGHTLIST_DEPTH) != 0)
                 g_debugtex[uCrd] = float4(float3(1, 1, 1) * frac(fDepth * 100), 1);
-            if ((_LightLoopCullingDebugMode & LIGHTCULLINGDEBUG_LIGHTLIST_VIEWPOS) != 0)
+            else if ((_LightLoopCullingDebugMode & LIGHTCULLINGDEBUG_LIGHTLIST_VIEWPOS) != 0)
             {
                 float3 vPos = GetViewPosFromDepth(float2(uCrd) + 0.5, fDepth);
                 g_debugtex[uCrd] = float4(frac(vPos), 1);
@@ -243,6 +243,18 @@ void LIGHTLISTGEN(uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID)
 
 #if !defined(SHADER_API_XBOXONE) && !defined(SHADER_API_PSSL)
     GroupMemoryBarrierWithGroupSync();
+#endif
+
+#ifdef PLANAR_LIGHT_CULLING_DEBUG
+    if ((_LightLoopCullingDebugMode & LIGHTCULLINGDEBUG_LIGHTLIST_NBLIGHTPERTILE) != 0)
+    {
+        float3 c = float3(1, 1, 1) * float(lightOffs) / 2;
+        for (uint y = vTileLL.y; y < vTileUR.y; ++y)
+        {
+            for (uint x = vTileLL.x; x < vTileUR.x; ++x)
+                g_debugtex[int2(x,y)] = float4(c, 1);
+        }
+    }
 #endif
 
     int iNrCoarseLights = min(lightOffs,MAX_NR_COARSE_ENTRIES);
@@ -452,7 +464,6 @@ void FinePruneLights(uint threadID, int iNrCoarseLights, uint2 viTilLL, float4 v
                 float distSq = dot(toLight,toLight);
 
 #ifdef PLANAR_LIGHT_CULLING_DEBUG
-                g_debugtex[uPixLoc] = float4(0, 0.1, 0, 1);
                 if ((_LightLoopCullingDebugMode & LIGHTCULLINGDEBUG_LIGHTLIST_DISTANCETOLIGHT) != 0)
                 {
                     g_debugtex[uPixLoc] = float4(float3(1, 1, 1) * frac(sqrt(distSq)), 1);
