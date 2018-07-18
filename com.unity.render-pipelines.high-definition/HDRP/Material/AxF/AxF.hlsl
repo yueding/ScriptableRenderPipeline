@@ -1276,6 +1276,82 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     //////////////////////////////////////////////////////////////////////////////////////////////
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 
+        float   NdotV = ClampNdotV( preLightData.NdotV );
+
+        // =====================================================
+        // Use Lambert for diffuse
+        ltcValue = LTCEvaluate( P1, P2, B, k_identity3x3 );    // No transform: Lambert uses identity
+        ltcValue *= lightData.diffuseScale;
+        lighting.diffuse = ltcValue;
+
+        // Evaluate average BRDF response in diffuse direction
+        // We project the point onto the area light's plane using the light's forward direction and recompute the light direction from this position
+//        float3  bestLightWS_Diffuse = BsdfData.normalWS;
+        float3  bestLightWS_Diffuse = ComputeBestLightDirection( lightLS, -lightData.forward, lightData );
+
+        float3  H = normalize( viewWS + bestLightWS_Diffuse );
+        float   NdotH = dot( BsdfData.normalWS, H );
+        float   VdotH = dot( viewWS, H );
+
+        float   thetaH = acos( clamp( NdotH, -1, 1 ) );
+        float   thetaD = acos( clamp( VdotH, -1, 1 ) );
+
+        lighting.diffuse *= GetBRDFColor( thetaH, thetaD );
+
+
+        // =====================================================
+        // Evaluate multi-lobes Cook-Torrance
+        // Each CT lobe samples the environment with the appropriate roughness
+        for ( uint lobeIndex=0; lobeIndex < _CarPaint_lobesCount; lobeIndex++ ) {
+            float   F0 = _CarPaint_CT_F0s[lobeIndex];
+            float   coeff = _CarPaint_CT_coeffs[lobeIndex];
+            float   spread = _CarPaint_CT_spreads[lobeIndex];
+
+            float   perceptualRoughness = RoughnessToPerceptualRoughness( spread );
+
+            float2      UV = LTCGetSamplingUV( NdotV, perceptualRoughness );
+            float3x3    ltcTransformSpecular = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_COOK_TORRANCE );
+
+            ltcValue = LTCEvaluate( P1, P2, B, ltcTransformSpecular );
+
+            // Apply FGD
+            float3  specularFGD = 1;
+            float   diffuseFGD, reflectivity;
+            GetPreIntegratedFGDCookTorranceLambert( NdotV, perceptualRoughness, F0, specularFGD, diffuseFGD, reflectivity );
+
+            lighting.specular += coeff * specularFGD * ltcValue;
+        }
+        lighting.specular *= lightData.specularScale;
+
+        // Evaluate average BRDF response in specular direction
+        // We project the point onto the area light's plane using the reflected view direction and recompute the light direction from this position
+        float3  bestLightWS_Specular = ComputeBestLightDirection( lightLS, preLightData.IBLDominantDirectionWS, lightData );
+
+        H = normalize( viewWS + bestLightWS_Specular );
+        NdotH = dot( BsdfData.normalWS, H );
+        VdotH = dot( viewWS, H );
+
+        thetaH = acos( clamp( NdotH, -1, 1 ) );
+        thetaD = acos( clamp( VdotH, -1, 1 ) );
+
+        lighting.specular *= GetBRDFColor( thetaH, thetaD );
+
+
+        // =====================================================
+        // Sample flakes as tiny mirrors
+        float2      UV = LTCGetSamplingUV( NdotV, FLAKES_PERCEPTUAL_ROUGHNESS );
+        float3x3    ltcTransformFlakes = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_GGX );
+
+        ltcValue = LTCEvaluate( P1, P2, B, ltcTransformFlakes );
+        ltcValue *= lightData.specularScale;
+
+            // Apply FGD
+        float3  flakes_FGD;
+        float   specularReflectivity, dummyDiffuseFGD;
+        GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, FLAKES_PERCEPTUAL_ROUGHNESS, FLAKES_F0, flakes_FGD, dummyDiffuseFGD, specularReflectivity );
+
+        lighting.specular += flakes_FGD * ltcValue * CarPaint_BTF( thetaH, thetaD, BsdfData );
+
     #endif
 
 
@@ -1315,7 +1391,7 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     {
         // Only lighting, not BSDF
         // Apply area light on lambert then multiply by PI to cancel Lambert
-        lighting.diffuse = LTCEvaluate(P1, P2, B, k_identity3x3);
+        lighting.diffuse = LTCEvaluate( P1, P2, B, k_identity3x3 );
         lighting.diffuse *= PI * lightData.diffuseScale;
     }
 #endif
