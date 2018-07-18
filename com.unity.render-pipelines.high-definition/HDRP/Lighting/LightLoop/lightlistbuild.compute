@@ -90,9 +90,6 @@ float3 GetViewPosFromDepth(float2 v2ScrPos, float fDepth)
 
     float2 positionNDC = v2ScrPos / float2(g_viDimensions.xy - 1);
     float4 positionCS = float4(positionNDC * 2 - 1, fDepth, 1);
-#if UNITY_UV_STARTS_AT_TOP
-    positionCS.y = -positionCS.y;
-#endif
     float4 positionVS = mul(g_mInvProjection, positionCS);
 
     return positionVS.xyz / positionVS.w;

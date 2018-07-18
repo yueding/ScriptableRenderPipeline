@@ -848,6 +848,22 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return camera.nonObliqueProjMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1));
         }
 
+        static Matrix4x4 CameraProjectionLHS(HDCamera camera)
+        {
+            // HDCamera.projMatrix is already preprocessed:
+            // The z range is in 1..0/0..1 (depending on SystemInfo.usesReversedZBuffer)
+            // The y component is negated if SystemInfo.graphicsUVStartsAtTop
+            // The z is reversed if SystemInfo.usesReversedZBuffer
+            // Here we don't want the y to be negated, so we negate it back
+            return camera.projMatrix * Matrix4x4.Scale(new Vector3(1, SystemInfo.graphicsUVStartsAtTop ? -1 : 1, -1));
+        }
+
+        static Matrix4x4 CameraProjectionStereoLHS(HDCamera camera, int eyeIndex)
+        {
+            // See comment in CameraProjectionLHS(HDCamera)
+            return camera.projMatrixStereo[eyeIndex] * Matrix4x4.Scale(new Vector3(1, SystemInfo.graphicsUVStartsAtTop ? -1 : 1, -1));
+        }
+
         static Matrix4x4 CameraProjectionStereoLHS(Camera camera, Camera.StereoscopicEye eyeIndex)
         {
             return camera.GetStereoProjectionMatrix(eyeIndex) * Matrix4x4.Scale(new Vector3(1, 1, -1));
@@ -2106,7 +2122,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Once we generate this non-oblique projection matrix, it can be shared across both eyes (un-array)
                 for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
                 {
-                    projArr[eyeIndex] = hdCamera.projMatrixStereo[eyeIndex] * Matrix4x4.Scale(new Vector3(1, 1, -1));
+                    projArr[eyeIndex] = CameraProjectionStereoLHS(hdCamera, eyeIndex);
                     invProjArr[eyeIndex] = projArr[eyeIndex].inverse;
                     nonObliqueProjArr[eyeIndex] = CameraProjectionStereoLHS(hdCamera.camera, (Camera.StereoscopicEye)eyeIndex);
                     projscrArr[eyeIndex] = temp * nonObliqueProjArr[eyeIndex];
@@ -2115,7 +2131,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
             else
             {
-                projArr[0] = hdCamera.projMatrix * Matrix4x4.Scale(new Vector3(1, 1, -1));
+                projArr[0] = CameraProjectionLHS(hdCamera);
                 invProjArr[0] = projArr[0].inverse;
                 nonObliqueProjArr[0] = CameraProjectionNonObliqueLHS(hdCamera);
                 projscrArr[0] = temp * nonObliqueProjArr[0];
