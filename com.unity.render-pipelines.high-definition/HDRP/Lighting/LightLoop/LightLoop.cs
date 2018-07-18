@@ -889,23 +889,23 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // Case of D3D like matrices
             // Revert back the z
-            if (revertZ)
-            {
-                projMatrix.m02 *= -1;
-                projMatrix.m12 *= -1;
-                projMatrix.m22 *= -1;
-                projMatrix.m32 *= -1;
-            }
+            // We should revert the z as well in that case, but is not working?
+            //if (revertZ)
+            //{
+            //    projMatrix.m02 *= -1;
+            //    projMatrix.m12 *= -1;
+            //    projMatrix.m22 *= -1;
+            //    projMatrix.m32 *= -1;
+            //}
 
             // Invert the y
-            // We should intert the Y as well in that case, but is not working?
-            //if (invertY)
-            //{
-            //    projMatrix.m01 *= -1;
-            //    projMatrix.m11 *= -1;
-            //    projMatrix.m21 *= -1;
-            //    projMatrix.m31 *= -1;
-            //}
+            if (invertY)
+            {
+                projMatrix.m01 *= -1;
+                projMatrix.m11 *= -1;
+                projMatrix.m21 *= -1;
+                projMatrix.m31 *= -1;
+            }
 
             return projMatrix;
         }
