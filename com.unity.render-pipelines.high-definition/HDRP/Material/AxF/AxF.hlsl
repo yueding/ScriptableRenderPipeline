@@ -1143,31 +1143,14 @@ DirectLighting  EvaluateBSDF_Punctual(  LightLoopContext lightLoopContext,
 	return lighting;
 }
 
+
+//-----------------------------------------------------------------------------
+// AREA LIGHTS
+//-----------------------------------------------------------------------------
+
 #include "AxFReference.hlsl"
 
-//-----------------------------------------------------------------------------
-// EvaluateBSDF_Line - Approximation with Linearly Transformed Cosines
-//-----------------------------------------------------------------------------
-
-DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
-                                    float3 viewWS, PositionInputs posInput,
-                                    PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
-    DirectLighting lighting;
-    ZERO_INITIALIZE(DirectLighting, lighting);
-
-    //NEWLITTODO
-
-// Apply coating
-//specularLighting += F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotN ) * Irradiance;
-
-    return lighting;
-}
-
-//-----------------------------------------------------------------------------
-// EvaluateBSDF_Area - Approximation with Linearly Transformed Cosines
-//-----------------------------------------------------------------------------
-
-// #define ELLIPSOIDAL_ATTENUATION
+// ------ HELPERS ------
 
 // Computes the best light direction given an initial light direction
 // The direction will be projected onto the area light's plane and clipped by the rectangle's bounds, the resulting normalized vector is returned
@@ -1215,6 +1198,138 @@ real PolygonIrradiance( real4x3 L, out float3 F ) {
     return DiffuseSphereLightIrradiance(sinSqSigma, cosOmega);
 }
 
+
+//-----------------------------------------------------------------------------
+// EvaluateBSDF_Line - Approximation with Linearly Transformed Cosines
+//-----------------------------------------------------------------------------
+
+DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
+                                    float3 viewWS, PositionInputs posInput,
+                                    PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
+    DirectLighting lighting;
+    ZERO_INITIALIZE(DirectLighting, lighting);
+
+    float3  positionWS = posInput.positionWS;
+
+#ifdef AXF_DISPLAY_REFERENCE_AREA
+    IntegrateBSDF_LineRef(  viewWS, positionWS, preLightData, lightData, BsdfData,
+                            lighting.diffuse, lighting.specular );
+#else
+    float   len = lightData.size.x;
+    float3  T   = lightData.right;
+
+    float3  unL = lightData.positionRWS - positionWS;
+
+    // Pick the major axis of the ellipsoid.
+    float3  axis = lightData.right;
+
+    // We define the ellipsoid s.t. r1 = (r + len / 2), r2 = r3 = r.
+    // TODO: This could be precomputed.
+    float   radius         = rsqrt(lightData.rangeAttenuationScale); //  // rangeAttenuationScale is inverse Square Radius
+    float   invAspectRatio = saturate(radius / (radius + (0.5 * len)));
+
+    // Compute the light attenuation.
+    float   intensity = EllipsoidalDistanceAttenuation( unL, lightData.rangeAttenuationScale, lightData.rangeAttenuationBias,
+                                                        axis, invAspectRatio);
+
+    // Terminate if the shaded point is too far away.
+    if ( intensity == 0.0 )
+        return lighting;
+
+    lightData.diffuseScale  *= intensity;
+    lightData.specularScale *= intensity;
+
+    // Translate the light s.t. the shaded point is at the origin of the coordinate system.
+    float3  lightLS = lightData.positionRWS - positionWS;
+
+    // TODO: some of this could be precomputed.
+    float3  P1 = lightLS - T * (0.5 * len);
+    float3  P2 = lightLS + T * (0.5 * len);
+
+    // Rotate the endpoints into the local coordinate system.
+    P1 = mul( P1, transpose(preLightData.orthoBasisViewNormal) );
+    P2 = mul( P2, transpose(preLightData.orthoBasisViewNormal) );
+
+    // Compute the binormal in the local coordinate system.
+    float3  B = normalize( cross(P1, P2) );
+
+    float   ltcValue;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    #if defined(_AXF_BRDF_TYPE_SVBRDF)
+
+        // Evaluate the diffuse part
+        // Polygon irradiance in the transformed configuration.
+        ltcValue = LTCEvaluate( P1, P2, B, preLightData.ltcTransformDiffuse );
+        ltcValue *= lightData.diffuseScale;
+        lighting.diffuse = preLightData.ltcTransformDiffuse_Amplitude * ltcValue;
+        
+
+        // Evaluate the specular part
+        // Polygon irradiance in the transformed configuration.
+        ltcValue = LTCEvaluate( P1, P2, B, preLightData.ltcTransformSpecular );
+        ltcValue *= lightData.specularScale;
+        lighting.specular = BsdfData.specularColor * preLightData.ltcTransformSpecular_Amplitude * ltcValue;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+
+    #endif
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    // Evaluate the clear-coat
+    if ( _flags & 2 ) {
+
+        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
+//        float3  reflectedViewWS = reflect( -viewWS, BsdfData.normalWS );
+        float3  reflectedViewWS = preLightData.IBLDominantDirectionWS;
+        float3  bestLightWS = ComputeBestLightDirection( lightLS, reflectedViewWS, lightData );
+
+        float3  H = normalize( viewWS + bestLightWS );
+        float   LdotH = saturate( dot( bestLightWS, H ) );
+        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
+
+        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, bestLightWS, preLightData, BsdfData );
+
+        // Apply clear-coat extinction to existing lighting
+        lighting.diffuse *= clearCoatExtinction;
+        lighting.specular *= clearCoatExtinction;
+
+        // Then add clear-coat contribution
+        ltcValue = LTCEvaluate( P1, P2, B, preLightData.ltcTransformClearCoat );
+        ltcValue *= lightData.specularScale;
+        lighting.specular += preLightData.ltcTransformClearCoat_Amplitude * ltcValue * clearCoatReflection;
+    }
+
+    // Save ALU by applying 'lightData.color' only once.
+    lighting.diffuse *= lightData.color;
+    lighting.specular *= lightData.color;
+
+#ifdef DEBUG_DISPLAY
+    if (_DebugLightingMode == DEBUGLIGHTINGMODE_LUX_METER)
+    {
+        // Only lighting, not BSDF
+        // Apply area light on lambert then multiply by PI to cancel Lambert
+        lighting.diffuse = LTCEvaluate(P1, P2, B, k_identity3x3);
+        lighting.diffuse *= PI * lightData.diffuseScale;
+    }
+#endif
+
+#endif // AXF_DISPLAY_REFERENCE_AREA
+
+    return lighting;
+}
+
+//-----------------------------------------------------------------------------
+// EvaluateBSDF_Area - Approximation with Linearly Transformed Cosines
+//-----------------------------------------------------------------------------
+
+// #define ELLIPSOIDAL_ATTENUATION
 
 DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
                                     float3 viewWS, PositionInputs posInput,
@@ -1279,6 +1394,8 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
     float   ltcValue;
 
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
     #if defined(_AXF_BRDF_TYPE_SVBRDF)
 
         // Evaluate the diffuse part
@@ -1295,6 +1412,8 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         lighting.specular = BsdfData.specularColor * preLightData.ltcTransformSpecular_Amplitude * ltcValue;
         
 
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 
         float   NdotV = ClampNdotV( preLightData.NdotV );
@@ -1379,6 +1498,8 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     #endif
 
 
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
     // Evaluate the clear-coat
     if ( _flags & 2 ) {
 
