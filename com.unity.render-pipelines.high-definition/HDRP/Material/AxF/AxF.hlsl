@@ -763,16 +763,16 @@ float3  GetBRDFColor( float thetaH, float thetaD ) {
 #if 0   // <== BMAYAUX: Define this to use the code from the documentation
     // In the documentation they write that we must divide by PI/2 (it would seem)
     float2  UV = float2( 2.0 * thetaH / PI, 2.0 * thetaD / PI );
+#else
+    // BMAYAUX: But the acos yields values in [0,PI] and the texture seems to be indicating the entire PI range is covered so...
+    float2  UV = float2( thetaH / PI, thetaD / PI );
+#endif
 
     // BMAYAUX: Problem here is that the BRDF color tables are only defined in the upper-left triangular part of the texture
     // It's not indicated anywhere in the SDK documentation but I decided to clamp to the diagonal otherwise we get black values if UV.x+UV.y > 0.5!
     UV *= 2.0;
     UV *= saturate( UV.x + UV.y ) / max( 1e-3, UV.x + UV.y );
     UV *= 0.5;
-#else
-    // BMAYAUX: But the acos yields values in [0,PI] and the texture seems to be indicating the entire PI range is covered so...
-    float2  UV = float2( thetaH / PI, thetaD / PI );
-#endif
 
     // Rescale UVs to account for 0.5 texel offset
     uint2   textureSize;
