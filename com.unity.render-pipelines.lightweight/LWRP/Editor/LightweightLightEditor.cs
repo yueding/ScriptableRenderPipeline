@@ -182,15 +182,16 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
         {
             float textFieldWidth = 45f;
 
-            float min = settings.innerSpotAngleFalloff.floatValue;
+            float min = settings.innerSpotAngle.floatValue;
             float max = settings.spotAngle.floatValue;
+            float falloff = max - min;
 
             EditorGUILayout.BeginHorizontal();
 
             EditorGUI.BeginChangeCheck();
 
             EditorGUILayout.PrefixLabel("Inner / Outer Angle");
-            min = float.Parse(EditorGUILayout.TextField(min.ToString("0.00"), GUILayout.Width(textFieldWidth)));
+            min = EditorGUILayout.FloatField(float.Parse(min.ToString("0.00")), GUILayout.Width(textFieldWidth));
 
             EditorGUILayout.MinMaxSlider(ref min, ref max, 0f, 180f);
 
@@ -201,6 +202,18 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 
 
             EditorGUILayout.EndHorizontal();
+
+
+
+
+            //min = max - EditorGUILayout.FloatField("Falloff", float.Parse((max-min).ToString("0.00")));
+
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                settings.innerSpotAngle.floatValue = min;
+                settings.spotAngle.floatValue = max;
+            }
 
             //EditorGUILayout.BeginHorizontal();
 
@@ -219,11 +232,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 //            max = values[1];
             //EditorGUILayout.EndHorizontal();
 
-            if (EditorGUI.EndChangeCheck())
-            {
-                settings.innerSpotAngleFalloff.floatValue = min;
-                settings.spotAngle.floatValue = max;
-            }
+
 
 
             //EditorGUILayout.Slider(settings.innerSpotAngleFalloff, 0f, max, s_Styles.InnerSpotAngleFalloff);
