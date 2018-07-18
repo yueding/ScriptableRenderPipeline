@@ -34,6 +34,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public Matrix4x4[] viewMatrixStereo;
         public Matrix4x4[] projMatrixStereo;
+        public Matrix4x4[] projMatrixStereoRaw;
         public Vector4 centerEyeTranslationOffset;
 
         // Non oblique projection matrix (RHS)
@@ -164,8 +165,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             frustum = new Frustum();
             frustumPlaneEquations = new Vector4[6];
 
-            viewMatrixStereo = new Matrix4x4[2];
+            viewMatrixStereo = new Matrix4x4[2]; 
             projMatrixStereo = new Matrix4x4[2];
+            projMatrixStereoRaw = new Matrix4x4[2];
 
             postprocessRenderContext = new PostProcessRenderContext();
 

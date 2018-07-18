@@ -84,10 +84,6 @@ RWStructuredBuffer<uint> g_TileFeatureFlags;
 
 float3 GetViewPosFromDepth(float2 v2ScrPos, float fDepth)
 {
-#if UNITY_REVERSED_Z
-    fDepth = 1.0 - fDepth;
-#endif
-
     float2 positionNDC = v2ScrPos / float2(g_viDimensions.xy - 1);
     float4 positionCS = float4(positionNDC * 2 - 1, fDepth, 1);
     float4 positionVS = mul(g_mInvProjection, positionCS);

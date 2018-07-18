@@ -872,39 +872,30 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             projMatrix.m22 *= -1;
             projMatrix.m32 *= -1;
 
-            // Case of OpenGL matrices
-            if (!invertY)
-            {
-                // Revert back the z
-                if (revertZ)
-                {
-                    projMatrix.m02 *= -1;
-                    projMatrix.m12 *= -1;
-                    projMatrix.m22 *= -1;
-                    projMatrix.m32 *= -1;
-                }
-
-                return projMatrix;
-            }
-
-            // Case of D3D like matrices
-            // Revert back the z
-            // We should revert the z as well in that case, but is not working?
-            //if (revertZ)
-            //{
-            //    projMatrix.m02 *= -1;
-            //    projMatrix.m12 *= -1;
-            //    projMatrix.m22 *= -1;
-            //    projMatrix.m32 *= -1;
-            //}
-
             // Invert the y
             if (invertY)
             {
-                projMatrix.m01 *= -1;
+                projMatrix.m10 *= -1;
                 projMatrix.m11 *= -1;
-                projMatrix.m21 *= -1;
-                projMatrix.m31 *= -1;
+                projMatrix.m12 *= -1;
+                projMatrix.m13 *= -1;
+            }
+
+            // Revert back the z
+            // We should revert the z as well in that case, but is not working?
+            if (revertZ)
+            {
+                // Right multiply by
+                // 1  0  0  0
+                // 0  1  0  0 
+                // 0  0 -1  1
+                // 0  0  0  1
+                // to have 1-z instead of z
+
+                projMatrix.m20 = projMatrix.m30 - projMatrix.m20;
+                projMatrix.m21 = projMatrix.m31 - projMatrix.m21;
+                projMatrix.m22 = projMatrix.m32 - projMatrix.m22;
+                projMatrix.m23 = projMatrix.m33 - projMatrix.m23;
             }
 
             return projMatrix;
