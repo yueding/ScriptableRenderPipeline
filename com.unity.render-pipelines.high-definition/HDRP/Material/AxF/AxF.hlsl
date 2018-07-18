@@ -23,11 +23,6 @@
 #define FLAKES_F0 1.0
 
 
-// Define this to recompute vectors after refraction by clear coat
-// At the moment, this gives ugly results that I haven't debugged yet so I left it off... :/
-//#define RECOMPUTE_VECTORS_AFTER_REFRACTION  1
-
-
 // Define this to sample the environment maps/LTC samples for each lobe, instead of a single sample with an average lobe
 #define USE_COOK_TORRANCE_MULTI_LOBES   1
 
@@ -245,6 +240,38 @@ float   G_smith( float NdotV, float roughness ) {
     return 2 * NdotV / (NdotV + sqrt( a2 + (1 - a2) * Sq(NdotV) ));
 }
 
+//----------------------------------------------------------------------
+// Computes Fresnel reflection/refraction of view and light vectors
+// Returns the ratios of the incoming reflected and refracted energy
+// Also refracts the provided view and light vectors if refraction is enabled
+//
+void    ComputeClearCoatReflectionAndExtinction( inout float3 viewWS, inout float3 lightWS, BSDFData BsdfData, out float3 reflectedRatio, out float3 refractedRatio ) {
+
+    // Computes perfect mirror reflection
+    float3  H = normalize( viewWS + lightWS );
+    float   LdotH = saturate( dot( lightWS, H ) );
+
+    reflectedRatio = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH );    // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+
+    // Compute input/output Fresnel reflections
+    float   LdotN = saturate( dot( lightWS, BsdfData.clearCoatNormalWS ) );
+    float3  Fin = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotN );
+
+    float   VdotN = saturate( dot( viewWS, BsdfData.clearCoatNormalWS ) );
+    float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
+
+    // Apply optional refraction
+    float   TIRIntensity = 1.0;
+    if ( _flags & 4U ) {
+        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
+        float   TIRIntensityView;
+        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensityView );
+        TIRIntensity *= TIRIntensityView;
+    }
+
+    refractedRatio = TIRIntensity * (1-Fin) * (1-Fout);
+}
+
 
 //-----------------------------------------------------------------------------
 // conversion function for forward
@@ -305,8 +332,11 @@ data.anisotropyAngle = 0;
 
 // Precomputed lighting data to send to the various lighting functions
 struct PreLightData {
-	float   NdotV;                  // Could be negative due to normal mapping, use ClampNdotV()
+	float   NdotV_UnderCoat;    // NdotV after optional clear-coat refraction. Could be negative due to normal mapping, use ClampNdotV()
+	float   NdotV_ClearCoat;    // NdotV before optional clear-coat refraction. Could be negative due to normal mapping, use ClampNdotV()
     float3  IOR;
+    float3  viewWS_UnderCoat;   // View vector after optional clear-coat refraction.
+    float   viewTIR_Intensity;  // Total Internal Reflection intensity due to view refraction
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         // Anisotropy
@@ -315,7 +345,8 @@ struct PreLightData {
     #endif
 
     // IBL
-    float3  IBLDominantDirectionWS; // Dominant specular direction, used for IBL in EvaluateBSDF_Env() and also in area lights when clear coat is enabled
+    float3  IBLDominantDirectionWS_UnderCoat;   // Dominant specular direction, used for IBL in EvaluateBSDF_Env()
+    float3  IBLDominantDirectionWS_ClearCoat;   // Dominant specular direction, used for IBL in EvaluateBSDF_Env() and also in area lights when clear coat is enabled
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         float   IBLPerceptualRoughness;
 	    float3  specularFGD;
@@ -337,28 +368,30 @@ struct PreLightData {
     float3      ltcTransformClearCoat_Amplitude;
 };
 
-PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout BSDFData BsdfData ) {
+PreLightData    GetPreLightData( float3 viewWS_ClearCoat, PositionInputs posInput, inout BSDFData BsdfData ) {
 	PreLightData    preLightData;
 //	ZERO_INITIALIZE( PreLightData, preLightData );
 
-	float3  normalWS = BsdfData.normalWS;
-	preLightData.NdotV = dot( normalWS, viewWS );
     preLightData.IOR = GetIorN( BsdfData.fresnelF0, 1.0 );
 
-	float   NdotV = ClampNdotV( preLightData.NdotV );
-    float   clearCoatNdotV = NdotV; // Save original N.V before optional refraction by clear coat
+    float3  normalWS_ClearCoat = (_flags & 0x2U) ? BsdfData.clearCoatNormalWS : BsdfData.normalWS;
+    preLightData.NdotV_ClearCoat = dot( normalWS_ClearCoat, viewWS_ClearCoat );
+    preLightData.viewWS_UnderCoat = viewWS_ClearCoat;   // Save original view before optional refraction by clear coat
+    preLightData.viewTIR_Intensity = 1.0;               // No total internal reflection
 
-    #if RECOMPUTE_VECTORS_AFTER_REFRACTION
-        // ==============================================================================
-        // Handle clear coat refraction of view ray
-        if ( (_flags & 0x6U) == 0x6U ) {
-            // If refraction is enabled then bend view vector and update NdotV
-            float   TIRIntensity;
-            viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );    // This is independent of lighting
-	        preLightData.NdotV = dot( normalWS, viewWS );
-	        NdotV = ClampNdotV( preLightData.NdotV );
-        }
-    #endif
+
+    // ==============================================================================
+    // Handle clear coat refraction of view ray
+    if ( (_flags & 0x6U) == 0x6U ) {
+        // If refraction is enabled then bend view vector and update NdotV
+        preLightData.viewWS_UnderCoat = -Refract( preLightData.viewWS_UnderCoat, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, preLightData.viewTIR_Intensity );    // This is independent of lighting
+    }
+
+    // Compute under-coat view-dependent data after optional refraction
+    preLightData.NdotV_UnderCoat = dot( BsdfData.normalWS, preLightData.viewWS_UnderCoat );
+
+    float   NdotV_UnderCoat = ClampNdotV( preLightData.NdotV_UnderCoat );
+	float   NdotV_ClearCoat = ClampNdotV( preLightData.NdotV_ClearCoat );
 
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
@@ -377,20 +410,21 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
 
     // ==============================================================================
     // Handle IBL +  multiscattering
-    preLightData.IBLDominantDirectionWS = reflect( -viewWS, normalWS );
+    preLightData.IBLDominantDirectionWS_UnderCoat = reflect( -preLightData.viewWS_UnderCoat, BsdfData.normalWS );
+    preLightData.IBLDominantDirectionWS_ClearCoat = reflect( -viewWS_ClearCoat, normalWS_ClearCoat );
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         preLightData.IBLPerceptualRoughness = RoughnessToPerceptualRoughness( 0.5 * (BsdfData.roughness.x + BsdfData.roughness.y) );    // @TODO => Anisotropic IBL?
         float specularReflectivity;
         switch ( (_SVBRDF_BRDFType >> 1) & 7 ) {
-            case 0: GetPreIntegratedFGDWardLambert( NdotV, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
+            case 0: GetPreIntegratedFGDWardLambert( NdotV_UnderCoat, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
 //            case 1: // @TODO: Support Blinn-Phong FGD?
-            case 2: GetPreIntegratedFGDCookTorranceLambert( NdotV, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
-            case 3: GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
+            case 2: GetPreIntegratedFGDCookTorranceLambert( NdotV_UnderCoat, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
+            case 3: GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV_UnderCoat, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
 //            case 4: // @TODO: Support Blinn-Phong FGD?
 
             default:    // Use GGX by default
-                GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity );
+                GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV_UnderCoat, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity );
                 break;
         }
 
@@ -413,13 +447,13 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
     // Area lights
 
     // Construct a right-handed view-dependent orthogonal basis around the normal
-    preLightData.orthoBasisViewNormal[2] = normalWS;
-    preLightData.orthoBasisViewNormal[0] = normalize( viewWS - normalWS * preLightData.NdotV ); // Do not clamp NdotV here
+    preLightData.orthoBasisViewNormal[2] = BsdfData.normalWS;
+    preLightData.orthoBasisViewNormal[0] = normalize( viewWS_ClearCoat - preLightData.NdotV_ClearCoat * BsdfData.normalWS );    // Do not clamp NdotV here
     preLightData.orthoBasisViewNormal[1] = cross( preLightData.orthoBasisViewNormal[2], preLightData.orthoBasisViewNormal[0] );
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         // UVs for sampling the LUTs
-        float2  UV = LTCGetSamplingUV( NdotV, preLightData.IBLPerceptualRoughness );
+        float2  UV = LTCGetSamplingUV( NdotV_UnderCoat, preLightData.IBLPerceptualRoughness );
 
         // Load diffuse LTC & FGD
         if ( _SVBRDF_BRDFType & 1 ) {
@@ -443,7 +477,7 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
                 //
                 float   exponent = PerceptualRoughnessToRoughness( preLightData.IBLPerceptualRoughness );
                 float   roughness = pow( max( 0.0, 2.0 / (exponent + 2) ), 1.0 / 4.0 );
-                float2  UV = LTCGetSamplingUV( NdotV, RoughnessToPerceptualRoughness( roughness ) );
+                float2  UV = LTCGetSamplingUV( NdotV_UnderCoat, RoughnessToPerceptualRoughness( roughness ) );
                 preLightData.ltcTransformSpecular = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_COOK_TORRANCE );
                 break;
             }
@@ -468,10 +502,10 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
     preLightData.ltcTransformClearCoat_Amplitude = 0;
     if ( _flags & 2 ) {
         float   clearCoatF0 = IorToFresnel0( BsdfData.clearCoatIOR );
-        float2  UV = LTCGetSamplingUV( clearCoatNdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS );
+        float2  UV = LTCGetSamplingUV( NdotV_ClearCoat, CLEAR_COAT_PERCEPTUAL_ROUGHNESS );
         preLightData.ltcTransformClearCoat = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_GGX );
         float   specularReflectivity, dummyDiffuseFGD;
-        GetPreIntegratedFGDGGXAndDisneyDiffuse( clearCoatNdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS, clearCoatF0, preLightData.ltcTransformClearCoat_Amplitude, dummyDiffuseFGD, specularReflectivity );
+        GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV_ClearCoat, CLEAR_COAT_PERCEPTUAL_ROUGHNESS, clearCoatF0, preLightData.ltcTransformClearCoat_Amplitude, dummyDiffuseFGD, specularReflectivity );
     }
 
 	return preLightData;
@@ -569,30 +603,10 @@ void AccumulateIndirectLighting( IndirectLighting src, inout AggregateLighting d
 	dst.indirect.specularTransmitted += src.specularTransmitted;
 }
 
+
 //-----------------------------------------------------------------------------
-// BSDF share between directional light, punctual light and area light (reference)
+// BSDF shared between directional light, punctual light and area light (reference)
 //-----------------------------------------------------------------------------
-
-float3  ComputeClearCoatExtinction( inout float3 viewWS, inout float3 lightWS, PreLightData preLightData, BSDFData BsdfData ) {
-    // Compute input/output Fresnel attenuations
-    float   LdotN = saturate( dot( lightWS, BsdfData.clearCoatNormalWS ) );
-    float3  Fin = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotN );
-
-    float   VdotN = saturate( dot( viewWS, BsdfData.clearCoatNormalWS ) );
-    float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
-
-    // Apply optional refraction
-    float   TIRIntensity = 1.0;
-    if ( _flags & 4U ) {
-        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
-        float   TIRIntensityView;
-        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensityView );
-        TIRIntensity *= TIRIntensityView;
-    }
-
-    return TIRIntensity * (1-Fin) * (1-Fout);
-}
-
 
 #ifdef _AXF_BRDF_TYPE_SVBRDF
 
@@ -693,37 +707,30 @@ float3  ComputePhong( float3 H, float LdotH, float NdotL, float NdotV, float3 po
 
 
 // This function applies the BSDF. Assumes that NdotL is positive.
-void	BSDF(   float3 viewWS, float3 lightWS, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
+void	BSDF(   float3 viewWS_ClearCoat, float3 lightWS, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
                 out float3 diffuseLighting, out float3 specularLighting ) {
-
-    // Compute half vector used by various components of the BSDF
-    float3  H = normalize( viewWS + lightWS );
-    float   LdotH = saturate( dot( H, lightWS ) );
 
     // Apply clear coat
     float3  clearCoatExtinction = 1.0;
     float3  clearCoatReflection = 0.0;
     if ( _flags & 2 ) {
-        clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-        clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS, preLightData, BsdfData );
-        #if RECOMPUTE_VECTORS_AFTER_REFRACTION
-            if ( _flags & 4U ) {
-                // Recompute half vector after refraction
-                H = normalize( viewWS + lightWS );
-                LdotH = saturate( dot( H, lightWS ) );
-                preLightData.NdotV = dot( BsdfData.normalWS, viewWS );
-            }
-        #endif
+//        clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+//        clearCoatExtinction = ComputeClearCoatExtinction( viewWS_ClearCoat, lightWS, preLightData.viewTIR_Intensity, BsdfData );
+        float3  viewWS = viewWS_ClearCoat;  // Copy to a temp variable, we don't want to modify the clear-coat version of the view vector!
+        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS, BsdfData, clearCoatReflection, clearCoatExtinction );
+        clearCoatReflection *= BsdfData.clearCoatColor / PI;
     }
 
-    float   NdotV = ClampNdotV( preLightData.NdotV );
+    float3  H = normalize( preLightData.viewWS_UnderCoat + lightWS );
+    float   LdotH = saturate( dot( H, lightWS ) );
+    float   NdotV = ClampNdotV( preLightData.NdotV_UnderCoat );
 
     // Compute diffuse term
     float3  diffuseTerm = Lambert();
     if ( _SVBRDF_BRDFType & 1 ) {
         float   diffuseRoughness = 0.5 * HALF_PI;    // Arbitrary roughness (not specified in the documentation...)
-//        float   diffuseRoughness = _DEBUG_anisotropicRoughessX * HALF_PI;    // Arbitrary roughness (not specified in the documentation...)
-        diffuseTerm = INV_PI * OrenNayar( BsdfData.normalWS, viewWS, lightWS, diffuseRoughness );
+//        float   diffuseRoughness = _DEBUG_anisotropicRoughessX * HALF_PI;
+        diffuseTerm = INV_PI * OrenNayar( BsdfData.normalWS, preLightData.viewWS_UnderCoat, lightWS, diffuseRoughness );
     }
 
     // Compute specular term
@@ -896,34 +903,28 @@ float3  CarPaint_BTF( float thetaH, float thetaD, BSDFData BsdfData ) {
 
 
 // This function applies the BSDF. Assumes that NdotL is positive.
-void	BSDF(   float3 viewWS, float3 lightWS, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
+void	BSDF(   float3 viewWS_ClearCoat, float3 lightWS, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData BsdfData,
                 out float3 diffuseLighting, out float3 specularLighting ) {
-
-    // Compute half vector used by various components of the BSDF
-    float3  H = normalize( viewWS + lightWS );
-    float   LdotH = dot( H, lightWS );
 
     // Apply clear coat
     float3  clearCoatExtinction = 1.0;
     float3  clearCoatReflection = 0.0;
     if ( _flags & 2 ) {
-        clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-        clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS, preLightData, BsdfData );
-        #if RECOMPUTE_VECTORS_AFTER_REFRACTION
-            if ( _flags & 4U ) {
-                // Recompute half vector after refraction
-                H = normalize( viewWS + lightWS );
-                LdotH = saturate( dot( H, lightWS ) );
-                preLightData.NdotV = dot( BsdfData.normalWS, viewWS );
-            }
-        #endif
+//        clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+//        clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS, preLightData.viewTIR_Intensity, BsdfData );
+        float3  viewWS = viewWS_ClearCoat;  // Copy to a temp variable, we don't want to modify the clear-coat version of the view vector!
+        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS, BsdfData, clearCoatReflection, clearCoatExtinction );
+        clearCoatReflection *= BsdfData.clearCoatColor / PI;
     }
 
-    // Compute remaining values AFTER potential clear coat refraction
-    float   NdotV = ClampNdotV( preLightData.NdotV );
-            NdotL = dot( BsdfData.normalWS, lightWS );
+    // Compute half vector used by various components of the BSDF
+    float3  H = normalize( preLightData.viewWS_UnderCoat + lightWS );
     float   NdotH = dot( BsdfData.normalWS, H );
+    float   LdotH = dot( H, lightWS );
     float   VdotH = LdotH;
+
+    float   NdotV = ClampNdotV( preLightData.NdotV_UnderCoat );
+            NdotL = dot( BsdfData.normalWS, lightWS );
 
     float   thetaH = acos( clamp( NdotH, -1, 1 ) );
     float   thetaD = acos( clamp( LdotH, -1, 1 ) );
@@ -988,7 +989,7 @@ void	BSDF(   float3 viewWS, float3 lightWS, float NdotL, float3 positionWS, PreL
 
     // We don't multiply by 'BsdfData.diffuseColor' here. It's done only once in PostEvaluateBSDF().
     diffuseLighting = diffuseTerm;
-    specularLighting = float3(0.0, 0.0, 0.0);
+    specularLighting = 0;
 }
 
 #endif
@@ -1007,9 +1008,7 @@ DirectLighting  EvaluateBSDF_Directional(   LightLoopContext lightLoopContext,
 
     float3  normalWS = BsdfData.normalWS;
     float3  lightWS = -lightData.forward; // Lights point backward in Unity
-    //float  NdotV = ClampNdotV(preLightData.NdotV);
-    float   NdotL = dot(normalWS, lightWS);
-    //float  LdotV = dot(lightWS, viewWS);
+    float   NdotL = dot( normalWS, lightWS );
 
     // color and attenuation are outputted  by EvaluateLight:
     float3  color;
@@ -1026,8 +1025,6 @@ DirectLighting  EvaluateBSDF_Directional(   LightLoopContext lightLoopContext,
         lighting.specular *= intensity * lightData.specularScale;
     }
 
-    // NEWLITTODO: Mixed thickness, transmission
-
     // Save ALU by applying light and cookie colors only once.
     lighting.diffuse  *= color;
     lighting.specular *= color;
@@ -1036,20 +1033,6 @@ DirectLighting  EvaluateBSDF_Directional(   LightLoopContext lightLoopContext,
         if ( _DebugLightingMode == DEBUGLIGHTINGMODE_LUX_METER ) {
             lighting.diffuse = color * intensity * lightData.diffuseScale;	// Only lighting, not BSDF
         }
-
-//float   TIRIntensity;
-//lighting.specular = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
-//lighting.specular = dot( -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
-//lighting.specular = dot( -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
-
-//lighting.specular = (BsdfData.clearCoatIOR - 1.0) * 1;
-//lighting.specular = 0.5 * (1.0 + BsdfData.clearCoatNormalWS);
-//lighting.specular = 100.0 * (1.0 - dot( BsdfData.normalWS, BsdfData.clearCoatNormalWS) );
-
-
-//lighting.diffuse = 0;
-//lighting.specular = 0;
-
     #endif
 
     return lighting;
@@ -1085,12 +1068,8 @@ DirectLighting  EvaluateBSDF_Punctual(  LightLoopContext lightLoopContext,
 	    distances.xyz = float3(dist, distSq, distRcp);
     }
 
-    float3 normalWS     = BsdfData.normalWS;
-    float  NdotV = ClampNdotV(preLightData.NdotV);
-    float  NdotL = dot(normalWS, lightWS);
-    float  LdotV = dot(lightWS, viewWS);
-
-    // NEWLITTODO: mixedThickness, transmission
+    float3  normalWS = BsdfData.normalWS;
+    float   NdotL = dot( normalWS, lightWS );
 
     float3 color;
     float attenuation;
@@ -1144,20 +1123,41 @@ DirectLighting  EvaluateBSDF_Punctual(  LightLoopContext lightLoopContext,
 // Computes the best light direction given an initial light direction
 // The direction will be projected onto the area light's plane and clipped by the rectangle's bounds, the resulting normalized vector is returned
 //
-//  lightPositionLS, the rectangular area light's position in local space (i.e. relative to the point currently being lit)
+//  lightPositionRWS, the rectangular area light's position in local space (i.e. relative to the point currently being lit)
 //  lightWS, the light direction in world-space
 //
-float3  ComputeBestLightDirection( float3 lightPositionLS, float3 lightWS, LightData lightData ) {
-//        float   t = dot( lightLS, lightData.forward ) / dot( reflectedViewWS, lightData.forward );                  // Distance until we intercept light plane following light direction
+float3  ComputeBestLightDirection_Rectangle( float3 lightPositionRWS, float3 lightWS, LightData lightData ) {
     float   halfWidth  = lightData.size.x * 0.5;
     float   halfHeight = lightData.size.y * 0.5;
 
-    float   t = dot( lightPositionLS, lightData.forward ) / dot( lightWS, lightData.forward );                  // Distance until we intercept the light plane following light direction
+    float   t = dot( lightPositionRWS, lightData.forward ) / dot( lightWS, lightData.forward );                  // Distance until we intercept the light plane following light direction
     float3  hitPosLS = t * lightWS;                                                                             // Position of intersection with light plane
     float2  hitPosTS = float2( dot( hitPosLS, lightData.right ), dot( hitPosLS, lightData.up ) );               // Same but in tangent space
             hitPosTS = clamp( hitPosTS, float2( -halfWidth, -halfHeight ), float2( halfWidth, halfHeight ) );   // Clip to rectangle
     hitPosLS = lightWS + hitPosTS.x * lightData.right + hitPosTS.y * lightData.up;                              // Recompose clipped intersection
     return normalize( hitPosLS );                                                                               // Now use that direction as best light vector
+}
+
+// Computes the best light direction given an initial light direction
+// The direction will be projected onto the area light's line and clipped by the segment's bounds, the resulting normalized vector is returned
+//
+//  lightPositionRWS, the linear area light's position in local space (i.e. relative to the point currently being lit)
+//  lightWS, the light direction in world-space
+//
+float3  ComputeBestLightDirection_Line( float3 lightPositionRWS, float3 lightWS, LightData lightData ) {
+
+return lightWS;
+
+//    float   len = lightData.size.x;
+//    float3  T   = lightData.right;
+//
+//
+//    float   t = dot( lightPositionRWS, lightData.forward ) / dot( lightWS, lightData.forward );                  // Distance until we intercept the light plane following light direction
+//    float3  hitPosLS = t * lightWS;                                                                             // Position of intersection with light plane
+//    float2  hitPosTS = float2( dot( hitPosLS, lightData.right ), dot( hitPosLS, lightData.up ) );               // Same but in tangent space
+//            hitPosTS = clamp( hitPosTS, float2( -halfWidth, -halfHeight ), float2( halfWidth, halfHeight ) );   // Clip to rectangle
+//    hitPosLS = lightWS + hitPosTS.x * lightData.right + hitPosTS.y * lightData.up;                              // Recompose clipped intersection
+//    return normalize( hitPosLS );                                                                               // Now use that direction as best light vector
 }
 
 // Expects non-normalized vertex positions.
@@ -1193,7 +1193,7 @@ real PolygonIrradiance( real4x3 L, out float3 F ) {
 //-----------------------------------------------------------------------------
 
 DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
-                                    float3 viewWS, PositionInputs posInput,
+                                    float3 viewWS_ClearCoat, PositionInputs posInput,
                                     PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
     DirectLighting lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
@@ -1201,7 +1201,7 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     float3  positionWS = posInput.positionWS;
 
 #ifdef AXF_DISPLAY_REFERENCE_AREA
-    IntegrateBSDF_LineRef(  viewWS, positionWS, preLightData, lightData, BsdfData,
+    IntegrateBSDF_LineRef(  viewWS_ClearCoat, positionWS, preLightData, lightData, BsdfData,
                             lighting.diffuse, lighting.specular );
 #else
     float   len = lightData.size.x;
@@ -1229,11 +1229,11 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     lightData.specularScale *= intensity;
 
     // Translate the light s.t. the shaded point is at the origin of the coordinate system.
-    float3  lightLS = lightData.positionRWS - positionWS;
+    float3  lightPositionRWS = lightData.positionRWS - positionWS;
 
     // TODO: some of this could be precomputed.
-    float3  P1 = lightLS - T * (0.5 * len);
-    float3  P2 = lightLS + T * (0.5 * len);
+    float3  P1 = lightPositionRWS - T * (0.5 * len);
+    float3  P2 = lightPositionRWS + T * (0.5 * len);
 
     // Rotate the endpoints into the local coordinate system.
     P1 = mul( P1, transpose(preLightData.orthoBasisViewNormal) );
@@ -1265,7 +1265,7 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     //////////////////////////////////////////////////////////////////////////////////////////////
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 
-        float   NdotV = ClampNdotV( preLightData.NdotV );
+        float   NdotV = ClampNdotV( preLightData.NdotV_UnderCoat );
 
         // =====================================================
         // Use Lambert for diffuse
@@ -1275,12 +1275,11 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
 
         // Evaluate average BRDF response in diffuse direction
         // We project the point onto the area light's plane using the light's forward direction and recompute the light direction from this position
-//        float3  bestLightWS_Diffuse = BsdfData.normalWS;
-        float3  bestLightWS_Diffuse = ComputeBestLightDirection( lightLS, -lightData.forward, lightData );
+        float3  bestLightWS_Diffuse = ComputeBestLightDirection_Line( lightPositionRWS, -lightData.forward, lightData );
 
-        float3  H = normalize( viewWS + bestLightWS_Diffuse );
+        float3  H = normalize( preLightData.viewWS_UnderCoat + bestLightWS_Diffuse );
         float   NdotH = dot( BsdfData.normalWS, H );
-        float   VdotH = dot( viewWS, H );
+        float   VdotH = dot( preLightData.viewWS_UnderCoat, H );
 
         float   thetaH = acos( clamp( NdotH, -1, 1 ) );
         float   thetaD = acos( clamp( VdotH, -1, 1 ) );
@@ -1314,11 +1313,11 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
 
         // Evaluate average BRDF response in specular direction
         // We project the point onto the area light's plane using the reflected view direction and recompute the light direction from this position
-        float3  bestLightWS_Specular = ComputeBestLightDirection( lightLS, preLightData.IBLDominantDirectionWS, lightData );
+        float3  bestLightWS_Specular = ComputeBestLightDirection_Line( lightPositionRWS, preLightData.IBLDominantDirectionWS_UnderCoat, lightData );
 
-        H = normalize( viewWS + bestLightWS_Specular );
+        H = normalize( preLightData.viewWS_UnderCoat + bestLightWS_Specular );
         NdotH = dot( BsdfData.normalWS, H );
-        VdotH = dot( viewWS, H );
+        VdotH = dot( preLightData.viewWS_UnderCoat, H );
 
         thetaH = acos( clamp( NdotH, -1, 1 ) );
         thetaD = acos( clamp( VdotH, -1, 1 ) );
@@ -1350,40 +1349,41 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     if ( _flags & 2 ) {
 
         // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
-//        float3  reflectedViewWS = reflect( -viewWS, BsdfData.normalWS );
-        float3  reflectedViewWS = preLightData.IBLDominantDirectionWS;
-        float3  bestLightWS = ComputeBestLightDirection( lightLS, reflectedViewWS, lightData );
-
-        float3  H = normalize( viewWS + bestLightWS );
-        float   LdotH = saturate( dot( bestLightWS, H ) );
-        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
-
-        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, bestLightWS, preLightData, BsdfData );
-
-        // Apply clear-coat extinction to existing lighting
-        lighting.diffuse *= clearCoatExtinction;
-        lighting.specular *= clearCoatExtinction;
+//        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
+//        float3  lightWS_ClearCoat = ComputeBestLightDirection_Line( lightPositionRWS, viewWS_ClearCoat, lightData );
+//
+//        float3  H = normalize( viewWS + lightWS_ClearCoat );
+//        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
+//        float   LdotH = saturate( dot( lightWS_ClearCoat, H ) );
+//
+//        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+//        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS_ClearCoat, preLightData.viewTIR_Intensity, BsdfData );
+//        float3  clearCoatReflection, clearCoatExtinction;
+//        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS_ClearCoat, BsdfData, clearCoatReflection, clearCoatExtinction );
+//
+//        // Apply clear-coat extinction to existing lighting
+//        lighting.diffuse *= clearCoatExtinction;
+//        lighting.specular *= clearCoatExtinction;
 
         // Then add clear-coat contribution
         ltcValue = LTCEvaluate( P1, P2, B, preLightData.ltcTransformClearCoat );
         ltcValue *= lightData.specularScale;
-        lighting.specular += preLightData.ltcTransformClearCoat_Amplitude * ltcValue * clearCoatReflection;
+//        lighting.specular += preLightData.ltcTransformClearCoat_Amplitude * ltcValue * clearCoatReflection;
+        lighting.specular += preLightData.ltcTransformClearCoat_Amplitude * ltcValue * (BsdfData.clearCoatColor / PI);
     }
 
     // Save ALU by applying 'lightData.color' only once.
     lighting.diffuse *= lightData.color;
     lighting.specular *= lightData.color;
 
-#ifdef DEBUG_DISPLAY
-    if (_DebugLightingMode == DEBUGLIGHTINGMODE_LUX_METER)
-    {
-        // Only lighting, not BSDF
-        // Apply area light on lambert then multiply by PI to cancel Lambert
-        lighting.diffuse = LTCEvaluate( P1, P2, B, k_identity3x3 );
-        lighting.diffuse *= PI * lightData.diffuseScale;
-    }
-#endif
+    #ifdef DEBUG_DISPLAY
+        if (_DebugLightingMode == DEBUGLIGHTINGMODE_LUX_METER) {
+            // Only lighting, not BSDF
+            // Apply area light on lambert then multiply by PI to cancel Lambert
+            lighting.diffuse = LTCEvaluate( P1, P2, B, k_identity3x3 );
+            lighting.diffuse *= PI * lightData.diffuseScale;
+        }
+    #endif
 
 #endif // AXF_DISPLAY_REFERENCE_AREA
 
@@ -1397,7 +1397,7 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
 // #define ELLIPSOIDAL_ATTENUATION
 
 DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
-                                    float3 viewWS, PositionInputs posInput,
+                                    float3 viewWS_ClearCoat, PositionInputs posInput,
                                     PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
     DirectLighting lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
@@ -1405,18 +1405,18 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     float3  positionWS = posInput.positionWS;
 
 #ifdef AXF_DISPLAY_REFERENCE_AREA
-    IntegrateBSDF_AreaRef( viewWS, positionWS, preLightData, lightData, BsdfData,
+    IntegrateBSDF_AreaRef( viewWS_ClearCoat, positionWS, preLightData, lightData, BsdfData,
                            lighting.diffuse, lighting.specular );
 #else
     // Translate the light s.t. the shaded point is at the origin of the coordinate system.
-    float3  lightLS = lightData.positionRWS - positionWS;
-    if ( dot( lightData.forward, lightLS) >= 0.0001 ) {
+    float3  lightPositionRWS = lightData.positionRWS - positionWS;
+    if ( dot( lightData.forward, lightPositionRWS) >= 0.0001 ) {
         return lighting;    // The light is back-facing.
     }
 
     // Rotate the light direction into the light space.
     float3x3    lightToWorld = float3x3( lightData.right, lightData.up, -lightData.forward );
-    float3      unL = mul( lightLS, transpose(lightToWorld) );
+    float3      unL = mul( lightPositionRWS, transpose(lightToWorld) );
 
     // TODO: This could be precomputed.
     float   halfWidth  = lightData.size.x * 0.5;
@@ -1449,10 +1449,10 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
     // TODO: some of this could be precomputed.
     float4x3    lightVerts;
-                lightVerts[0] = lightLS + lightData.right *  halfWidth + lightData.up *  halfHeight;
-                lightVerts[1] = lightLS + lightData.right *  halfWidth + lightData.up * -halfHeight;
-                lightVerts[2] = lightLS + lightData.right * -halfWidth + lightData.up * -halfHeight;
-                lightVerts[3] = lightLS + lightData.right * -halfWidth + lightData.up *  halfHeight;
+                lightVerts[0] = lightPositionRWS + lightData.right *  halfWidth + lightData.up *  halfHeight;
+                lightVerts[1] = lightPositionRWS + lightData.right *  halfWidth + lightData.up * -halfHeight;
+                lightVerts[2] = lightPositionRWS + lightData.right * -halfWidth + lightData.up * -halfHeight;
+                lightVerts[3] = lightPositionRWS + lightData.right * -halfWidth + lightData.up *  halfHeight;
 
     // Rotate the endpoints into tangent space
     lightVerts = mul( lightVerts, transpose(preLightData.orthoBasisViewNormal) );
@@ -1481,7 +1481,7 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     //////////////////////////////////////////////////////////////////////////////////////////////
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 
-        float   NdotV = ClampNdotV( preLightData.NdotV );
+        float   NdotV = ClampNdotV( preLightData.NdotV_UnderCoat );
 
         // =====================================================
         // Use Lambert for diffuse
@@ -1494,12 +1494,11 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
         // Evaluate average BRDF response in diffuse direction
         // We project the point onto the area light's plane using the light's forward direction and recompute the light direction from this position
-//        float3  bestLightWS_Diffuse = BsdfData.normalWS;
-        float3  bestLightWS_Diffuse = ComputeBestLightDirection( lightLS, -lightData.forward, lightData );
+        float3  bestLightWS_Diffuse = ComputeBestLightDirection_Rectangle( lightPositionRWS, -lightData.forward, lightData );
 
-        float3  H = normalize( viewWS + bestLightWS_Diffuse );
+        float3  H = normalize( preLightData.viewWS_UnderCoat + bestLightWS_Diffuse );
         float   NdotH = dot( BsdfData.normalWS, H );
-        float   VdotH = dot( viewWS, H );
+        float   VdotH = dot( preLightData.viewWS_UnderCoat, H );
 
         float   thetaH = acos( clamp( NdotH, -1, 1 ) );
         float   thetaD = acos( clamp( VdotH, -1, 1 ) );
@@ -1533,11 +1532,11 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 
         // Evaluate average BRDF response in specular direction
         // We project the point onto the area light's plane using the reflected view direction and recompute the light direction from this position
-        float3  bestLightWS_Specular = ComputeBestLightDirection( lightLS, preLightData.IBLDominantDirectionWS, lightData );
+        float3  bestLightWS_Specular = ComputeBestLightDirection_Rectangle( lightPositionRWS, preLightData.IBLDominantDirectionWS_UnderCoat, lightData );
 
-        H = normalize( viewWS + bestLightWS_Specular );
+        H = normalize( preLightData.viewWS_UnderCoat + bestLightWS_Specular );
         NdotH = dot( BsdfData.normalWS, H );
-        VdotH = dot( viewWS, H );
+        VdotH = dot( preLightData.viewWS_UnderCoat, H );
 
         thetaH = acos( clamp( NdotH, -1, 1 ) );
         thetaD = acos( clamp( VdotH, -1, 1 ) );
@@ -1568,26 +1567,29 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     // Evaluate the clear-coat
     if ( _flags & 2 ) {
 
-        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
-//        float3  reflectedViewWS = reflect( -viewWS, BsdfData.normalWS );
-        float3  reflectedViewWS = preLightData.IBLDominantDirectionWS;
-        float3  bestLightWS = ComputeBestLightDirection( lightLS, reflectedViewWS, lightData );
-
-        float3  H = normalize( viewWS + bestLightWS );
-        float   LdotH = saturate( dot( bestLightWS, H ) );
-        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
-
-        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, bestLightWS, preLightData, BsdfData );
-
-        // Apply clear-coat extinction to existing lighting
-        lighting.diffuse *= clearCoatExtinction;
-        lighting.specular *= clearCoatExtinction;
+//        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
+////        float3  viewWS_ClearCoat = reflect( -viewWS, BsdfData.normalWS );
+//        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
+//        float3  lightWS_ClearCoat = ComputeBestLightDirection_Rectangle( lightPositionRWS, viewWS_ClearCoat, lightData );
+//
+////        float3  H = normalize( viewWS + lightWS_ClearCoat );
+////        float   LdotH = saturate( dot( lightWS_ClearCoat, H ) );
+////        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
+////
+////        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+////        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS_ClearCoat, preLightData.viewTIR_Intensity, BsdfData );
+//        float3  clearCoatReflection, clearCoatExtinction;
+//        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS, BsdfData, clearCoatReflection, clearCoatExtinction );
+//
+//        // Apply clear-coat extinction to existing lighting
+//        lighting.diffuse *= clearCoatExtinction;
+//        lighting.specular *= clearCoatExtinction;
 
         // Then add clear-coat contribution
         ltcValue = PolygonIrradiance( mul(lightVerts, preLightData.ltcTransformClearCoat) );
         ltcValue *= lightData.specularScale;
-        lighting.specular += preLightData.ltcTransformClearCoat_Amplitude * ltcValue * clearCoatReflection;
+//        lighting.specular += preLightData.ltcTransformClearCoat_Amplitude * ltcValue * clearCoatReflection;
+        lighting.specular += preLightData.ltcTransformClearCoat_Amplitude * ltcValue * (BsdfData.clearCoatColor / PI);
     }
 
     // Save ALU by applying 'lightData.color' only once.
@@ -1603,29 +1605,7 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
         }
     #endif
 
-
-/*
-float3  averageLightWS = normalize( lightLS );
-float   TIRIntensity;
-//lighting.specular = -Refract( averageLightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
-//lighting.specular = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
-//lighting.specular = dot( -Refract( averageLightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
-//lighting.specular = dot( -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR ), BsdfData.clearCoatNormalWS );
-//lighting.specular *= TIRIntensity;
-
-//lighting.specular = ComputeClearCoatExtinction( viewWS, averageLightWS, preLightData, BsdfData );
-
-//lighting.diffuse = 0;
-lighting.specular = 0;
-//*/
-
-
 #endif // AXF_DISPLAY_REFERENCE_AREA
-
-
-//lighting.diffuse = 0.0;
-//lighting.specular = 0.0;
-
 
     return lighting;
 }
@@ -1647,7 +1627,7 @@ DirectLighting  EvaluateBSDF_Area(  LightLoopContext lightLoopContext,
 // ----------------------------------------------------------------------------
 
 IndirectLighting    EvaluateBSDF_SSLighting(    LightLoopContext lightLoopContext,
-                                                float3 viewWS, PositionInputs posInput,
+                                                float3 viewWS_ClearCoat, PositionInputs posInput,
                                                 PreLightData preLightData, BSDFData BsdfData,
                                                 EnvLightData _envLightData,
                                                 int _GPUImageBasedLightingType,
@@ -1671,7 +1651,7 @@ IndirectLighting    EvaluateBSDF_SSLighting(    LightLoopContext lightLoopContex
 
 // _preIntegratedFGD and _CubemapLD are unique for each BRDF
 IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
-                                        float3 viewWS, PositionInputs posInput,
+                                        float3 viewWS_ClearCoat, PositionInputs posInput,
                                         PreLightData preLightData, EnvLightData lightData, BSDFData BsdfData,
                                         int _influenceShapeType, int _GPUImageBasedLightingType,
                                         inout float hierarchyWeight ) {
@@ -1685,22 +1665,22 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
     float3  positionWS = posInput.positionWS;
     float   weight = 1.0;
 
-    float   NdotV = ClampNdotV( preLightData.NdotV );
+    float   NdotV = ClampNdotV( preLightData.NdotV_UnderCoat );
 
-    float3  environmentSamplingDirectionWS = preLightData.IBLDominantDirectionWS;
+    float3  environmentSamplingDirectionWS_UnderCoat = preLightData.IBLDominantDirectionWS_UnderCoat;
 
     #if defined(_AXF_BRDF_TYPE_SVBRDF)
         if ( (lightData.envIndex & 1) == ENVCACHETYPE_CUBEMAP ) {
             // When we are rough, we tend to see outward shifting of the reflection when at the boundary of the projection volume
             // Also it appear like more sharp. To avoid these artifact and at the same time get better match to reference we lerp to original unmodified reflection.
             // Formula is empirical.
-            environmentSamplingDirectionWS = GetSpecularDominantDir( BsdfData.normalWS, environmentSamplingDirectionWS, preLightData.IBLPerceptualRoughness, NdotV );
+            environmentSamplingDirectionWS_UnderCoat = GetSpecularDominantDir( BsdfData.normalWS, environmentSamplingDirectionWS_UnderCoat, preLightData.IBLPerceptualRoughness, NdotV );
             float   IBLRoughness = PerceptualRoughnessToRoughness( preLightData.IBLPerceptualRoughness );
-            environmentSamplingDirectionWS = lerp( environmentSamplingDirectionWS, preLightData.IBLDominantDirectionWS, saturate(smoothstep(0, 1, IBLRoughness * IBLRoughness)) );
+            environmentSamplingDirectionWS_UnderCoat = lerp( environmentSamplingDirectionWS_UnderCoat, preLightData.IBLDominantDirectionWS_UnderCoat, saturate(smoothstep(0, 1, IBLRoughness * IBLRoughness)) );
         }
 
         // Note: using _influenceShapeType and projectionShapeType instead of (lightData|proxyData).shapeType allow to make compiler optimization in case the type is know (like for sky)
-        EvaluateLight_EnvIntersection( positionWS, BsdfData.normalWS, lightData, _influenceShapeType, environmentSamplingDirectionWS, weight );
+        EvaluateLight_EnvIntersection( positionWS, BsdfData.normalWS, lightData, _influenceShapeType, environmentSamplingDirectionWS_UnderCoat, weight );
 
         // TODO: We need to match the PerceptualRoughnessToMipmapLevel formula for planar, so we don't do this test (which is specific to our current lightloop)
         // Specific case for Texture2Ds, their convolution is a gaussian one and not a GGX one - So we use another roughness mip mapping.
@@ -1717,25 +1697,21 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
         float3  envBRDF = preLightData.specularFGD;
 
         // Sample the actual environment lighting
-        float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, IBLMipLevel );
+        float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS_UnderCoat, IBLMipLevel );
         weight *= preLD.w; // Used by planar reflection to discard pixel
 
         float3  envLighting = envBRDF * preLD.xyz;
 
     //-----------------------------------------------------------------------------
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
-        // Evaluate average BRDF response in specular direction
-// @TODO: Use FGD table! => Ward / Cook-Torrance both use Beckmann so it should be easy...
+        // Evaluate BRDF response in specular direction
+        float3  viewWS_UnderCoat = preLightData.viewWS_UnderCoat;
+        float3  lightWS_UnderCoat = environmentSamplingDirectionWS_UnderCoat;
 
-        float3  safeLightWS = environmentSamplingDirectionWS;
-//        float3  safeLightWS = preLightData.IBLDominantDirectionWS;
-//                safeLightWS += max( 1e-2, dot( safeLightWS, BsdfData.normalWS ) ) * BsdfData.normalWS;    // Move away from surface to avoid super grazing angles
-//                safeLightWS = normalize( safeLightWS );
-
-        float3  H = normalize( viewWS + safeLightWS );
-        float   NdotL = saturate( dot( BsdfData.normalWS, safeLightWS ) );
+        float3  H = normalize( viewWS_UnderCoat + lightWS_UnderCoat );
+        float   NdotL = saturate( dot( BsdfData.normalWS, lightWS_UnderCoat ) );
         float   NdotH = dot( BsdfData.normalWS, H );
-        float   VdotH = dot( viewWS, H );
+        float   VdotH = dot( viewWS_UnderCoat, H );
 
         float   thetaH = acos( clamp( NdotH, -1, 1 ) );
         float   thetaD = acos( clamp( VdotH, -1, 1 ) );
@@ -1755,7 +1731,7 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
 
                 float   lobeIntensity = coeff * CT_D( NdotH, spread ) * CT_F( VdotH, F0 );
                 float   lobeMipLevel = PerceptualRoughnessToMipmapLevel( perceptualRoughness );
-                float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, lobeMipLevel );
+                float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, lightWS_UnderCoat, lobeMipLevel );
 
                 // Apply FGD
                 float3  specularFGD = 1;
@@ -1771,7 +1747,7 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
 
             // Sample flakes
             float   flakesMipLevel = 0;   // Flakes are supposed to be perfect mirrors...
-            envLighting += CarPaint_BTF( thetaH, thetaD, BsdfData ) * SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, flakesMipLevel ).xyz;
+            envLighting += CarPaint_BTF( thetaH, thetaD, BsdfData ) * SampleEnv( lightLoopContext, lightData.envIndex, lightWS_UnderCoat, flakesMipLevel ).xyz;
 
             envLighting *= NdotL;
 
@@ -1783,12 +1759,12 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
             //
             float3  envBRDF = MultiLobesCookTorrance( NdotL, NdotV, NdotH, VdotH ); // Specular multi-lobes CT
                     envBRDF *= GetBRDFColor( thetaH, thetaD );
-                    envBRDF += CarPaint_BTF( thetaH, thetaD, BsdfData );           // Sample flakes
+                    envBRDF += CarPaint_BTF( thetaH, thetaD, BsdfData );            // Sample flakes
 
             envBRDF *= NdotL;
 
             // Sample the actual environment lighting
-            float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, environmentSamplingDirectionWS, IBLMipLevel );
+            float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, lightWS_UnderCoat, IBLMipLevel );
             float3  envLighting = envBRDF * preLD.xyz;
 
             weight *= preLD.w; // Used by planar reflection to discard pixel
@@ -1808,16 +1784,16 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
 
         // Evaluate clear coat sampling direction
         float   unusedWeight = 0.0;
-        float3  clearCoatSamplingDirectionWS = environmentSamplingDirectionWS;
-        EvaluateLight_EnvIntersection( positionWS, BsdfData.clearCoatNormalWS, lightData, _influenceShapeType, clearCoatSamplingDirectionWS, unusedWeight );
+        float3  lightWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
+        EvaluateLight_EnvIntersection( positionWS, BsdfData.clearCoatNormalWS, lightData, _influenceShapeType, lightWS_ClearCoat, unusedWeight );
 
         // Evaluate clear coat fresnel
         #if 1   // Use LdotH ==> Makes more sense! Stick to Cook-Torrance here...
-            float3  H = normalize( viewWS + clearCoatSamplingDirectionWS );
-            float   LdotH = saturate( dot( clearCoatSamplingDirectionWS, H ) );
+            float3  H = normalize( viewWS_ClearCoat + lightWS_ClearCoat );
+            float   LdotH = saturate( dot( lightWS_ClearCoat, H ) );
             float3  clearCoatF = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH );
         #else   // Use LdotN
-            float   LdotN = saturate( dot( clearCoatSamplingDirectionWS, BsdfData.clearCoatNormalWS ) );
+            float   LdotN = saturate( dot( lightWS_ClearCoat, BsdfData.clearCoatNormalWS ) );
             float3  clearCoatF = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotN );
         #endif
 
@@ -1826,7 +1802,7 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
 
         // Then add the environment lighting reflected by the clear coat
         // We assume the BRDF here is perfect mirror so there's no masking/shadowing, only the Fresnel term * clearCoatColor/PI
-        float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, clearCoatSamplingDirectionWS, 0.0 );
+        float4  preLD = SampleEnv( lightLoopContext, lightData.envIndex, lightWS_ClearCoat, 0.0 );
         envLighting += (BsdfData.clearCoatColor / PI) * clearCoatF * preLD.xyz;
 
         // Can't attenuate diffuse lighting here, may try to apply something on bakeLighting in PostEvaluateBSDF

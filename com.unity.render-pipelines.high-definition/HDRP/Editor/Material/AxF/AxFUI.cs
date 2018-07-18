@@ -430,14 +430,15 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                         ++EditorGUI.indentLevel;
 //                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatColorMapText, m_clearCoatColorMap );
                         m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatNormalMapText, m_clearCoatNormalMap );
-                        clearCoatUsesRefraction = EditorGUILayout.Toggle( "Enable Refraction", clearCoatUsesRefraction );
-                        if ( clearCoatUsesRefraction ) {
+//                        if ( clearCoatUsesRefraction ) {
+                        {
                             ++EditorGUI.indentLevel;
 //                            m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatIORMapText, m_clearCoatIORMap );
                             m_CarPaint_IOR.floatValue = EditorGUILayout.FloatField( Styles.CarPaintIORText, m_CarPaint_IOR.floatValue );
                             --EditorGUI.indentLevel;
                         }
                         --EditorGUI.indentLevel;
+                        clearCoatUsesRefraction = EditorGUILayout.Toggle( "Enable Refraction", clearCoatUsesRefraction );
                     }
 
                     // Write back as compact flags
