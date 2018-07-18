@@ -28,7 +28,7 @@
 //#define RECOMPUTE_VECTORS_AFTER_REFRACTION  1
 
 
-// Define this to sample the environment maps for each lobe, instead of a single sample for an average lobe
+// Define this to sample the environment maps/LTC samples for each lobe, instead of a single sample with an average lobe
 #define USE_COOK_TORRANCE_MULTI_LOBES   1
 
 // Enable reference mode for IBL and area lights
@@ -68,7 +68,7 @@ void GetBSDFDataDebug( uint paramId, BSDFData BsdfData, inout float3 result, ino
 
 
 
-// This function is use to help with debugging and must be implemented by any lit material
+// This function is used to help with debugging and must be implemented by any lit material
 // Implementer must take into account what are the current override component and
 // adjust SurfaceData properties accordingdly
 void ApplyDebugToSurfaceData( float3x3 worldToTangent, inout SurfaceData surfaceData ) {
@@ -85,10 +85,8 @@ void ApplyDebugToSurfaceData( float3x3 worldToTangent, inout SurfaceData surface
         }
 
         if ( overrideSmoothness ) {
-            //NEWLITTODO
             float overrideSmoothnessValue = _DebugLightingSmoothness.y;
-//            surfaceData.perceptualSmoothness = overrideSmoothnessValue;
-            surfaceData.specularLobe = overrideSmoothnessValue;
+            surfaceData.specularLobe = PerceptualSmoothnessToRoughness( overrideSmoothnessValue );
         }
 
         if ( overrideNormal ) {
@@ -100,11 +98,10 @@ void ApplyDebugToSurfaceData( float3x3 worldToTangent, inout SurfaceData surface
 // This function is similar to ApplyDebugToSurfaceData but for BSDFData
 //
 // NOTE:
-//
-// This will be available and used in ShaderPassForward.hlsl since in AxF.shader,
-// just before including the core code of the pass (ShaderPassForward.hlsl) we include
-// Material.hlsl (or Lighting.hlsl which includes it) which in turn includes us,
-// AxF.shader, via the #if defined(UNITY_MATERIAL_*) glue mechanism.
+//  This will be available and used in ShaderPassForward.hlsl since in AxF.shader,
+//  just before including the core code of the pass (ShaderPassForward.hlsl) we include
+//  Material.hlsl (or Lighting.hlsl which includes it) which in turn includes us,
+//  AxF.shader, via the #if defined(UNITY_MATERIAL_*) glue mechanism.
 //
 void ApplyDebugToBSDFData( inout BSDFData BsdfData ) {
     #ifdef DEBUG_DISPLAY
@@ -157,17 +154,17 @@ float3	Refract( float3 incoming, float3 normal, float eta, out float rayIntensit
 //----------------------------------------------------------------------
 // Ref: https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
 // Fresnel dieletric / dielectric
-real F_FresnelDieletricSafe(real ior, real u) {
+// Safe version preventing NaNs when IOR = 1
+real    F_FresnelDieletricSafe( real IOR, real u ) {
     u = max( 1e-3, u ); // Prevents NaNs
-    real g = sqrt(max( 0.0, Sq(ior) + Sq(u) - 1.0 ));
+    real g = sqrt(max( 0.0, Sq(IOR) + Sq(u) - 1.0 ));
     return 0.5 * Sq((g - u) / max( 1e-4, g + u )) * (1.0 + Sq(((g + u) * u - 1.0) / ((g - u) * u + 1.0)));
 }
 
 
 //----------------------------------------------------------------------
 // Cook-Torrance functions as provided by X-Rite in the "AxF-Decoding-SDK-1.5.1/doc/html/page2.html#carpaint_BrightnessBRDF" document from the SDK
-//static const float  MIN_ROUGHNESS = 0.01;
-
+//
 float CT_D( float N_H, float m ) {
     float cosb_sqr = N_H*N_H;
     float m_sqr = m*m;
@@ -198,8 +195,6 @@ float3  MultiLobesCookTorrance( float NdotL, float NdotV, float NdotH, float Vdo
         float   coeff = _CarPaint_CT_coeffs[lobeIndex];
         float   spread = _CarPaint_CT_spreads[lobeIndex];
 
-//spread = max( MIN_ROUGHNESS, spread );
-
         specularIntensity += coeff * CT_D( NdotH, spread ) * CT_F( VdotH, F0 );
     }
     specularIntensity *= CT_G( NdotH, NdotV, NdotL, VdotH )  // Shadowing/Masking term
@@ -210,7 +205,7 @@ float3  MultiLobesCookTorrance( float NdotL, float NdotV, float NdotH, float Vdo
 
 
 //----------------------------------------------------------------------
-// Simple Oren-Nayar implementation
+// Simple Oren-Nayar implementation (from http://patapom.com/blog/BRDF/MSBRDFEnergyCompensation/#oren-nayar-diffuse-model)
 //  normal, unit surface normal
 //  light, unit vector pointing toward the light
 //  view, unit vector pointing toward the view
@@ -319,19 +314,17 @@ struct PreLightData {
         float2  anisoY;
     #endif
 
-    // Clear coat
-    float   clearCoatF0;
-    float3  clearCoatViewWS;        // World-space view vector refracted by clear coat
-
     // IBL
     float3  IBLDominantDirectionWS; // Dominant specular direction, used for IBL in EvaluateBSDF_Env() and also in area lights when clear coat is enabled
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         float   IBLPerceptualRoughness;
 	    float3  specularFGD;
 	    float   diffuseFGD;
+    #elif defined(_AXF_BRDF_TYPE_CAR_PAINT) & !defined(USE_COOK_TORRANCE_MULTI_LOBES)
+        float   IBLPerceptualRoughness;     // Use this to store an average lobe roughness
     #endif
 
-    // Area lights (17 VGPRs)
+    // Area lights (18 VGPRs)
     // TODO: 'orthoBasisViewNormal' is just a rotation around the normal and should thus be just 1x VGPR.
     float3x3    orthoBasisViewNormal;       // Right-handed view-dependent orthogonal basis around the normal (6x VGPRs)
     #ifdef _AXF_BRDF_TYPE_SVBRDF
@@ -353,9 +346,23 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
     preLightData.IOR = GetIorN( BsdfData.fresnelF0, 1.0 );
 
 	float   NdotV = ClampNdotV( preLightData.NdotV );
-    float   clearCoatNdotV = NdotV;
+    float   clearCoatNdotV = NdotV; // Save original N.V before optional refraction by clear coat
+
+    #if RECOMPUTE_VECTORS_AFTER_REFRACTION
+        // ==============================================================================
+        // Handle clear coat refraction of view ray
+        if ( (_flags & 0x6U) == 0x6U ) {
+            // If refraction is enabled then bend view vector and update NdotV
+            float   TIRIntensity;
+            viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );    // This is independent of lighting
+	        preLightData.NdotV = dot( normalWS, viewWS );
+	        NdotV = ClampNdotV( preLightData.NdotV );
+        }
+    #endif
+
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
+        // ==============================================================================
         // Handle anisotropy
         float2  anisoDir = float2( 1, 0 );
         if ( _flags & 1 ) {
@@ -366,21 +373,6 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
         preLightData.anisoX = anisoDir;
         preLightData.anisoY = float2( -anisoDir.y, anisoDir.x );
     #endif
-
-
-    // ==============================================================================
-    // Handle clear coat
-//  preLightData.clearCoatF0 = IorToFresnel0( BsdfData.clearCoatIOR );
-    preLightData.clearCoatF0 = Sq( (BsdfData.clearCoatIOR - 1) / (BsdfData.clearCoatIOR + 1) );
-    float   TIRIntensity;
-    preLightData.clearCoatViewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );    // This is independent of lighting
-
-    if ( (_flags & 0x6U) == 0x6U ) {
-        // If refraction is enabled then bend view vector and update NdotV
-        viewWS =  preLightData.clearCoatViewWS;
-	    preLightData.NdotV = dot( normalWS, viewWS );
-	    NdotV = ClampNdotV( preLightData.NdotV );
-    }
 
 
     // ==============================================================================
@@ -396,6 +388,7 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
             case 2: GetPreIntegratedFGDCookTorranceLambert( NdotV, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
             case 3: GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity ); break;
 //            case 4: // @TODO: Support Blinn-Phong FGD?
+
             default:    // Use GGX by default
                 GetPreIntegratedFGDGGXAndDisneyDiffuse( NdotV, preLightData.IBLPerceptualRoughness, BsdfData.fresnelF0, preLightData.specularFGD, preLightData.diffuseFGD, specularReflectivity );
                 break;
@@ -405,14 +398,10 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
         #if !USE_COOK_TORRANCE_MULTI_LOBES
             // ==============================================================================
             // Computes weighted average of roughness values
-            // Used to sample IBL with a single roughness but useless if we sample as many times as there are lobes?? (*gasp*)
             float2  sumRoughness = 0.0;
             for ( uint lobeIndex=0; lobeIndex < _CarPaint_lobesCount; lobeIndex++ ) {
                 float   coeff = _CarPaint_CT_coeffs[lobeIndex];
                 float   spread = _CarPaint_CT_spreads[lobeIndex];
-
-//spread = max( MIN_ROUGHNESS, spread );
-
                 sumRoughness += coeff * float2( spread, 1 );
             }
             preLightData.IBLPerceptualRoughness = RoughnessToPerceptualRoughness( sumRoughness.x / sumRoughness.y );    // Not used if sampling the environment for each Cook-Torrance lobe
@@ -424,15 +413,15 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
     // Area lights
 
     // Construct a right-handed view-dependent orthogonal basis around the normal
-    preLightData.orthoBasisViewNormal[0] = normalize( viewWS - normalWS * preLightData.NdotV ); // Do not clamp NdotV here
     preLightData.orthoBasisViewNormal[2] = normalWS;
+    preLightData.orthoBasisViewNormal[0] = normalize( viewWS - normalWS * preLightData.NdotV ); // Do not clamp NdotV here
     preLightData.orthoBasisViewNormal[1] = cross( preLightData.orthoBasisViewNormal[2], preLightData.orthoBasisViewNormal[0] );
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         // UVs for sampling the LUTs
         float2  UV = LTCGetSamplingUV( NdotV, preLightData.IBLPerceptualRoughness );
 
-        // Load diffuse LTC
+        // Load diffuse LTC & FGD
         if ( _SVBRDF_BRDFType & 1 ) {
             preLightData.ltcTransformDiffuse = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_OREN_NAYAR );
             preLightData.ltcTransformDiffuse_Amplitude = 1.0;   // @TODO: Sample Oren-Nayar FGD!
@@ -441,7 +430,7 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
             preLightData.ltcTransformDiffuse_Amplitude = 1.0;
         }
 
-        // Load specular LTC
+        // Load specular LTC & FGD
         switch ( (_SVBRDF_BRDFType >> 1) & 7 ) {
             case 0: preLightData.ltcTransformSpecular = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_WARD ); break;
             case 2: preLightData.ltcTransformSpecular = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_COOK_TORRANCE ); break;
@@ -470,18 +459,19 @@ PreLightData    GetPreLightData( float3 viewWS, PositionInputs posInput, inout B
 
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 
-
+        // NOTHING TO DO!
 
     #endif  // _AXF_BRDF_TYPE_SVBRDF
 
-    // Load clear-coat LTC
+    // Load clear-coat LTC & FGD
     preLightData.ltcTransformClearCoat = 0.0;
     preLightData.ltcTransformClearCoat_Amplitude = 0;
     if ( _flags & 2 ) {
+        float   clearCoatF0 = IorToFresnel0( BsdfData.clearCoatIOR );
         float2  UV = LTCGetSamplingUV( clearCoatNdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS );
         preLightData.ltcTransformClearCoat = LTCSampleMatrix( UV, LTC_MATRIX_INDEX_GGX );
         float   specularReflectivity, dummyDiffuseFGD;
-        GetPreIntegratedFGDGGXAndDisneyDiffuse( clearCoatNdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS, preLightData.clearCoatF0, preLightData.ltcTransformClearCoat_Amplitude, dummyDiffuseFGD, specularReflectivity );
+        GetPreIntegratedFGDGGXAndDisneyDiffuse( clearCoatNdotV, CLEAR_COAT_PERCEPTUAL_ROUGHNESS, clearCoatF0, preLightData.ltcTransformClearCoat_Amplitude, dummyDiffuseFGD, specularReflectivity );
     }
 
 	return preLightData;
@@ -598,7 +588,6 @@ float3  ComputeClearCoatExtinction( inout float3 viewWS, inout float3 lightWS, P
         float   TIRIntensityView;
         viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensityView );
         TIRIntensity *= TIRIntensityView;
-//        viewWS = preLightData.clearCoatViewWS;
     }
 
     return TIRIntensity * (1-Fin) * (1-Fout);

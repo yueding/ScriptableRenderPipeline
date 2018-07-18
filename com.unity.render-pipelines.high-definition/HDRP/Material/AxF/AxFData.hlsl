@@ -164,15 +164,8 @@ _surfaceData.clearCoatColor = 0;
     _builtinData.shadowMask2 = 0.0;
     _builtinData.shadowMask3 = 0.0;
 
-#if 0//(SHADERPASS == SHADERPASS_DISTORTION) || defined(DEBUG_DISPLAY)
-    float3 distortion = SAMPLE_TEXTURE2D(_DistortionVectorMap, sampler_DistortionVectorMap, _input.texCoord0).rgb;
-    distortion.rg = distortion.rg * _DistortionVectorScale.xx + _DistortionVectorBias.xx;
-    _builtinData.distortion = distortion.rg * _DistortionScale;
-    _builtinData.distortionBlur = clamp(distortion.b * _DistortionBlurScale, 0.0, 1.0) * (_DistortionBlurRemapMax - _DistortionBlurRemapMin) + _DistortionBlurRemapMin;
-#else
+
     _builtinData.distortion = float2(0.0, 0.0);
     _builtinData.distortionBlur = 0.0;
-#endif
-
     _builtinData.depthOffset = 0.0;
 }
