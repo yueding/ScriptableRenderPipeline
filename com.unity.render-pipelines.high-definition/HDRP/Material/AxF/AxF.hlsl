@@ -1378,14 +1378,6 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     // Evaluate the clear-coat
     if ( _flags & 2 ) {
 
-//        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
-//        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
-//        float3  lightWS_ClearCoat = ComputeBestLightDirection_Line( lightPositionRWS, viewWS_ClearCoat, lightData );
-//
-//        float3  clearCoatReflection, clearCoatExtinction;
-//        ComputeClearCoatReflectionAndExtinction_UsePreLightData( viewWS_ClearCoat, lightWS_ClearCoat, BsdfData, preLightData, clearCoatReflection, clearCoatExtinction );
-//        clearCoatReflection *= BsdfData.clearCoatColor / PI;
-
         // Use the complement of FGD value as an approximation of the extinction of the undercoat
         float3  clearCoatExtinction = 1.0 - preLightData.ltcTransformClearCoat_Amplitude;
 
@@ -1593,14 +1585,6 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     //////////////////////////////////////////////////////////////////////////////////////////////
     // Evaluate the clear-coat
     if ( _flags & 2 ) {
-
-//        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
-//        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
-//        float3  lightWS_ClearCoat = ComputeBestLightDirection_Rectangle( lightPositionRWS, viewWS_ClearCoat, lightData );
-//
-//        float3  clearCoatReflection, clearCoatExtinction;
-//        ComputeClearCoatReflectionAndExtinction_UsePreLightData( viewWS_ClearCoat, lightWS_ClearCoat, BsdfData, preLightData, clearCoatReflection, clearCoatExtinction );
-//        clearCoatReflection *= BsdfData.clearCoatColor / PI;
 
         // Use the complement of FGD value as an approximation of the extinction of the undercoat
         float3  clearCoatExtinction = 1.0 - preLightData.ltcTransformClearCoat_Amplitude;
