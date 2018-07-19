@@ -146,6 +146,15 @@ float3	Refract( float3 incoming, float3 normal, float eta, out float rayIntensit
 	}
 }
 
+// Same but without handling total internal reflection because eta < 1
+float3	Refract( float3 incoming, float3 normal, float eta ) {
+	float	c = dot( incoming, normal );
+	float	b = 1.0 + eta * (c*c - 1.0);
+    float	k = eta * c - sign(c) * sqrt( b );
+	float3	R = k * normal - eta * incoming;
+	return normalize( R );
+}
+
 //----------------------------------------------------------------------
 // Ref: https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
 // Fresnel dieletric / dielectric
@@ -304,7 +313,6 @@ struct PreLightData {
 	float   NdotV_ClearCoat;    // NdotV before optional clear-coat refraction. Could be negative due to normal mapping, use ClampNdotV()
     float3  IOR;
     float3  viewWS_UnderCoat;   // View vector after optional clear-coat refraction.
-    float   viewTIR_Intensity;  // Total Internal Reflection intensity due to view refraction
 
     #ifdef _AXF_BRDF_TYPE_SVBRDF
         // Anisotropy
@@ -345,14 +353,12 @@ PreLightData    GetPreLightData( float3 viewWS_ClearCoat, PositionInputs posInpu
     float3  normalWS_ClearCoat = (_flags & 0x2U) ? BsdfData.clearCoatNormalWS : BsdfData.normalWS;
     preLightData.NdotV_ClearCoat = dot( normalWS_ClearCoat, viewWS_ClearCoat );
     preLightData.viewWS_UnderCoat = viewWS_ClearCoat;   // Save original view before optional refraction by clear coat
-    preLightData.viewTIR_Intensity = 1.0;               // No total internal reflection
 
 
     // ==============================================================================
     // Handle clear coat refraction of view ray
     if ( (_flags & 0x6U) == 0x6U ) {
-        // If refraction is enabled then bend view vector and update NdotV
-        preLightData.viewWS_UnderCoat = -Refract( preLightData.viewWS_UnderCoat, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, preLightData.viewTIR_Intensity );    // This is independent of lighting
+        preLightData.viewWS_UnderCoat = -Refract( preLightData.viewWS_UnderCoat, BsdfData.clearCoatNormalWS, 1.0 / BsdfData.clearCoatIOR );
     }
 
     // Compute under-coat view-dependent data after optional refraction
@@ -484,7 +490,7 @@ PreLightData    GetPreLightData( float3 viewWS_ClearCoat, PositionInputs posInpu
 
 
 //----------------------------------------------------------------------
-// Computes Fresnel reflection/refraction of view and light vectors
+// Computes Fresnel reflection/refraction of view and light vectors due to clear coating
 // Returns the ratios of the incoming reflected and refracted energy
 // Also refracts the provided view and light vectors if refraction is enabled
 //
@@ -504,15 +510,13 @@ PreLightData    GetPreLightData( float3 viewWS_ClearCoat, PositionInputs posInpu
 //    float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
 //
 //    // Apply optional refraction
-//    float   TIRIntensity = 1.0;
 //    if ( _flags & 4U ) {
-//        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
-//        float   TIRIntensityView;
-//        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensityView );
-//        TIRIntensity *= TIRIntensityView;
+//          float eta = 1.0 / BsdfData.clearCoatIOR;
+//        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, eta );
+//        viewWS = -Refract( viewWS, BsdfData.clearCoatNormalWS, eta );
 //    }
 //
-//    refractedRatio = TIRIntensity * (1-Fin) * (1-Fout);
+//    refractedRatio = (1-Fin) * (1-Fout);
 //}
 
 void    ComputeClearCoatReflectionAndExtinction_UsePreLightData( inout float3 viewWS, inout float3 lightWS, BSDFData BsdfData, PreLightData preLightData, out float3 reflectedRatio, out float3 refractedRatio ) {
@@ -531,14 +535,12 @@ void    ComputeClearCoatReflectionAndExtinction_UsePreLightData( inout float3 vi
     float3  Fout = F_FresnelDieletricSafe( BsdfData.clearCoatIOR, VdotN );
 
     // Apply optional refraction
-    float   TIRIntensity = 1.0;
     if ( _flags & 4U ) {
-        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, BsdfData.clearCoatIOR, TIRIntensity );
+        lightWS = -Refract( lightWS, BsdfData.clearCoatNormalWS, 1.0 / BsdfData.clearCoatIOR );
         viewWS =  preLightData.viewWS_UnderCoat;
-        TIRIntensity *= preLightData.viewTIR_Intensity;
     }
 
-    refractedRatio = TIRIntensity * (1-Fin) * (1-Fout);
+    refractedRatio = (1-Fin) * (1-Fout);
 }
 
 
@@ -1377,8 +1379,8 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
     if ( _flags & 2 ) {
 
         // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
-//        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
-//        float3  lightWS_ClearCoat = ComputeBestLightDirection_Line( lightPositionRWS, viewWS_ClearCoat, lightData );
+        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
+        float3  lightWS_ClearCoat = ComputeBestLightDirection_Line( lightPositionRWS, viewWS_ClearCoat, lightData );
 //
 //        float3  H = normalize( viewWS + lightWS_ClearCoat );
 //        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
@@ -1386,9 +1388,11 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
 //
 //        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
 //        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS_ClearCoat, preLightData.viewTIR_Intensity, BsdfData );
-//        float3  clearCoatReflection, clearCoatExtinction;
-//        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS_ClearCoat, BsdfData, clearCoatReflection, clearCoatExtinction );
-//
+        float3  clearCoatReflection, clearCoatExtinction;
+//        ComputeClearCoatReflectionAndExtinction( viewWS_ClearCoat, lightWS_ClearCoat, BsdfData, clearCoatReflection, clearCoatExtinction );
+        ComputeClearCoatReflectionAndExtinction_UsePreLightData( viewWS_ClearCoat, lightWS_ClearCoat, BsdfData, preLightData, clearCoatReflection, clearCoatExtinction );
+        clearCoatReflection *= BsdfData.clearCoatColor / PI;
+
 //        // Apply clear-coat extinction to existing lighting
 //        lighting.diffuse *= clearCoatExtinction;
 //        lighting.specular *= clearCoatExtinction;
@@ -1595,20 +1599,22 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
     // Evaluate the clear-coat
     if ( _flags & 2 ) {
 
-//        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
-////        float3  viewWS_ClearCoat = reflect( -viewWS, BsdfData.normalWS );
-//        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
-//        float3  lightWS_ClearCoat = ComputeBestLightDirection_Rectangle( lightPositionRWS, viewWS_ClearCoat, lightData );
+        // Here we compute the reflected view direction and use it as optimal light direction once clipped to the area light's bounds
+//        float3  viewWS_ClearCoat = reflect( -viewWS, BsdfData.normalWS );
+        float3  viewWS_ClearCoat = preLightData.IBLDominantDirectionWS_ClearCoat;
+        float3  lightWS_ClearCoat = ComputeBestLightDirection_Rectangle( lightPositionRWS, viewWS_ClearCoat, lightData );
+
+//        float3  H = normalize( viewWS + lightWS_ClearCoat );
+//        float   LdotH = saturate( dot( lightWS_ClearCoat, H ) );
+//        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
 //
-////        float3  H = normalize( viewWS + lightWS_ClearCoat );
-////        float   LdotH = saturate( dot( lightWS_ClearCoat, H ) );
-////        float   NdotH = saturate( dot( BsdfData.normalWS, H ) );
-////
-////        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
-////        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS_ClearCoat, preLightData.viewTIR_Intensity, BsdfData );
-//        float3  clearCoatReflection, clearCoatExtinction;
+//        float3  clearCoatReflection = (BsdfData.clearCoatColor / PI) * F_FresnelDieletricSafe( BsdfData.clearCoatIOR, LdotH ); // Full reflection in mirror direction (we use expensive Fresnel here so the clear coat properly disappears when IOR -> 1)
+//        float3  clearCoatExtinction = ComputeClearCoatExtinction( viewWS, lightWS_ClearCoat, preLightData.viewTIR_Intensity, BsdfData );
+        float3  clearCoatReflection, clearCoatExtinction;
 //        ComputeClearCoatReflectionAndExtinction( viewWS, lightWS, BsdfData, clearCoatReflection, clearCoatExtinction );
-//
+        ComputeClearCoatReflectionAndExtinction_UsePreLightData( viewWS_ClearCoat, lightWS_ClearCoat, BsdfData, preLightData, clearCoatReflection, clearCoatExtinction );
+        clearCoatReflection *= BsdfData.clearCoatColor / PI;
+
 //        // Apply clear-coat extinction to existing lighting
 //        lighting.diffuse *= clearCoatExtinction;
 //        lighting.specular *= clearCoatExtinction;
