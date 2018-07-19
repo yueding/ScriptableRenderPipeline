@@ -134,20 +134,32 @@ real PolygonIrradiance(real4x3 L)
     }
 
     real3 F = real3(0, 0, 0);
+    float   sumSigns = 0;
 
     UNITY_UNROLL
     for (uint edge = 0; edge < 4; edge++)
     {
         real3 V1 = L[edge];
-        real3 V2 = L[(edge + 1) % 4];
+        real3 V2 = L[(edge + 1) & 3];
 
-        F += INV_TWO_PI * ComputeEdgeFactor(V1, V2);
+        F += ComputeEdgeFactor(V1, V2);
+        sumSigns += sign(V1.z);
     }
+    if ( sumSigns == -4 )
+        return 0.0; // BMAYAUX (18/07/19) All vertices are below the horizon, don't bother... (Attempted to fix back light leaking issue)
+
+    F *= INV_TWO_PI;
 
     // Clamp invalid values to avoid visual artifacts.
     real f2         = saturate(dot(F, F));
     real sinSqSigma = min(sqrt(f2), 0.999);
-    real cosOmega   = clamp(F.z * rsqrt(f2), -1, 1);
+    real cosOmega   = clamp(F.z * rsqrt(0.0001+f2), -1, 1);
+
+// BMAYAUX (18/07/19) Attempted to fix back light leaking issue by reducing the sphere's angular extent
+////    if ( cosOmega < -sqrt(sinSqSigma) ) // Expected value
+//    if ( cosOmega < -sinSqSigma )   // Covers a much larger angle, solving our issue
+////    if ( acos(cosOmega) > HALF_PI + 0.25 * asin( sqrt(sinSqSigma) ) )   // Hand-picked angle multiplier of 1/4
+//        return 0.0;
 
     return DiffuseSphereLightIrradiance(sinSqSigma, cosOmega);
 #else
