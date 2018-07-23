@@ -412,7 +412,7 @@ PreLightData    GetPreLightData( float3 viewWS_ClearCoat, PositionInputs posInpu
                 float   spread = _CarPaint_CT_spreads[lobeIndex];
                 sumRoughness += coeff * float2( spread, 1 );
             }
-            preLightData.IBLPerceptualRoughness = RoughnessToPerceptualRoughness( sumRoughness.x / sumRoughness.y );    // Not used if sampling the environment for each Cook-Torrance lobe
+            preLightData.IBLPerceptualRoughness = RoughnessToPerceptualRoughness( sumRoughness.x / sumRoughness.y );
         #endif
     #endif
 
@@ -734,7 +734,7 @@ float3  ComputeGGX( float3 H, float LdotH, float NdotL, float NdotV, float3 posi
 }
 
 float3  ComputePhong( float3 H, float LdotH, float NdotL, float NdotV, float3 positionWS, PreLightData preLightData, BSDFData BsdfData ) {
-    return 1000 * float3( 1, 0, 1 );
+    return 1000 * float3( 1, 0, 1 );    // NOT IMPLEMENTED
 }
 
 
@@ -786,14 +786,13 @@ void	BSDF(   float3 viewWS_UnderCoat, float3 lightWS_UnderCoat, float NdotL, flo
 
 // Samples the "BRDF Color Table" as explained in "AxF-Decoding-SDK-1.5.1/doc/html/page2.html#carpaint_ColorTable" from the SDK
 float3  GetBRDFColor( float thetaH, float thetaD ) {
-
-#if 0   // <== BMAYAUX: Define this to use the code from the documentation
-    // In the documentation they write that we must divide by PI/2 (it would seem)
-    float2  UV = float2( 2.0 * thetaH / PI, 2.0 * thetaD / PI );
-#else
-    // BMAYAUX: But the acos yields values in [0,PI] and the texture seems to be indicating the entire PI range is covered so...
-    float2  UV = float2( thetaH / PI, thetaD / PI );
-#endif
+    #if 0   // <== BMAYAUX: Define this to use the code from the documentation
+        // In the documentation they write that we must divide by PI/2 (it would seem)
+        float2  UV = float2( 2.0 * thetaH / PI, 2.0 * thetaD / PI );
+    #else
+        // BMAYAUX: But the acos yields values in [0,PI] and the texture seems to be indicating the entire PI range is covered so...
+        float2  UV = float2( thetaH / PI, thetaD / PI );
+    #endif
 
     // BMAYAUX: Problem here is that the BRDF color tables are only defined in the upper-left triangular part of the texture
     // It's not indicated anywhere in the SDK documentation but I decided to clamp to the diagonal otherwise we get black values if UV.x+UV.y > 0.5!
@@ -977,36 +976,6 @@ void	BSDF(   float3 viewWS_UnderCoat, float3 lightWS_UnderCoat, float NdotL, flo
     diffuseLighting = clearCoatExtinction * diffuseTerm;
     specularLighting = clearCoatExtinction * specularTerm + clearCoatReflection;
 
-
-#if 0   // DEBUG
-
-#if 0
-    // Debug BRDF Color texture
-//    float2  UV = float2( 2.0 * thetaH / PI, 2.0 * thetaD / PI );
-//thetaD = min( thetaH, thetaD );
-    float2  UV = float2( 2.0 * thetaH / PI, 2.0 * thetaD / PI );
-
-//UV = BsdfData.flakesUV;
-    BRDFColor = _CarPaint_BRDFColorMap_Scale * SAMPLE_TEXTURE2D_LOD( _CarPaint_BRDFColorMap_sRGB, sampler_CarPaint_BRDFColorMap_sRGB, float2( UV.x, 1.0 - UV.y ), 0 ).xyz;
-
-//BRDFColor = 2 * thetaH / PI;
-//if ( UV.x + UV.y > 37.0 / 64.0 )
-////if ( UV.y > 37.0 / 64.0 )
-//    BRDFColor = _CarPaint_BRDFColorMap_Scale * float3( 1, 0, 1 );
-////BRDFColor = float3( UV, 0 );
-
-    diffuseLighting = BRDFColor;
-#else
-    // Debug flakes
-    diffuseLighting = SamplesFlakes( BsdfData.flakesUV, _DEBUG_clearCoatIOR, 0 );
-    diffuseLighting = CarPaint_BTF( thetaH, thetaD, BsdfData );
-
-#endif
-
-// Normalize so 1 is white
-diffuseLighting /= BsdfData.diffuseColor;
-
-#endif
 }
 
 #else

@@ -80,11 +80,9 @@ _surfaceData.flakesMipLevel = 0.0;
     #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 
         _surfaceData.diffuseColor = _CarPaint_CT_diffuse * _BaseColor.xyz;
-        _surfaceData.clearCoatIOR = max( 1.001, _CarPaint_IOR );    // Can't be exactly 1 otherwise the precise fresnel divides by 0!
+        _surfaceData.clearCoatIOR = max( 1.0, _CarPaint_IOR );
 
         GetNormalWS( _input, _viewWS, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0 ).xyz - 1.0, _surfaceData.clearCoatNormalWS );
-//        _surfaceData.normalWS = _surfaceData.clearCoatNormalWS; // Use clear coat normal map as global surface normal map
-
 
         // Create mirrored UVs to hide flakes tiling
         _surfaceData.flakesUV = _CarPaint_FlakesTiling * UV0;
@@ -115,8 +113,6 @@ _surfaceData.clearCoatColor = 0;
 
 
     // Finalize tangent space
-//  _surfaceData.tangentWS = _input.worldToTangent[0];
-//  _surfaceData.biTangentWS = _input.worldToTangent[1];
     _surfaceData.tangentWS = Orthonormalize( _input.worldToTangent[0], _surfaceData.normalWS );
     _surfaceData.biTangentWS = Orthonormalize( _input.worldToTangent[1], _surfaceData.normalWS );
 
@@ -137,24 +133,9 @@ _surfaceData.clearCoatColor = 0;
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Builtin Data
     // (Used by legacy pipeline + GI)
-
-    // NEWLITTODO: for all BuiltinData, might need to just refactor and use a comon function like that contained in LitBuiltinData.hlsl
-
     _builtinData.opacity = alpha;
-
     _builtinData.bakeDiffuseLighting = 0;
-
-    // Emissive Intensity is only use here, but is part of BuiltinData to enforce UI parameters as we want the users to fill one color and one intensity
-//	_builtinData.emissiveIntensity = _EmissiveIntensity;
-//	_builtinData.emissiveColor = _EmissiveColor * _builtinData.emissiveIntensity * lerp(float3(1.0, 1.0, 1.0), _surfaceData.diffuseColor.rgb, _AlbedoAffectEmissive);
-//    _builtinData.emissiveIntensity = 1e-6;
-    _builtinData.emissiveColor = 0;
-
-
-//	#ifdef _EMISSIVE_COLOR_MAP
-//		_builtinData.emissiveColor *= SAMPLE_TEXTURE2D(_EmissiveColorMap, sampler_EmissiveColorMap, TRANSFORM_TEX(input.texCoord0, _EmissiveColorMap)).rgb;
-//	#endif
-
+    _builtinData.emissiveColor = 0; // Emissive Intensity is only used here, but is part of BuiltinData to enforce UI parameters as we want the users to fill one color and one intensity
     _builtinData.velocity = float2(0.0, 0.0);
 
     
