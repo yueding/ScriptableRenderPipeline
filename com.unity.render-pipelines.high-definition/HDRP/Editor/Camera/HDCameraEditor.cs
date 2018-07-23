@@ -1,18 +1,16 @@
-using System;
 using UnityEngine;
 using UnityEngine.Assertions;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEngine.Rendering.PostProcessing;
 
-namespace UnityEditor.Experimental.Rendering
+namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     [CustomEditorForRenderPipeline(typeof(Camera), typeof(HDRenderPipelineAsset))]
     [CanEditMultipleObjects]
     partial class HDCameraEditor : Editor
     {
         [MenuItem("CONTEXT/Camera/Remove Component", false, 0)]
-        static void RemoveLight(MenuCommand menuCommand)
+        static void RemoveCamera(MenuCommand menuCommand)
         {
             GameObject go = ((Camera)menuCommand.context).gameObject;
 
@@ -45,7 +43,9 @@ namespace UnityEditor.Experimental.Rendering
             Undo.SetCurrentGroupName("Reset HD Camera");
             Undo.RecordObjects(new UnityEngine.Object[] { camera, cameraAdditionalData }, "Reset HD Camera");
             camera.Reset();
-            cameraAdditionalData.Reset();
+            // To avoid duplicating init code we copy default settings to Reset additional data
+            // Note: we can't call this code inside the HDAdditionalCameraData, thus why we don't wrap it in a Reset() function
+            HDUtils.s_DefaultHDAdditionalCameraData.CopyTo(cameraAdditionalData);
         }
 
         SerializedHDCamera m_SerializedCamera;

@@ -1,13 +1,17 @@
 using UnityEngine.Serialization;
 using UnityEngine.Experimental.Rendering.HDPipeline;
+using System;
 
 namespace UnityEngine.Experimental.Rendering
 {
-    [RequireComponent(typeof(ReflectionProbe), typeof(MeshFilter), typeof(MeshRenderer))]
-    public class HDAdditionalReflectionData : MonoBehaviour
+    [RequireComponent(typeof(ReflectionProbe))]
+    public class HDAdditionalReflectionData : MonoBehaviour, ISerializationCallbackReceiver
     {
         [HideInInspector]
-        public float version = 1.0f;
+        const int currentVersion = 1;
+
+        [SerializeField, FormerlySerializedAs("version")]
+        int m_Version;
 
         public ShapeType influenceShape = ShapeType.Box;
         [FormerlySerializedAsAttribute("dimmer")]
@@ -55,7 +59,7 @@ namespace UnityEngine.Experimental.Rendering
 
         public float sphereBlendRadiusOffset { get { return -blendDistancePositive.x; } }
         public float sphereBlendNormalRadiusOffset { get { return -blendNormalDistancePositive.x; } }
-
+        
         public void CopyTo(HDAdditionalReflectionData data)
         {
             data.proxyVolumeComponent = proxyVolumeComponent;
@@ -83,6 +87,19 @@ namespace UnityEngine.Experimental.Rendering
             data.editorAdvancedModeBlendNormalDistanceNegative = editorAdvancedModeBlendNormalDistanceNegative;
             data.editorSimplifiedModeBlendNormalDistance = editorSimplifiedModeBlendNormalDistance;
             data.editorAdvancedModeEnabled = editorAdvancedModeEnabled;
+        }
+        
+        public void OnBeforeSerialize()
+        {
+        }
+
+        public void OnAfterDeserialize()
+        {
+            if (m_Version != currentVersion)
+            {
+                // Add here data migration code
+                m_Version = currentVersion;
+            }
         }
     }
 }
