@@ -1031,7 +1031,8 @@ void	BSDF(   float3 viewWS, float3 lightWS, float NdotL, float3 positionWS, PreL
 DirectLighting  EvaluateBSDF_Directional(   LightLoopContext lightLoopContext,
                                             float3 viewWS, PositionInputs posInput, PreLightData preLightData,
                                             DirectionalLightData lightData, BSDFData BsdfData,
-                                            BakeLightingData bakedLightingData ) {
+                                            BuiltinData builtinData)
+{
 
     DirectLighting lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
@@ -1043,13 +1044,14 @@ DirectLighting  EvaluateBSDF_Directional(   LightLoopContext lightLoopContext,
     // color and attenuation are outputted  by EvaluateLight:
     float3  color;
     float   attenuation = 0;
-    EvaluateLight_Directional( lightLoopContext, posInput, lightData, bakedLightingData, normalWS, lightWS, color, attenuation );
+    EvaluateLight_Directional(lightLoopContext, posInput, lightData, builtinData, normalWS, lightWS, color, attenuation);
 
     float intensity = max(0, attenuation * NdotL); // Warning: attenuation can be greater than 1 due to the inverse square attenuation (when position is close to light)
 
     // Note: We use NdotL here to early out, but in case of clear coat this is not correct. But we are ok with this
-    UNITY_BRANCH if ( intensity > 0.0 ) {
-        BSDF( viewWS, lightWS, NdotL, posInput.positionWS, preLightData, BsdfData, lighting.diffuse, lighting.specular );
+    UNITY_BRANCH if ( intensity > 0.0 )
+    {
+        BSDF(viewWS, lightWS, NdotL, posInput.positionWS, preLightData, BsdfData, lighting.diffuse, lighting.specular);
 
         lighting.diffuse  *= intensity * lightData.diffuseScale;
         lighting.specular *= intensity * lightData.specularScale;
@@ -1074,7 +1076,7 @@ DirectLighting  EvaluateBSDF_Directional(   LightLoopContext lightLoopContext,
 
 DirectLighting  EvaluateBSDF_Punctual(  LightLoopContext lightLoopContext,
                                         float3 viewWS, PositionInputs posInput,
-                                        PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
+                                        PreLightData preLightData, LightData lightData, BSDFData BsdfData, BuiltinData builtinData ) {
     DirectLighting	lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
 
@@ -1103,7 +1105,7 @@ DirectLighting  EvaluateBSDF_Punctual(  LightLoopContext lightLoopContext,
 
     float3 color;
     float attenuation;
-    EvaluateLight_Punctual( lightLoopContext, posInput, lightData, bakedLightingData, normalWS, lightWS,
+    EvaluateLight_Punctual( lightLoopContext, posInput, lightData, builtinData, normalWS, lightWS,
 						    lightToSample, distances, color, attenuation);
 
 
@@ -1224,7 +1226,7 @@ real PolygonIrradiance( real4x3 L, out float3 F ) {
 
 DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
                                     float3 viewWS_ClearCoat, PositionInputs posInput,
-                                    PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
+                                    PreLightData preLightData, LightData lightData, BSDFData BsdfData, BuiltinData builtinData ) {
     DirectLighting lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
 
@@ -1417,7 +1419,7 @@ DirectLighting  EvaluateBSDF_Line(  LightLoopContext lightLoopContext,
 
 DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
                                     float3 viewWS_ClearCoat, PositionInputs posInput,
-                                    PreLightData preLightData, LightData lightData, BSDFData BsdfData, BakeLightingData bakedLightingData ) {
+                                    PreLightData preLightData, LightData lightData, BSDFData BsdfData, BuiltinData builtinData ) {
     DirectLighting lighting;
     ZERO_INITIALIZE(DirectLighting, lighting);
 
@@ -1620,12 +1622,12 @@ DirectLighting  EvaluateBSDF_Rect(  LightLoopContext lightLoopContext,
 DirectLighting  EvaluateBSDF_Area(  LightLoopContext lightLoopContext,
                                     float3 viewWS, PositionInputs posInput,
                                     PreLightData preLightData, LightData lightData,
-                                    BSDFData BsdfData, BakeLightingData bakedLightingData ) {
+                                    BSDFData BsdfData, BuiltinData builtinData ) {
 
     if (lightData.lightType == GPULIGHTTYPE_LINE) {
-        return EvaluateBSDF_Line( lightLoopContext, viewWS, posInput, preLightData, lightData, BsdfData, bakedLightingData );
+        return EvaluateBSDF_Line( lightLoopContext, viewWS, posInput, preLightData, lightData, BsdfData, builtinData);
     } else {
-        return EvaluateBSDF_Rect( lightLoopContext, viewWS, posInput, preLightData, lightData, BsdfData, bakedLightingData );
+        return EvaluateBSDF_Rect( lightLoopContext, viewWS, posInput, preLightData, lightData, BsdfData, builtinData);
     }
 }
 
@@ -1829,7 +1831,7 @@ IndirectLighting    EvaluateBSDF_Env(   LightLoopContext lightLoopContext,
 
 void    PostEvaluateBSDF(   LightLoopContext lightLoopContext,
                             float3 viewWS, PositionInputs posInput,
-                            PreLightData preLightData, BSDFData BsdfData, BakeLightingData bakedLightingData, AggregateLighting lighting,
+                            PreLightData preLightData, BSDFData BsdfData, BuiltinData builtinData, AggregateLighting lighting,
                             out float3 diffuseLighting, out float3 specularLighting ) {
 
 //    AmbientOcclusionFactor  AOFactor;
@@ -1848,7 +1850,7 @@ void    PostEvaluateBSDF(   LightLoopContext lightLoopContext,
 
     // Apply the albedo to the direct diffuse lighting and that's about it.
     // diffuse lighting has already had the albedo applied in GetBakedDiffuseLighting().
-    diffuseLighting = BsdfData.diffuseColor * lighting.direct.diffuse + bakedLightingData.bakeDiffuseLighting;
+    diffuseLighting = BsdfData.diffuseColor * lighting.direct.diffuse + builtinData.bakeDiffuseLighting;
     specularLighting = lighting.direct.specular + lighting.indirect.specularReflected;
 
 #if !defined(_AXF_BRDF_TYPE_SVBRDF) && !defined(_AXF_BRDF_TYPE_CAR_PAINT)
@@ -1867,7 +1869,7 @@ void    PostEvaluateBSDF(   LightLoopContext lightLoopContext,
                     break;
 
                 case DEBUGLIGHTINGMODE_LUX_METER:
-                    diffuseLighting = lighting.direct.diffuse + bakedLightingData.bakeDiffuseLighting;
+                    diffuseLighting = lighting.direct.diffuse + builtinData.bakeDiffuseLighting;
                     break;
 
                 case DEBUGLIGHTINGMODE_INDIRECT_DIFFUSE_OCCLUSION:
