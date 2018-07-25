@@ -118,3 +118,5 @@ You can now see the generated code for any specific node. To do so, right-click 
 - Texture 2D Array and Texture 3D nodes can no longer be used in the vertex shader.
 - Shader graphs using alpha clip now generate correct depth and shadow passes.
 - `Normal Create` node has been renamed to `Normal From Texture`.
+- `SamplerState` now functions correctly in nodes using `CodeFunctionNode` API.
+- The `CodeFunctionNode` now supports `Sampler2D` slot type, which automatically creates a matching sampler state.

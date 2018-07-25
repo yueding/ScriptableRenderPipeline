@@ -237,6 +237,8 @@ namespace UnityEditor.ShaderGraph
 
         public sealed override void UpdateNodeAfterDeserialization()
         {
+            m_Samplers.Clear();
+
             var method = GetFunctionToConvert();
 
             if (method == null)
