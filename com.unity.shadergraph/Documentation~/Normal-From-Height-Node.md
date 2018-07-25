@@ -1,6 +1,6 @@
 ## Description
 
-Creates a normal map from a height map defined by input **Vector 1**.
+Creates a normal map from a height value defined by input **Vector 1**.
 
 ## Ports
 
