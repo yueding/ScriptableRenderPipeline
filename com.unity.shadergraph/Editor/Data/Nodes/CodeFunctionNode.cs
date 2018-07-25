@@ -23,6 +23,9 @@ namespace UnityEditor.ShaderGraph
         [NonSerialized]
         private List<SlotAttribute> m_Slots = new List<SlotAttribute>();
 
+        [NonSerialized]
+        private List<int> m_Samplers = new List<int>();
+
         public override bool hasPreview
         {
             get { return true; }
@@ -40,6 +43,9 @@ namespace UnityEditor.ShaderGraph
         {}
 
         protected struct Texture2D
+        {}
+
+        protected struct Sampler2D
         {}
 
         protected struct Texture2DArray
@@ -182,6 +188,10 @@ namespace UnityEditor.ShaderGraph
             {
                 return SlotValueType.Texture2D;
             }
+            if (t == typeof(Sampler2D))
+            {
+                return SlotValueType.Texture2D;
+            }
             if (t == typeof(Texture2DArray))
             {
                 return SlotValueType.Texture2DArray;
@@ -248,6 +258,9 @@ namespace UnityEditor.ShaderGraph
             {
                 var attribute = GetSlotAttribute(par);
                 var name = GraphUtil.ConvertCamelCase(par.Name, true);
+
+                if(!par.IsOut && par.ParameterType == typeof(Sampler2D))
+                    m_Samplers.Add(attribute.slotId);
 
                 MaterialSlot s;
                 if (attribute.binding == Binding.None && !par.IsOut && par.ParameterType == typeof(Color))
@@ -354,6 +367,7 @@ namespace UnityEditor.ShaderGraph
             s_TempSlots.Clear();
             GetSlots(s_TempSlots);
             s_TempSlots.Sort((slot1, slot2) => slot1.id.CompareTo(slot2.id));
+
             foreach (var slot in s_TempSlots)
             {
                 if (!first)
@@ -367,6 +381,17 @@ namespace UnityEditor.ShaderGraph
                 else
                     call += GetVariableNameForSlot(slot.id);
             }
+
+            foreach (var sampler in m_Samplers)
+            {
+                MaterialSlot slot = FindInputSlot<MaterialSlot>(sampler);
+                call += ", ";
+
+                var slotValue = GetSlotValue(slot.id, generationMode);
+                bool startsWithUnderscore = slotValue[0] == '_';
+                call +=  "sampler" + (startsWithUnderscore ? "" : "_") + GetSlotValue(slot.id, generationMode);
+            }
+
             call += ");";
 
             visitor.AddShaderChunk(call, true);
@@ -402,6 +427,13 @@ namespace UnityEditor.ShaderGraph
                     header += "out ";
 
                 header += GetParamTypeName(slot) + " " + slot.shaderOutputName;
+            }
+
+            foreach (var sampler in m_Samplers)
+            {
+                MaterialSlot slot = FindInputSlot<MaterialSlot>(sampler);
+                header += ", ";
+                header +=  "SamplerState sampler_" + slot.shaderOutputName;
             }
 
             header += ")";

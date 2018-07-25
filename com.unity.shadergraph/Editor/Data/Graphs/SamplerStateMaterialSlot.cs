@@ -23,8 +23,26 @@ namespace UnityEditor.ShaderGraph
 
         public override SlotValueType valueType { get { return SlotValueType.SamplerState; } }
         public override ConcreteSlotValueType concreteValueType { get { return ConcreteSlotValueType.SamplerState; } }
+        
+        public override string GetDefaultValue(GenerationMode generationMode)
+        {
+            var matOwner = owner as AbstractMaterialNode;
+            if (matOwner == null)
+                throw new Exception(string.Format("Slot {0} either has no owner, or the owner is not a {1}", this, typeof(AbstractMaterialNode)));
+
+            return matOwner.GetVariableNameForSlot(id);
+        }
+
         public override void AddDefaultProperty(PropertyCollector properties, GenerationMode generationMode)
         {
+            var matOwner = owner as AbstractMaterialNode;
+            if (matOwner == null)
+                throw new Exception(string.Format("Slot {0} either has no owner, or the owner is not a {1}", this, typeof(AbstractMaterialNode)));
+
+            var prop = new SamplerStateShaderProperty();
+            prop.overrideReferenceName = matOwner.GetVariableNameForSlot(id);
+            prop.generatePropertyBlock = false;
+            properties.AddShaderProperty(prop);
         }
 
         public override void CopyValuesFrom(MaterialSlot foundSlot)
