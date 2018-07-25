@@ -1,6 +1,7 @@
 using System;
 using UnityEditor.AnimatedValues;
 using UnityEngine.Events;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEngine.Rendering;
 
 namespace UnityEditor.Experimental.Rendering.HDPipeline

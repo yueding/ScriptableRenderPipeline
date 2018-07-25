@@ -92,7 +92,7 @@ void EvaluateLight_Directional(LightLoopContext lightLoopContext, PositionInputs
 #endif
     }
 
-//    attenuation *= shadow;
+    attenuation *= shadow;
 }
 
 //-----------------------------------------------------------------------------
