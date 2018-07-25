@@ -7,14 +7,14 @@
 
 float3 ReadsRGBColor(float3 gammaColor)
 {
-    #if APPLY_MANUAL_GAMMA
-        return Gamma22ToLinear(gammaColor);
-    #else
-        return gammaColor; // Taken care of by the hardware via "_sRGB" textures
-    #endif
+#if APPLY_MANUAL_GAMMA
+    return Gamma22ToLinear(gammaColor);
+#else
+    return gammaColor; // Taken care of by the hardware via "_sRGB" textures
+#endif
 }
 
-void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs _posInput, out SurfaceData surfaceData, out BuiltinData builtinData)
+void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs posInput, out SurfaceData surfaceData, out BuiltinData builtinData)
 {
     ApplyDoubleSidedFlipOrMirror(input); // Apply double sided flip on the vertex normal
 
@@ -34,27 +34,27 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs _
 
 #ifdef _AXF_BRDF_TYPE_SVBRDF
 
-    surfaceData.diffuseColor = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_DiffuseColorMap_sRGB, sampler_SVBRDF_DiffuseColorMap_sRGB, UV0 ).xyz ) * _BaseColor.xyz;
-    surfaceData.specularColor = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_SpecularColorMap_sRGB, sampler_SVBRDF_SpecularColorMap_sRGB, UV0 ).xyz );
-    surfaceData.specularLobe = _SVBRDF_SpecularLobeMap_Scale * SAMPLE_TEXTURE2D( _SVBRDF_SpecularLobeMap, sampler_SVBRDF_SpecularLobeMap, UV0 ).xy;
+    surfaceData.diffuseColor = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_DiffuseColorMap_sRGB, sampler_SVBRDF_DiffuseColorMap_sRGB, UV0).xyz) * _BaseColor.xyz;
+    surfaceData.specularColor = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_SpecularColorMap_sRGB, sampler_SVBRDF_SpecularColorMap_sRGB, UV0).xyz);
+    surfaceData.specularLobe = _SVBRDF_SpecularLobeMap_Scale * SAMPLE_TEXTURE2D( _SVBRDF_SpecularLobeMap, sampler_SVBRDF_SpecularLobeMap, UV0).xy;
 
     // Check influence of anisotropy
     //surfaceData.specularLobe.y = lerp( surfaceData.specularLobe.x, surfaceData.specularLobe.y, saturate(_DEBUG_anisotropicRoughessX) );
 
-    surfaceData.fresnelF0 = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_FresnelMap_sRGB, sampler_SVBRDF_FresnelMap_sRGB, UV0 ).x );
-    surfaceData.height_mm = SAMPLE_TEXTURE2D( _SVBRDF_HeightMap, sampler_SVBRDF_HeightMap, UV0 ).x * _SVBRDF_heightMapMax_mm;
-    surfaceData.anisotropyAngle = PI * (2.0 * SAMPLE_TEXTURE2D( _SVBRDF_AnisotropicRotationAngleMap, sampler_SVBRDF_AnisotropicRotationAngleMap, UV0 ).x - 1.0);
-    surfaceData.clearCoatColor = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatColorMap_sRGB, sampler_SVBRDF_ClearCoatColorMap_sRGB, UV0 ).xyz );
+    surfaceData.fresnelF0 = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_FresnelMap_sRGB, sampler_SVBRDF_FresnelMap_sRGB, UV0).x );
+    surfaceData.height_mm = SAMPLE_TEXTURE2D(_SVBRDF_HeightMap, sampler_SVBRDF_HeightMap, UV0).x * _SVBRDF_heightMapMax_mm;
+    surfaceData.anisotropyAngle = PI * (2.0 * SAMPLE_TEXTURE2D(_SVBRDF_AnisotropicRotationAngleMap, sampler_SVBRDF_AnisotropicRotationAngleMap, UV0).x - 1.0);
+    surfaceData.clearCoatColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatColorMap_sRGB, sampler_SVBRDF_ClearCoatColorMap_sRGB, UV0).xyz );
 
-    float  clearCoatF0 = ReadsRGBColor( SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatIORMap_sRGB, sampler_SVBRDF_ClearCoatIORMap_sRGB, UV0 ).x ).x;
-    float  sqrtF0 = sqrt( clearCoatF0 );
-    surfaceData.clearCoatIOR = max( 1.0, (1.0 + sqrtF0) / (1.00001 - sqrtF0) );    // We make sure it's working for F0=1
+    float clearCoatF0 = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatIORMap_sRGB, sampler_SVBRDF_ClearCoatIORMap_sRGB, UV0).x).x;
+    float sqrtF0 = sqrt(clearCoatF0);
+    surfaceData.clearCoatIOR = max(1.0, (1.0 + sqrtF0) / (1.00001 - sqrtF0));    // We make sure it's working for F0=1
 
     // TBN
-    GetNormalWS( input, V, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_NormalMap, sampler_SVBRDF_NormalMap, UV0 ).xyz - 1.0, surfaceData.normalWS );
-    GetNormalWS( input, V, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0 ).xyz - 1.0, surfaceData.clearCoatNormalWS );
+    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_NormalMap, sampler_SVBRDF_NormalMap, UV0 ).xyz - 1.0, surfaceData.normalWS);
+    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0 ).xyz - 1.0, surfaceData.clearCoatNormalWS);
 
-    float alpha = SAMPLE_TEXTURE2D( _SVBRDF_OpacityMap, sampler_SVBRDF_OpacityMap, UV0 ).x * _BaseColor.w;
+    float alpha = SAMPLE_TEXTURE2D(_SVBRDF_OpacityMap, sampler_SVBRDF_OpacityMap, UV0).x * _BaseColor.w;
 
     // Hardcoded values for debug purpose
     //surfaceData.normalWS = input.worldToTangent[2].xyz;
@@ -76,7 +76,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs _
     surfaceData.diffuseColor = _CarPaint_CT_diffuse * _BaseColor.xyz;
     surfaceData.clearCoatIOR = max(1.001, _CarPaint_IOR);    // Can't be exactly 1 otherwise the precise fresnel divides by 0!
 
-    GetNormalWS(input, V, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0 ).xyz - 1.0, surfaceData.clearCoatNormalWS);
+    GetNormalWS(input, V, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0).xyz - 1.0, surfaceData.clearCoatNormalWS);
     // surfaceData.normalWS = surfaceData.clearCoatNormalWS; // Use clear coat normal map as global surface normal map
 
 
@@ -101,59 +101,34 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs _
     surfaceData.anisotropyAngle = 0;
     surfaceData.clearCoatColor = 0;
 
-    float   alpha = 1.0;
+    float alpha = 1.0;
 
 #endif
 
     // Finalize tangent space
     // surfaceData.tangentWS = input.worldToTangent[0];
     // surfaceData.biTangentWS = input.worldToTangent[1];
-    surfaceData.tangentWS = Orthonormalize( input.worldToTangent[0], surfaceData.normalWS );
-    surfaceData.biTangentWS = Orthonormalize( input.worldToTangent[1], surfaceData.normalWS );
+    surfaceData.tangentWS = Orthonormalize(input.worldToTangent[0], surfaceData.normalWS);
+    surfaceData.biTangentWS = Orthonormalize(input.worldToTangent[1], surfaceData.normalWS);
 
-    #ifdef _ALPHATEST_ON
-        //NEWLITTODO: Once we include those passes in the main AxF.shader, add handling of CUTOFF_TRANSPARENT_DEPTH_PREPASS and _POSTPASS
-        // and the related properties (in the .shader) and uniforms (in the AxFProperties file) _AlphaCutoffPrepass, _AlphaCutoffPostpass
-        DoAlphaTest( alpha, _AlphaCutoff );
-    #endif
+#ifdef _ALPHATEST_ON
+    //NEWLITTODO: Once we include those passes in the main AxF.shader, add handling of CUTOFF_TRANSPARENT_DEPTH_PREPASS and _POSTPASS
+    // and the related properties (in the .shader) and uniforms (in the AxFProperties file) _AlphaCutoffPrepass, _AlphaCutoffPostpass
+    DoAlphaTest(alpha, _AlphaCutoff);
+#endif
 
-    #if defined(DEBUG_DISPLAY)
-        if ( _DebugMipMapMode != DEBUGMIPMAPMODE_NONE ) {
-            surfaceData.diffuseColor = GetTextureDataDebug( _DebugMipMapMode, UV0, _BaseColorMap, _BaseColorMap_TexelSize, _BaseColorMap_MipInfo, surfaceData.diffuseColor );
-        }
-    #endif
-
+#if defined(DEBUG_DISPLAY)
+    if ( _DebugMipMapMode != DEBUGMIPMAPMODE_NONE )
+    {
+        surfaceData.diffuseColor = GetTextureDataDebug( _DebugMipMapMode, UV0, _BaseColorMap, _BaseColorMap_TexelSize, _BaseColorMap_MipInfo, surfaceData.diffuseColor );
+    }
+#endif
 
     // -------------------------------------------------------------
     // Builtin Data:
     // -------------------------------------------------------------
 
-    builtinData.opacity = alpha;
-
-    builtinData.bakeDiffuseLighting = SampleBakedGI(input.positionRWS, surfaceData.normalWS, input.texCoord1, input.texCoord2);
-
-    builtinData.emissiveColor = 0.0;
-
-    builtinData.velocity = float2(0.0, 0.0);
-
-#ifdef SHADOWS_SHADOWMASK
-    float4 shadowMask = SampleShadowMask(input.positionRWS, input.texCoord1);
-    builtinData.shadowMask0 = shadowMask.x;
-    builtinData.shadowMask1 = shadowMask.y;
-    builtinData.shadowMask2 = shadowMask.z;
-    builtinData.shadowMask3 = shadowMask.w;
-#else
-    builtinData.shadowMask0 = 0.0;
-    builtinData.shadowMask1 = 0.0;
-    builtinData.shadowMask2 = 0.0;
-    builtinData.shadowMask3 = 0.0;
-#endif
-
-    builtinData.distortion = float2(0.0, 0.0);
-    builtinData.distortionBlur = 0.0;
-
-    // Use uniform directly - The float need to be cast to uint (as unity don't support to set a uint as uniform)
-    builtinData.renderingLayers = _EnableLightLayers ? asuint(unity_RenderingLayer.x) : DEFAULT_LIGHT_LAYERS;
-
-    builtinData.depthOffset = 0.0;
+    // For back lighting we use the oposite vertex normal 
+    InitBuiltinData(alpha, surfaceData.normalWS, surfaceData.normalWS, input.positionRWS, input.texCoord1, input.texCoord2, builtinData);
+    PostInitBuiltinData(V, posInput, surfaceData, builtinData);
 }
