@@ -5,6 +5,8 @@ using UnityEditor.ShaderGraph.Drawing.Controls;
 
 namespace UnityEditor.ShaderGraph
 {
+    using DefaultType = TextureShaderProperty.DefaultType;
+
     public enum TextureType
     {
         Default,
@@ -58,6 +60,9 @@ namespace UnityEditor.ShaderGraph
                 if (m_TextureType == value)
                     return;
 
+                var textureSlot = FindInputSlot<Texture2DInputMaterialSlot>(TextureInputId);
+                textureSlot.defaultType = (textureType == TextureType.Normal ? DefaultType.Bump : DefaultType.White);
+
                 m_TextureType = value;
                 Dirty(ModificationScope.Graph);
             }
@@ -79,6 +84,9 @@ namespace UnityEditor.ShaderGraph
         // Node generations
         public virtual void GenerateNodeCode(ShaderGenerator visitor, GenerationMode generationMode)
         {
+            var textureSlot = FindInputSlot<Texture2DInputMaterialSlot>(TextureInputId);
+            textureSlot.defaultType = (textureType == TextureType.Normal ? DefaultType.Bump : DefaultType.White);
+
             var uvName = GetSlotValue(UVInput, generationMode);
 
             //Sampler input slot

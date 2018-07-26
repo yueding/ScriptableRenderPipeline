@@ -5,6 +5,7 @@ using UnityEditor.ShaderGraph.Drawing.Controls;
 
 namespace UnityEditor.ShaderGraph
 {
+    using DefaultType = TextureShaderProperty.DefaultType;
     
     [Title("Input", "Texture", "Sample Texture 2D LOD")]
     public class SampleTexture2DLODNode : AbstractMaterialNode, IGeneratesBodyCode, IMayRequireMeshUV
@@ -76,6 +77,9 @@ namespace UnityEditor.ShaderGraph
         // Node generations
         public virtual void GenerateNodeCode(ShaderGenerator visitor, GenerationMode generationMode)
         {
+            var textureSlot = FindInputSlot<Texture2DInputMaterialSlot>(TextureInputId);
+            textureSlot.defaultType = (textureType == TextureType.Normal ? DefaultType.Bump : DefaultType.White);
+
             var uvName = GetSlotValue(UVInput, generationMode);
 
             //Sampler input slot

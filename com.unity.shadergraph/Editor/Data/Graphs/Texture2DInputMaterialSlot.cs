@@ -7,16 +7,27 @@ using UnityEngine.Experimental.UIElements;
 
 namespace UnityEditor.ShaderGraph
 {
+    using DefaultType = TextureShaderProperty.DefaultType;
+
     [Serializable]
     public class Texture2DInputMaterialSlot : Texture2DMaterialSlot
     {
         [SerializeField]
         private SerializableTexture m_Texture = new SerializableTexture();
 
+        [SerializeField]
+        private DefaultType m_DefaultType = DefaultType.White;
+
         public Texture texture
         {
             get { return m_Texture.texture; }
             set { m_Texture.texture = value; }
+        }
+
+        public DefaultType defaultType
+        {
+            get { return m_DefaultType; }
+            set { m_DefaultType = value; }
         }
 
         public Texture2DInputMaterialSlot()
@@ -56,6 +67,7 @@ namespace UnityEditor.ShaderGraph
             prop.modifiable = false;
             prop.generatePropertyBlock = true;
             prop.value.texture = texture;
+            prop.defaultType = defaultType;
             properties.AddShaderProperty(prop);
         }
 
