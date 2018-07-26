@@ -34,34 +34,34 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 
 #ifdef _AXF_BRDF_TYPE_SVBRDF
 
-    surfaceData.diffuseColor = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_DiffuseColorMap_sRGB, sampler_SVBRDF_DiffuseColorMap_sRGB, UV0).xyz) * _BaseColor.xyz;
-    surfaceData.specularColor = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_SpecularColorMap_sRGB, sampler_SVBRDF_SpecularColorMap_sRGB, UV0).xyz);
-    surfaceData.specularLobe = _SVBRDF_SpecularLobeMap_Scale * SAMPLE_TEXTURE2D( _SVBRDF_SpecularLobeMap, sampler_SVBRDF_SpecularLobeMap, UV0).xy;
+    surfaceData.diffuseColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_DiffuseColorMap_sRGB, sampler_SVBRDF_DiffuseColorMap_sRGB, UV0).xyz) * _BaseColor.xyz;
+    surfaceData.specularColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_SpecularColorMap_sRGB, sampler_SVBRDF_SpecularColorMap_sRGB, UV0).xyz);
+    surfaceData.specularLobe = _SVBRDF_SpecularLobeMap_Scale * SAMPLE_TEXTURE2D(_SVBRDF_SpecularLobeMap, sampler_SVBRDF_SpecularLobeMap, UV0).xy;
 
     // Check influence of anisotropy
-    //surfaceData.specularLobe.y = lerp( surfaceData.specularLobe.x, surfaceData.specularLobe.y, saturate(_DEBUG_anisotropicRoughessX) );
+    //surfaceData.specularLobe.y = lerp(surfaceData.specularLobe.x, surfaceData.specularLobe.y, saturate(_DEBUG_anisotropicRoughessX));
 
-    surfaceData.fresnelF0 = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_FresnelMap_sRGB, sampler_SVBRDF_FresnelMap_sRGB, UV0).x );
+    surfaceData.fresnelF0 = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_FresnelMap_sRGB, sampler_SVBRDF_FresnelMap_sRGB, UV0).x);
     surfaceData.height_mm = SAMPLE_TEXTURE2D(_SVBRDF_HeightMap, sampler_SVBRDF_HeightMap, UV0).x * _SVBRDF_heightMapMax_mm;
     surfaceData.anisotropyAngle = PI * (2.0 * SAMPLE_TEXTURE2D(_SVBRDF_AnisotropicRotationAngleMap, sampler_SVBRDF_AnisotropicRotationAngleMap, UV0).x - 1.0);
-    surfaceData.clearCoatColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatColorMap_sRGB, sampler_SVBRDF_ClearCoatColorMap_sRGB, UV0).xyz );
+    surfaceData.clearCoatColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatColorMap_sRGB, sampler_SVBRDF_ClearCoatColorMap_sRGB, UV0).xyz);
 
-    float clearCoatF0 = ReadsRGBColor(SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatIORMap_sRGB, sampler_SVBRDF_ClearCoatIORMap_sRGB, UV0).x).x;
+    float clearCoatF0 = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatIORMap_sRGB, sampler_SVBRDF_ClearCoatIORMap_sRGB, UV0).x).x;
     float sqrtF0 = sqrt(clearCoatF0);
     surfaceData.clearCoatIOR = max(1.0, (1.0 + sqrtF0) / (1.00001 - sqrtF0));    // We make sure it's working for F0=1
 
     // TBN
-    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_NormalMap, sampler_SVBRDF_NormalMap, UV0 ).xyz - 1.0, surfaceData.normalWS);
-    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D( _SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0 ).xyz - 1.0, surfaceData.clearCoatNormalWS);
+    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_NormalMap, sampler_SVBRDF_NormalMap, UV0).xyz - 1.0, surfaceData.normalWS);
+    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0).xyz - 1.0, surfaceData.clearCoatNormalWS);
 
     float alpha = SAMPLE_TEXTURE2D(_SVBRDF_OpacityMap, sampler_SVBRDF_OpacityMap, UV0).x * _BaseColor.w;
 
     // Hardcoded values for debug purpose
     //surfaceData.normalWS = input.worldToTangent[2].xyz;
     //surfaceData.fresnelF0 = 0.04;
-    //surfaceData.diffuseColor = pow( float3( 48, 54, 60 ) / 255.0, 2.2 );
+    //surfaceData.diffuseColor = pow(float3(48, 54, 60) / 255.0, 2.2);
     //surfaceData.specularColor = 1.0;
-    //surfaceData.specularLobe = PerceptualSmoothnessToRoughness( 0.785 );
+    //surfaceData.specularLobe = PerceptualSmoothnessToRoughness(0.785);
 
     // Useless for SVBRDF
     surfaceData.flakesUV = input.texCoord0;
@@ -118,9 +118,9 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 #endif
 
 #if defined(DEBUG_DISPLAY)
-    if ( _DebugMipMapMode != DEBUGMIPMAPMODE_NONE )
+    if (_DebugMipMapMode != DEBUGMIPMAPMODE_NONE)
     {
-        surfaceData.diffuseColor = GetTextureDataDebug( _DebugMipMapMode, UV0, _BaseColorMap, _BaseColorMap_TexelSize, _BaseColorMap_MipInfo, surfaceData.diffuseColor );
+        surfaceData.diffuseColor = GetTextureDataDebug(_DebugMipMapMode, UV0, _BaseColorMap, _BaseColorMap_TexelSize, _BaseColorMap_MipInfo, surfaceData.diffuseColor);
     }
 #endif
 

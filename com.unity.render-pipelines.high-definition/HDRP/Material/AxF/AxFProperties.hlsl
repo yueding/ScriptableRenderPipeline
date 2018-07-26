@@ -1,4 +1,4 @@
-﻿// ===========================================================================
+// ===========================================================================
 //                              WARNING:
 // On PS4, texture/sampler declarations need to be outside of CBuffers
 // Otherwise those parameters are not bound correctly at runtime.
@@ -17,45 +17,45 @@ SAMPLER(sampler_BaseColorMap);
 
 //////////////////////////////////////////////////////////////////////////////
 // SVBRDF
-TEXTURE2D( _SVBRDF_DiffuseColorMap_sRGB );          // RGB Diffuse color (2.2 gamma must be applied)
-TEXTURE2D( _SVBRDF_SpecularColorMap_sRGB );         // RGB Specular color (2.2 gamma must be applied)
-TEXTURE2D( _SVBRDF_NormalMap );                     // Tangent-Space Normal vector with offset (i.e. in [0,1], need to 2*normal-1 to get actual vector)
-TEXTURE2D( _SVBRDF_SpecularLobeMap );               // Specular lobe in [0,1]. Either a scalar if isotropic, or a float2 if anisotropic.
-TEXTURE2D( _SVBRDF_OpacityMap );                    // Alpha (scalar in [0,1])
-TEXTURE2D( _SVBRDF_FresnelMap_sRGB );               // RGB F0 (2.2 gamma must be applied)
-TEXTURE2D( _SVBRDF_AnisotropicRotationAngleMap );   // Rotation angle (scalar in [0,1], needs to be remapped in [0,2PI])
-TEXTURE2D( _SVBRDF_HeightMap );                     // Height map (scalar in [0,1], need to be remapped with heightmap
+TEXTURE2D(_SVBRDF_DiffuseColorMap_sRGB);          // RGB Diffuse color (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_SpecularColorMap_sRGB);         // RGB Specular color (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_NormalMap);                     // Tangent-Space Normal vector with offset (i.e. in [0,1], need to 2*normal-1 to get actual vector)
+TEXTURE2D(_SVBRDF_SpecularLobeMap);               // Specular lobe in [0,1]. Either a scalar if isotropic, or a float2 if anisotropic.
+TEXTURE2D(_SVBRDF_OpacityMap);                    // Alpha (scalar in [0,1])
+TEXTURE2D(_SVBRDF_FresnelMap_sRGB);               // RGB F0 (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_AnisotropicRotationAngleMap);   // Rotation angle (scalar in [0,1], needs to be remapped in [0,2PI])
+TEXTURE2D(_SVBRDF_HeightMap);                     // Height map (scalar in [0,1], need to be remapped with heightmap
 
-SAMPLER( sampler_SVBRDF_DiffuseColorMap_sRGB );
-SAMPLER( sampler_SVBRDF_SpecularColorMap_sRGB );
-SAMPLER( sampler_SVBRDF_NormalMap );
-SAMPLER( sampler_SVBRDF_SpecularLobeMap );
-SAMPLER( sampler_SVBRDF_OpacityMap );
-SAMPLER( sampler_SVBRDF_FresnelMap_sRGB );
-SAMPLER( sampler_SVBRDF_AnisotropicRotationAngleMap );
-SAMPLER( sampler_SVBRDF_HeightMap );
+SAMPLER(sampler_SVBRDF_DiffuseColorMap_sRGB);
+SAMPLER(sampler_SVBRDF_SpecularColorMap_sRGB);
+SAMPLER(sampler_SVBRDF_NormalMap);
+SAMPLER(sampler_SVBRDF_SpecularLobeMap);
+SAMPLER(sampler_SVBRDF_OpacityMap);
+SAMPLER(sampler_SVBRDF_FresnelMap_sRGB);
+SAMPLER(sampler_SVBRDF_AnisotropicRotationAngleMap);
+SAMPLER(sampler_SVBRDF_HeightMap);
 
 
 //////////////////////////////////////////////////////////////////////////////
 // Car Paint
-TEXTURE2D( _CarPaint_BRDFColorMap_sRGB );       // RGB BRDF color (2.2 gamma must be applied + scale)
-TEXTURE2D_ARRAY( _CarPaint_BTFFlakesMap_sRGB ); // RGB Flakes color (2.2 gamma must be applied + scale)
-TEXTURE2D( _CarPaint_thetaFI_sliceLUTMap );     // UINT indirection values (must be scaled by 255 and cast as UINTs)
+TEXTURE2D(_CarPaint_BRDFColorMap_sRGB);       // RGB BRDF color (2.2 gamma must be applied + scale)
+TEXTURE2D_ARRAY(_CarPaint_BTFFlakesMap_sRGB); // RGB Flakes color (2.2 gamma must be applied + scale)
+TEXTURE2D(_CarPaint_thetaFI_sliceLUTMap);     // UINT indirection values (must be scaled by 255 and cast as UINTs)
 
-SAMPLER( sampler_CarPaint_BRDFColorMap_sRGB );
-SAMPLER( sampler_CarPaint_BTFFlakesMap_sRGB );
-SAMPLER( sampler_CarPaint_thetaFI_sliceLUTMap );
+SAMPLER(sampler_CarPaint_BRDFColorMap_sRGB);
+SAMPLER(sampler_CarPaint_BTFFlakesMap_sRGB);
+SAMPLER(sampler_CarPaint_thetaFI_sliceLUTMap);
 
 
 //////////////////////////////////////////////////////////////////////////////
 // Other
-TEXTURE2D( _SVBRDF_ClearCoatColorMap_sRGB );        // RGB Clear coat color (2.2 gamma must be applied)
-TEXTURE2D( _SVBRDF_ClearCoatNormalMap );            // Tangent-Space clear coat Normal vector with offset (i.e. in [0,1], need to 2*normal-1 to get actual vector)
-TEXTURE2D( _SVBRDF_ClearCoatIORMap_sRGB );          // Clear coat F0 (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_ClearCoatColorMap_sRGB);        // RGB Clear coat color (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_ClearCoatNormalMap);            // Tangent-Space clear coat Normal vector with offset (i.e. in [0,1], need to 2*normal-1 to get actual vector)
+TEXTURE2D(_SVBRDF_ClearCoatIORMap_sRGB);          // Clear coat F0 (2.2 gamma must be applied)
 
-SAMPLER( sampler_SVBRDF_ClearCoatColorMap_sRGB );
-SAMPLER( sampler_SVBRDF_ClearCoatNormalMap );
-SAMPLER( sampler_SVBRDF_ClearCoatIORMap_sRGB );
+SAMPLER(sampler_SVBRDF_ClearCoatColorMap_sRGB);
+SAMPLER(sampler_SVBRDF_ClearCoatNormalMap);
+SAMPLER(sampler_SVBRDF_ClearCoatIORMap_sRGB);
 
 
 CBUFFER_START(UnityPerMaterial)
@@ -145,5 +145,9 @@ float4 _DoubleSidedConstants;
 // In our case we don't use such a mechanism but need to keep the code quiet. We declare the value and always enable it.
 // TODO: Fix the code in legacy unity so we can customize the behavior for GI
 float3 _EmissionColor;
+
+// Following two variables are feeded by the C++ Editor for Scene selection
+int _ObjectId;
+int _PassValue;
 
 CBUFFER_END

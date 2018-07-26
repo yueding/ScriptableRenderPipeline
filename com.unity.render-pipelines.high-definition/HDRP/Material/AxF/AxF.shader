@@ -1,4 +1,4 @@
-﻿Shader "HDRenderPipeline/AxF"
+Shader "HDRenderPipeline/AxF"
 {
     Properties
     {
@@ -139,7 +139,6 @@ _DEBUG_clearCoatIOR( "Clear Coat IOR", Float ) = 1
 
     #pragma shader_feature _ALPHATEST_ON
     #pragma shader_feature _DOUBLESIDED_ON
-    #pragma shader_feature _EMISSIVE_COLOR_MAP
 
     // Keyword for transparent
     #pragma shader_feature _SURFACE_TYPE_TRANSPARENT
@@ -161,14 +160,14 @@ _DEBUG_clearCoatIOR( "Clear Coat IOR", Float ) = 1
     //-------------------------------------------------------------------------------------
 
     #include "CoreRP/ShaderLibrary/Common.hlsl"
-    #include "../../ShaderPass/FragInputs.hlsl"
-    #include "../../ShaderPass/ShaderPass.cs.hlsl"
+    #include "HDRP/ShaderPass/FragInputs.hlsl"
+    #include "HDRP/ShaderPass/ShaderPass.cs.hlsl"
 
     //-------------------------------------------------------------------------------------
     // variable declaration
     //-------------------------------------------------------------------------------------
 
-    #include "../../Material/AxF/AxFProperties.hlsl"
+    #include "HDRP/Material/AxF/AxFProperties.hlsl"
 
     // All our shaders use same name for entry point
     #pragma vertex Vert
@@ -181,7 +180,28 @@ _DEBUG_clearCoatIOR( "Clear Coat IOR", Float ) = 1
 	    // This tags allow to use the shader replacement features
 	    Tags{ "RenderPipeline" = "HDRenderPipeline" "RenderType" = "HDAxFShader" }
 
-	    // Caution: The outline selection in the editor use the vertex shader/hull/domain shader of the first pass declare. So it should not be the meta pass.
+        Pass
+        {
+            Name "SceneSelectionPass" // Name is not used
+            Tags { "LightMode" = "SceneSelectionPass" }
+
+            Cull Off
+
+            HLSLPROGRAM
+
+            // Note: Require _ObjectId and _PassValue variables
+
+            // We reuse depth prepass for the scene selection, allow to handle alpha correctly as well as tessellation and vertex animation
+            #define SHADERPASS SHADERPASS_DEPTH_ONLY
+            #define SCENESELECTIONPASS // This will drive the output of the scene selection shader
+            #include "../../ShaderVariables.hlsl"
+            #include "../../Material/Material.hlsl"
+            #include "ShaderPass/AxFDepthPass.hlsl"
+            #include "AxFData.hlsl"
+            #include "../../ShaderPass/ShaderPassDepthOnly.hlsl"
+
+            ENDHLSL
+        }
 
 	    Pass
 	    {
