@@ -1874,12 +1874,17 @@ void    PostEvaluateBSDF(   LightLoopContext lightLoopContext,
 
     #endif
 
-// DEBUG: Make sure the flakes texture2DArray is correct!
+//// DEBUG: Make sure the flakes texture2DArray is correct!
 //#if defined(_AXF_BRDF_TYPE_CAR_PAINT)
 //diffuseLighting = 0;
 ////specularLighting = float3( 1, 0, 0 );
-//specularLighting = SamplesFlakes( BsdfData.flakesUV, _DEBUG_clearCoatIOR, 0 );
+////specularLighting = SamplesFlakes( BsdfData.flakesUV, _DEBUG_clearCoatIOR, 0 );
+//specularLighting = _CarPaint_BTFFlakesMap_Scale * SAMPLE_TEXTURE2D_ARRAY_LOD( _CarPaint_BTFFlakesMap_sRGB, sampler_CarPaint_BTFFlakesMap_sRGB, BsdfData.flakesUV, 0, _DEBUG_clearCoatIOR ).xyz;
+////specularLighting = float3( BsdfData.flakesUV, 0 );
+//
+////specularLighting  = pow( max( 0, specularLighting ), 2.2 );
 //#endif
+
 
 /*
 // DEBUG DFG Texture
