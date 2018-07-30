@@ -14,9 +14,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         //-----------------------------------------------------------------------------
 
         // Main structure that store the user data (i.e user input of master node in material graph)
-        [GenerateHLSL(PackingRules.Exact, false, true, 1500)]
-        public struct SurfaceData {
-
+        [GenerateHLSL(PackingRules.Exact, false, true, 1200)]
+        public struct SurfaceData
+        {
             [SurfaceDataAttributes(new string[]{"Normal", "Normal View Space"}, true)]
             public Vector3  normalWS;
 
@@ -26,10 +26,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             [SurfaceDataAttributes("BiTangent", true)]
             public Vector3  biTangentWS;
 
-
-            //////////////////////////////////////////////////////////////////////////
             // SVBRDF Variables
-            //
             [SurfaceDataAttributes("Diffuse Color", false, true)]
             public Vector3  diffuseColor;
 
@@ -48,23 +45,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             [SurfaceDataAttributes("Anisotropic Angle")]
             public float    anisotropyAngle;
 
-
-            //////////////////////////////////////////////////////////////////////////
             // Car Paint Variables
-            //
             [SurfaceDataAttributes("Flakes UV")]
             public Vector2	flakesUV;
 
             [SurfaceDataAttributes("Flakes Mip")]
             public float    flakesMipLevel;
             
-
-            //////////////////////////////////////////////////////////////////////////
             // BTF Variables
-            //
 
-
-            //////////////////////////////////////////////////////////////////////////
             // Clear Coat
             [SurfaceDataAttributes("Clear Coat Color")]
             public Vector3  clearCoatColor;
@@ -74,77 +63,43 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             [SurfaceDataAttributes("Clear Coat IOR")]
             public float    clearCoatIOR;
-
         };
 
         //-----------------------------------------------------------------------------
         // BSDFData
         //-----------------------------------------------------------------------------
 
-        [GenerateHLSL(PackingRules.Exact, false, true, 1600)]
-        public struct BSDFData {
-
+        [GenerateHLSL(PackingRules.Exact, false, true, 1250)]
+        public struct BSDFData
+        {
             [SurfaceDataAttributes(new string[] { "Normal WS", "Normal View Space" }, true)]
             public Vector3	normalWS;
-
-            [SurfaceDataAttributes("", true)]
             public Vector3  tangentWS;
-
-            [SurfaceDataAttributes("", true)]
             public Vector3  biTangentWS;
 
-
-            //////////////////////////////////////////////////////////////////////////
             // SVBRDF Variables
-            //
-            [SurfaceDataAttributes("", false, true)]
             public Vector3	diffuseColor;
-     
-            [SurfaceDataAttributes("", false, true)]
             public Vector3	specularColor;
-
-            [SurfaceDataAttributes("", false, true)]
             public Vector3  fresnelF0;
-
-            [SurfaceDataAttributes("", false, true)]
             public Vector2	roughness;
-  
-            [SurfaceDataAttributes("", false, true)]
             public float	height_mm;
-
-            [SurfaceDataAttributes("", false, true)]
             public float	anisotropyAngle;
 
-
-            //////////////////////////////////////////////////////////////////////////
             // Car Paint Variables
-            //
             [SurfaceDataAttributes("")]
             public Vector2	flakesUV;
 
             [SurfaceDataAttributes("Flakes Mip")]
             public float    flakesMipLevel;
 
-
-            //////////////////////////////////////////////////////////////////////////
             // BTF Variables
-            //
 
-
-            //////////////////////////////////////////////////////////////////////////
             // Clear Coat
-            //
-            [SurfaceDataAttributes("", false, true)]
             public Vector3  clearCoatColor;
-
-            [SurfaceDataAttributes("", true)]
             public Vector3  clearCoatNormalWS;
-  
-            [SurfaceDataAttributes("", false, true)]
             public float	clearCoatIOR;
         };
 
-//*
         //-----------------------------------------------------------------------------
         // Init precomputed texture
         //-----------------------------------------------------------------------------
@@ -157,20 +112,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public AxF() {}
 
-        public override void Build( HDRenderPipelineAsset hdAsset ) {
-
+        public override void Build(HDRenderPipelineAsset hdAsset)
+        {
             LTCAreaLight.instance.Build();
 
             if ( m_preIntegratedFGDMaterial_Ward != null )
                 return; // Already initialized
 
             // Create Materials
-            m_preIntegratedFGDMaterial_Ward = CoreUtils.CreateEngineMaterial( "Hidden/HDRenderPipeline/PreIntegratedFGD_WardLambert" );
+            m_preIntegratedFGDMaterial_Ward = CoreUtils.CreateEngineMaterial("Hidden/HDRenderPipeline/PreIntegratedFGD_WardLambert");
             if ( m_preIntegratedFGDMaterial_Ward == null )
-                throw new Exception( "Failed to create material for Ward BRDF pre-integration!" );
+                throw new Exception("Failed to create material for Ward BRDF pre-integration!");
 
-            m_preIntegratedFGDMaterial_CookTorrance = CoreUtils.CreateEngineMaterial( "Hidden/HDRenderPipeline/PreIntegratedFGD_CookTorranceLambert" );
-            if ( m_preIntegratedFGDMaterial_CookTorrance == null )
+            m_preIntegratedFGDMaterial_CookTorrance = CoreUtils.CreateEngineMaterial("Hidden/HDRenderPipeline/PreIntegratedFGD_CookTorranceLambert");
+            if (m_preIntegratedFGDMaterial_CookTorrance == null)
                 throw new Exception( "Failed to create material for Cook-Torrance BRDF pre-integration!" );
 
             // Create render textures where we will render the FGD tables
@@ -191,10 +146,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_preIntegratedFGD_CookTorrance.Create();
         }
 
-        public override void Cleanup() {
-
-// Debug.Log( "Destroying Ward/CookieResolution-Torrance FGD shaders!" );
-
+        public override void Cleanup()
+        {
             CoreUtils.Destroy( m_preIntegratedFGD_CookTorrance );
             CoreUtils.Destroy( m_preIntegratedFGD_Ward );
             CoreUtils.Destroy( m_preIntegratedFGDMaterial_CookTorrance );
@@ -208,42 +161,42 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             LTCAreaLight.instance.Cleanup();
         }
 
-        public override void RenderInit(CommandBuffer cmd) {
-            if (    m_preIntegratedFGDMaterial_Ward == null
-                ||  m_preIntegratedFGDMaterial_CookTorrance == null ) {
-                return;
-            }
-// Disable cache while developing shader
-            if ( m_preIntegratedTableAvailable ) {
-//Debug.Log( "****Ward FGD table already computed****" );
+        public override void RenderInit(CommandBuffer cmd)
+        {
+            if (m_preIntegratedFGDMaterial_Ward == null || m_preIntegratedFGDMaterial_CookTorrance == null)
+            {
                 return;
             }
 
-Debug.Log( "Rendering Ward/Cook-Torrance FGD table!" );
+            // Disable cache while developing shader
+            if ( m_preIntegratedTableAvailable )
+            {
+                return;
+            }
 
-            using ( new ProfilingSample( cmd, "PreIntegratedFGD Material Generation for Ward & Cook-Torrance BRDF" ) ) {
-                CoreUtils.DrawFullScreen( cmd, m_preIntegratedFGDMaterial_Ward, new RenderTargetIdentifier( m_preIntegratedFGD_Ward ) );
-                CoreUtils.DrawFullScreen( cmd, m_preIntegratedFGDMaterial_CookTorrance, new RenderTargetIdentifier( m_preIntegratedFGD_CookTorrance ) );
+            //Debug.Log( "Rendering Ward/Cook-Torrance FGD table!" );
+
+            using (new ProfilingSample(cmd, "PreIntegratedFGD Material Generation for Ward & Cook-Torrance BRDF"))
+            {
+                CoreUtils.DrawFullScreen(cmd, m_preIntegratedFGDMaterial_Ward, new RenderTargetIdentifier(m_preIntegratedFGD_Ward));
+                CoreUtils.DrawFullScreen(cmd, m_preIntegratedFGDMaterial_CookTorrance, new RenderTargetIdentifier(m_preIntegratedFGD_CookTorrance));
                 m_preIntegratedTableAvailable = true;
-Debug.Log( "*FINISHED RENDERING* Ward/Cook-Torrance FGD table!" );
+
+                //Debug.Log( "*FINISHED RENDERING* Ward/Cook-Torrance FGD table!" );
             }
         }
 
-        public override void Bind() {
-
+        public override void Bind()
+        {
             LTCAreaLight.instance.Bind();
 
-            if (    m_preIntegratedFGD_Ward == null
-                ||  m_preIntegratedFGD_CookTorrance == null
-                ||  !m_preIntegratedTableAvailable ) {
+            if (m_preIntegratedFGD_Ward == null ||  m_preIntegratedFGD_CookTorrance == null ||  !m_preIntegratedTableAvailable )
+            {
                 throw new Exception( "Ward & Cook-Torrance BRDF pre-integration table not available!" );
             }
-
-//Debug.Log( "Binding Ward FGD table!" );
 
             Shader.SetGlobalTexture( "_PreIntegratedFGD_WardLambert", m_preIntegratedFGD_Ward );
             Shader.SetGlobalTexture( "_PreIntegratedFGD_CookTorranceLambert", m_preIntegratedFGD_CookTorrance );
         }
-//*/
     }
 }

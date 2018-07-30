@@ -7,40 +7,40 @@
 //
 // UnityEngine.Experimental.Rendering.HDPipeline.AxF+SurfaceData:  static fields
 //
-#define DEBUGVIEW_AXF_SURFACEDATA_NORMAL (1500)
-#define DEBUGVIEW_AXF_SURFACEDATA_NORMAL_VIEW_SPACE (1501)
-#define DEBUGVIEW_AXF_SURFACEDATA_TANGENT (1502)
-#define DEBUGVIEW_AXF_SURFACEDATA_BI_TANGENT (1503)
-#define DEBUGVIEW_AXF_SURFACEDATA_DIFFUSE_COLOR (1504)
-#define DEBUGVIEW_AXF_SURFACEDATA_SPECULAR_COLOR (1505)
-#define DEBUGVIEW_AXF_SURFACEDATA_FRESNEL_F0 (1506)
-#define DEBUGVIEW_AXF_SURFACEDATA_SPECULAR_LOBE (1507)
-#define DEBUGVIEW_AXF_SURFACEDATA_HEIGHT (1508)
-#define DEBUGVIEW_AXF_SURFACEDATA_ANISOTROPIC_ANGLE (1509)
-#define DEBUGVIEW_AXF_SURFACEDATA_FLAKES_UV (1510)
-#define DEBUGVIEW_AXF_SURFACEDATA_FLAKES_MIP (1511)
-#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_COLOR (1512)
-#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_NORMAL (1513)
-#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_IOR (1514)
+#define DEBUGVIEW_AXF_SURFACEDATA_NORMAL (1200)
+#define DEBUGVIEW_AXF_SURFACEDATA_NORMAL_VIEW_SPACE (1201)
+#define DEBUGVIEW_AXF_SURFACEDATA_TANGENT (1202)
+#define DEBUGVIEW_AXF_SURFACEDATA_BI_TANGENT (1203)
+#define DEBUGVIEW_AXF_SURFACEDATA_DIFFUSE_COLOR (1204)
+#define DEBUGVIEW_AXF_SURFACEDATA_SPECULAR_COLOR (1205)
+#define DEBUGVIEW_AXF_SURFACEDATA_FRESNEL_F0 (1206)
+#define DEBUGVIEW_AXF_SURFACEDATA_SPECULAR_LOBE (1207)
+#define DEBUGVIEW_AXF_SURFACEDATA_HEIGHT (1208)
+#define DEBUGVIEW_AXF_SURFACEDATA_ANISOTROPIC_ANGLE (1209)
+#define DEBUGVIEW_AXF_SURFACEDATA_FLAKES_UV (1210)
+#define DEBUGVIEW_AXF_SURFACEDATA_FLAKES_MIP (1211)
+#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_COLOR (1212)
+#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_NORMAL (1213)
+#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_IOR (1214)
 
 //
 // UnityEngine.Experimental.Rendering.HDPipeline.AxF+BSDFData:  static fields
 //
-#define DEBUGVIEW_AXF_BSDFDATA_NORMAL_WS (1600)
-#define DEBUGVIEW_AXF_BSDFDATA_NORMAL_VIEW_SPACE (1601)
-#define DEBUGVIEW_AXF_BSDFDATA_TANGENT_WS (1602)
-#define DEBUGVIEW_AXF_BSDFDATA_BI_TANGENT_WS (1603)
-#define DEBUGVIEW_AXF_BSDFDATA_DIFFUSE_COLOR (1604)
-#define DEBUGVIEW_AXF_BSDFDATA_SPECULAR_COLOR (1605)
-#define DEBUGVIEW_AXF_BSDFDATA_FRESNEL_F0 (1606)
-#define DEBUGVIEW_AXF_BSDFDATA_ROUGHNESS (1607)
-#define DEBUGVIEW_AXF_BSDFDATA_HEIGHT_MM (1608)
-#define DEBUGVIEW_AXF_BSDFDATA_ANISOTROPY_ANGLE (1609)
-#define DEBUGVIEW_AXF_BSDFDATA_FLAKES_UV (1610)
-#define DEBUGVIEW_AXF_BSDFDATA_FLAKES_MIP (1611)
-#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_COLOR (1612)
-#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_NORMAL_WS (1613)
-#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_IOR (1614)
+#define DEBUGVIEW_AXF_BSDFDATA_NORMAL_WS (1250)
+#define DEBUGVIEW_AXF_BSDFDATA_NORMAL_VIEW_SPACE (1251)
+#define DEBUGVIEW_AXF_BSDFDATA_TANGENT_WS (1252)
+#define DEBUGVIEW_AXF_BSDFDATA_BI_TANGENT_WS (1253)
+#define DEBUGVIEW_AXF_BSDFDATA_DIFFUSE_COLOR (1254)
+#define DEBUGVIEW_AXF_BSDFDATA_SPECULAR_COLOR (1255)
+#define DEBUGVIEW_AXF_BSDFDATA_FRESNEL_F0 (1256)
+#define DEBUGVIEW_AXF_BSDFDATA_ROUGHNESS (1257)
+#define DEBUGVIEW_AXF_BSDFDATA_HEIGHT_MM (1258)
+#define DEBUGVIEW_AXF_BSDFDATA_ANISOTROPY_ANGLE (1259)
+#define DEBUGVIEW_AXF_BSDFDATA_FLAKES_UV (1260)
+#define DEBUGVIEW_AXF_BSDFDATA_FLAKES_MIP (1261)
+#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_COLOR (1262)
+#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_NORMAL_WS (1263)
+#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_IOR (1264)
 
 // Generated from UnityEngine.Experimental.Rendering.HDPipeline.AxF+SurfaceData
 // PackingRules = Exact
@@ -156,51 +156,43 @@ void GetGeneratedBSDFDataDebug(uint paramId, BSDFData bsdfdata, inout float3 res
             result = bsdfdata.normalWS * 0.5 + 0.5;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_TANGENT_WS:
-            result = bsdfdata.tangentWS * 0.5 + 0.5;
+            result = bsdfdata.tangentWS;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_BI_TANGENT_WS:
-            result = bsdfdata.biTangentWS * 0.5 + 0.5;
+            result = bsdfdata.biTangentWS;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_DIFFUSE_COLOR:
             result = bsdfdata.diffuseColor;
-            needLinearToSRGB = true;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_SPECULAR_COLOR:
             result = bsdfdata.specularColor;
-            needLinearToSRGB = true;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_FRESNEL_F0:
             result = bsdfdata.fresnelF0;
-            needLinearToSRGB = true;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_ROUGHNESS:
             result = float3(bsdfdata.roughness, 0.0);
-            needLinearToSRGB = true;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_HEIGHT_MM:
             result = bsdfdata.height_mm.xxx;
-            needLinearToSRGB = true;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_ANISOTROPY_ANGLE:
             result = bsdfdata.anisotropyAngle.xxx;
-            needLinearToSRGB = true;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_FLAKES_UV:
             result = float3(bsdfdata.flakesUV, 0.0);
             break;
         case DEBUGVIEW_AXF_BSDFDATA_FLAKES_MIP:
-            result = bsdfdata.flakesMipLevel.xxx / 9.0;
+            result = bsdfdata.flakesMipLevel.xxx;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_COLOR:
-            result = 0.5 * bsdfdata.clearCoatColor;
-            needLinearToSRGB = true;
+            result = bsdfdata.clearCoatColor;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_NORMAL_WS:
-            result = bsdfdata.clearCoatNormalWS * 0.5 + 0.5;
+            result = bsdfdata.clearCoatNormalWS;
             break;
         case DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_IOR:
-            result = bsdfdata.clearCoatIOR.xxx / 3.0;
-            needLinearToSRGB = true;
+            result = bsdfdata.clearCoatIOR.xxx;
             break;
     }
 }
