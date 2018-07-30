@@ -76,7 +76,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
     surfaceData.diffuseColor = _CarPaint_CT_diffuse * _BaseColor.xyz;
     surfaceData.clearCoatIOR = max(1.001, _CarPaint_IOR);    // Can't be exactly 1 otherwise the precise fresnel divides by 0!
 
-    GetNormalWS(input, V, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0).xyz - 1.0, surfaceData.clearCoatNormalWS);
+    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0).xyz - 1.0, surfaceData.clearCoatNormalWS);
     // surfaceData.normalWS = surfaceData.clearCoatNormalWS; // Use clear coat normal map as global surface normal map
 
 
