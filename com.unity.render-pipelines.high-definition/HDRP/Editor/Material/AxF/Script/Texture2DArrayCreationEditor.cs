@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Experimental.Rendering;
@@ -123,7 +123,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         private void GenerateTexture() {
             int slicesCount = slicesCountX * slicesCountY;
-            Texture2DArray texture = new Texture2DArray( m_sliceWidth, m_sliceHeight, slicesCount, m_sourceTexture.format, true );
+            Texture2DArray texture = new Texture2DArray( m_sliceWidth, m_sliceHeight, slicesCount, m_sourceTexture.format, true, false );
             texture.wrapMode = m_sourceTexture.wrapMode;
             texture.wrapModeU = m_sourceTexture.wrapModeU;
             texture.wrapModeV = m_sourceTexture.wrapModeV;

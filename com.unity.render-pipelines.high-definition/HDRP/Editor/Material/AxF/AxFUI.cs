@@ -12,11 +12,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             /////////////////////////////////////////////////////////////////////////////////////////////////
             // SVBRDF Parameters
-	        public static GUIContent	diffuseColorMapText = new GUIContent( "Diffuse Color (Gamma 2.2)" );
-	        public static GUIContent	specularColorMapText = new GUIContent( "Specular Color (Gamma 2.2)" );
+	        public static GUIContent	diffuseColorMapText = new GUIContent( "Diffuse Color (sRGB)" );
+	        public static GUIContent	specularColorMapText = new GUIContent( "Specular Color (sRGB)" );
 	        public static GUIContent	specularLobeMapText = new GUIContent( "Specular Lobe" );
 	        public static GUIContent	specularLobeMapScaleText = new GUIContent( "Specular Lobe Scale" );
-	        public static GUIContent	fresnelMapText = new GUIContent( "Fresnel (Gamma 2.2)" );
+	        public static GUIContent	fresnelMapText = new GUIContent( "Fresnel (sRGB)" );
 	        public static GUIContent	normalMapText = new GUIContent( "Normal" );
 
             // Opacity
@@ -30,10 +30,10 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             /////////////////////////////////////////////////////////////////////////////////////////////////
             // Car Paint Parameters
-	        public static GUIContent	BRDFColorMapText = new GUIContent( "BRDF Color (Gamma 2.2)" );
+	        public static GUIContent	BRDFColorMapText = new GUIContent( "BRDF Color (sRGB)" );
 	        public static GUIContent	BRDFColorMapScaleText = new GUIContent( "BRDF Color Scale" );
 
-	        public static GUIContent	BTFFlakesMapText = new GUIContent( "BTF Flakes Color (Gamma 2.2) Texture2DArray" );
+	        public static GUIContent	BTFFlakesMapText = new GUIContent( "BTF Flakes Color (sRGB) Texture2DArray" );
 	        public static GUIContent	BTFFlakesMapScaleText = new GUIContent( "BTF Flakes Scale" );
 	        public static GUIContent	FlakesTilingText = new GUIContent( "Flakes Tiling" );
 
@@ -45,7 +45,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             // Generic
   
             // Clear-coat
-	        public static GUIContent	clearCoatColorMapText = new GUIContent( "Clear-Coat Color (Gamma 2.2)" );
+	        public static GUIContent	clearCoatColorMapText = new GUIContent( "Clear-Coat Color (sRGB)" );
 	        public static GUIContent	clearCoatNormalMapText = new GUIContent( "Clear-Coat Normal" );
 	        public static GUIContent	clearCoatIORMapText = new GUIContent( "Clear-Coat IOR" );
         }
