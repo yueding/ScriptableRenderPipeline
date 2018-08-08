@@ -19,9 +19,9 @@
 #define DEBUGVIEW_AXF_SURFACEDATA_ANISOTROPIC_ANGLE (1209)
 #define DEBUGVIEW_AXF_SURFACEDATA_FLAKES_UV (1210)
 #define DEBUGVIEW_AXF_SURFACEDATA_FLAKES_MIP (1211)
-#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_COLOR (1212)
-#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_NORMAL (1213)
-#define DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_IOR (1214)
+#define DEBUGVIEW_AXF_SURFACEDATA_CLEARCOAT_COLOR (1212)
+#define DEBUGVIEW_AXF_SURFACEDATA_CLEARCOAT_NORMAL (1213)
+#define DEBUGVIEW_AXF_SURFACEDATA_CLEARCOAT_IOR (1214)
 
 //
 // UnityEngine.Experimental.Rendering.HDPipeline.AxF+BSDFData:  static fields
@@ -38,9 +38,9 @@
 #define DEBUGVIEW_AXF_BSDFDATA_ANISOTROPY_ANGLE (1259)
 #define DEBUGVIEW_AXF_BSDFDATA_FLAKES_UV (1260)
 #define DEBUGVIEW_AXF_BSDFDATA_FLAKES_MIP (1261)
-#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_COLOR (1262)
-#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_NORMAL_WS (1263)
-#define DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_IOR (1264)
+#define DEBUGVIEW_AXF_BSDFDATA_CLEARCOAT_COLOR (1262)
+#define DEBUGVIEW_AXF_BSDFDATA_CLEARCOAT_NORMAL_WS (1263)
+#define DEBUGVIEW_AXF_BSDFDATA_CLEARCOAT_IOR (1264)
 
 // Generated from UnityEngine.Experimental.Rendering.HDPipeline.AxF+SurfaceData
 // PackingRules = Exact
@@ -57,9 +57,9 @@ struct SurfaceData
     float anisotropyAngle;
     float2 flakesUV;
     float flakesMipLevel;
-    float3 clearCoatColor;
-    float3 clearCoatNormalWS;
-    float clearCoatIOR;
+    float3 clearcoatColor;
+    float3 clearcoatNormalWS;
+    float clearcoatIOR;
 };
 
 // Generated from UnityEngine.Experimental.Rendering.HDPipeline.AxF+BSDFData
@@ -77,9 +77,9 @@ struct BSDFData
     float anisotropyAngle;
     float2 flakesUV;
     float flakesMipLevel;
-    float3 clearCoatColor;
-    float3 clearCoatNormalWS;
-    float clearCoatIOR;
+    float3 clearcoatColor;
+    float3 clearcoatNormalWS;
+    float clearcoatIOR;
 };
 
 //
@@ -129,15 +129,15 @@ void GetGeneratedSurfaceDataDebug(uint paramId, SurfaceData surfacedata, inout f
         case DEBUGVIEW_AXF_SURFACEDATA_FLAKES_MIP:
             result = surfacedata.flakesMipLevel.xxx;
             break;
-        case DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_COLOR:
-            result = surfacedata.clearCoatColor;
+        case DEBUGVIEW_AXF_SURFACEDATA_CLEARCOAT_COLOR:
+            result = surfacedata.clearcoatColor;
             break;
-        case DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_NORMAL:
-            result = surfacedata.clearCoatNormalWS * 0.5 + 0.5;
+        case DEBUGVIEW_AXF_SURFACEDATA_CLEARCOAT_NORMAL:
+            result = surfacedata.clearcoatNormalWS * 0.5 + 0.5;
             needLinearToSRGB = true;
             break;
-        case DEBUGVIEW_AXF_SURFACEDATA_CLEAR_COAT_IOR:
-            result = surfacedata.clearCoatIOR.xxx;
+        case DEBUGVIEW_AXF_SURFACEDATA_CLEARCOAT_IOR:
+            result = surfacedata.clearcoatIOR.xxx;
             break;
     }
 }
@@ -185,14 +185,14 @@ void GetGeneratedBSDFDataDebug(uint paramId, BSDFData bsdfdata, inout float3 res
         case DEBUGVIEW_AXF_BSDFDATA_FLAKES_MIP:
             result = bsdfdata.flakesMipLevel.xxx;
             break;
-        case DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_COLOR:
-            result = bsdfdata.clearCoatColor;
+        case DEBUGVIEW_AXF_BSDFDATA_CLEARCOAT_COLOR:
+            result = bsdfdata.clearcoatColor;
             break;
-        case DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_NORMAL_WS:
-            result = bsdfdata.clearCoatNormalWS;
+        case DEBUGVIEW_AXF_BSDFDATA_CLEARCOAT_NORMAL_WS:
+            result = bsdfdata.clearcoatNormalWS;
             break;
-        case DEBUGVIEW_AXF_BSDFDATA_CLEAR_COAT_IOR:
-            result = bsdfdata.clearCoatIOR.xxx;
+        case DEBUGVIEW_AXF_BSDFDATA_CLEARCOAT_IOR:
+            result = bsdfdata.clearcoatIOR.xxx;
             break;
     }
 }

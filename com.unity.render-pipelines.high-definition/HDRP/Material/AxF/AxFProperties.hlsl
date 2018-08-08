@@ -17,55 +17,55 @@ SAMPLER(sampler_BaseColorMap);
 
 //////////////////////////////////////////////////////////////////////////////
 // SVBRDF
-TEXTURE2D(_SVBRDF_DiffuseColorMap_sRGB);          // RGB Diffuse color (2.2 gamma must be applied)
-TEXTURE2D(_SVBRDF_SpecularColorMap_sRGB);         // RGB Specular color (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_DiffuseColorMap);          // RGB Diffuse color (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_SpecularColorMap);         // RGB Specular color (2.2 gamma must be applied)
 TEXTURE2D(_SVBRDF_NormalMap);                     // Tangent-Space Normal vector with offset (i.e. in [0,1], need to 2*normal-1 to get actual vector)
 TEXTURE2D(_SVBRDF_SpecularLobeMap);               // Specular lobe in [0,1]. Either a scalar if isotropic, or a float2 if anisotropic.
-TEXTURE2D(_SVBRDF_OpacityMap);                    // Alpha (scalar in [0,1])
-TEXTURE2D(_SVBRDF_FresnelMap_sRGB);               // RGB F0 (2.2 gamma must be applied)
-TEXTURE2D(_SVBRDF_AnisotropicRotationAngleMap);   // Rotation angle (scalar in [0,1], needs to be remapped in [0,2PI])
+TEXTURE2D(_SVBRDF_AlphaMap);                    // Alpha (scalar in [0,1])
+TEXTURE2D(_SVBRDF_FresnelMap);               // RGB F0 (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_AnisoRotationMap);   // Rotation angle (scalar in [0,1], needs to be remapped in [0,2PI])
 TEXTURE2D(_SVBRDF_HeightMap);                     // Height map (scalar in [0,1], need to be remapped with heightmap
 
-SAMPLER(sampler_SVBRDF_DiffuseColorMap_sRGB);
-SAMPLER(sampler_SVBRDF_SpecularColorMap_sRGB);
+SAMPLER(sampler_SVBRDF_DiffuseColorMap);
+SAMPLER(sampler_SVBRDF_SpecularColorMap);
 SAMPLER(sampler_SVBRDF_NormalMap);
 SAMPLER(sampler_SVBRDF_SpecularLobeMap);
-SAMPLER(sampler_SVBRDF_OpacityMap);
-SAMPLER(sampler_SVBRDF_FresnelMap_sRGB);
-SAMPLER(sampler_SVBRDF_AnisotropicRotationAngleMap);
+SAMPLER(sampler_SVBRDF_AlphaMap);
+SAMPLER(sampler_SVBRDF_FresnelMap);
+SAMPLER(sampler_SVBRDF_AnisoRotationMap);
 SAMPLER(sampler_SVBRDF_HeightMap);
 
 
 //////////////////////////////////////////////////////////////////////////////
 // Car Paint
-TEXTURE2D(_CarPaint_BRDFColorMap_sRGB);       // RGB BRDF color (2.2 gamma must be applied + scale)
-TEXTURE2D_ARRAY(_CarPaint_BTFFlakesMap_sRGB); // RGB Flakes color (2.2 gamma must be applied + scale)
-TEXTURE2D(_CarPaint_thetaFI_sliceLUTMap);     // UINT indirection values (must be scaled by 255 and cast as UINTs)
+TEXTURE2D(_CarPaint2_BRDFColorMap);       // RGB BRDF color (2.2 gamma must be applied + scale)
+TEXTURE2D_ARRAY(_CarPaint2_BTFFlakeMap); // RGB Flakes color (2.2 gamma must be applied + scale)
+TEXTURE2D(_CarPaint2_FlakeThetaFISliceLUTMap);     // UINT indirection values (must be scaled by 255 and cast as UINTs)
 
-SAMPLER(sampler_CarPaint_BRDFColorMap_sRGB);
-SAMPLER(sampler_CarPaint_BTFFlakesMap_sRGB);
-SAMPLER(sampler_CarPaint_thetaFI_sliceLUTMap);
+SAMPLER(sampler_CarPaint2_BRDFColorMap);
+SAMPLER(sampler_CarPaint2_BTFFlakeMap);
+SAMPLER(sampler_CarPaint2_FlakeThetaFISliceLUTMap);
 
 
 //////////////////////////////////////////////////////////////////////////////
 // Other
-TEXTURE2D(_SVBRDF_ClearCoatColorMap_sRGB);        // RGB Clear coat color (2.2 gamma must be applied)
-TEXTURE2D(_SVBRDF_ClearCoatNormalMap);            // Tangent-Space clear coat Normal vector with offset (i.e. in [0,1], need to 2*normal-1 to get actual vector)
-TEXTURE2D(_SVBRDF_ClearCoatIORMap_sRGB);          // Clear coat F0 (2.2 gamma must be applied)
+TEXTURE2D(_SVBRDF_ClearcoatColorMap);        // RGB Clearcoat color (2.2 gamma must be applied)
+TEXTURE2D(_ClearcoatNormalMap);            // Tangent-Space clearcoat Normal vector with offset (i.e. in [0,1], need to 2*normal-1 to get actual vector)
+TEXTURE2D(_SVBRDF_ClearcoatIORMap);          // Clearcoat F0 (2.2 gamma must be applied)
 
-SAMPLER(sampler_SVBRDF_ClearCoatColorMap_sRGB);
-SAMPLER(sampler_SVBRDF_ClearCoatNormalMap);
-SAMPLER(sampler_SVBRDF_ClearCoatIORMap_sRGB);
+SAMPLER(sampler_SVBRDF_ClearcoatColorMap);
+SAMPLER(sampler_ClearcoatNormalMap);
+SAMPLER(sampler_SVBRDF_ClearcoatIORMap);
 
 
 CBUFFER_START(UnityPerMaterial)
 
-    float   _materialSizeU_mm;              // Size of the U range, in millimeters (currently used as UV scale factor)
-    float   _materialSizeV_mm;              // Size of the V range, in millimeters (currently used as UV scale factor)
+    float   _MaterialTilingU;              // Size of the U range, in millimeters (currently used as UV scale factor)
+    float   _MaterialTilingV;              // Size of the V range, in millimeters (currently used as UV scale factor)
 
-    uint    _flags;                         // Bit 0 = Anisotropic. If true, specular lobe map contains 2 channels and the _AnisotropicRotationAngleMap needs to be read
-                                            // Bit 1 = HasClearCoat. If true, the clear coat must be applied. The _ClearCoatNormalMap must be valid and contain clear coat normal data.
-                                            // Bit 2 = ClearCoatUseRefraction. If true, then _ClearCoatIORMap must be valid and contain clear coat IOR data. If false then rays are not refracted by the clear coat layer.
+    uint    _Flags;                         // Bit 0 = Anisotropic. If true, specular lobe map contains 2 channels and the _AnisotropicRotationAngleMap needs to be read
+                                            // Bit 1 = HasClearcoat. If true, the clearcoat must be applied. The _ClearcoatNormalMap must be valid and contain clearcoat normal data.
+                                            // Bit 2 = ClearcoatUseRefraction. If true, then _ClearcoatIORMap must be valid and contain clearcoat IOR data. If false then rays are not refracted by the clearcoat layer.
                                             // Bit 3 = useHeightMap. If true then displacement mapping is used and _HeightMap must contain valid data.
                                             //
 
@@ -80,31 +80,31 @@ CBUFFER_START(UnityPerMaterial)
                                             // Bit 4-5 = Blinn-Phong Variant. 0 = Ashikmin-Shirley (2000), 1 = Blinn (1977), 2 = V-Ray, 3 = Lewis (1993)
                                             //
 
-    float   _SVBRDF_SpecularLobeMap_Scale;  // Optional scale factor to the specularLob map (useful when the map contains arbitrary Phong exponents)
+    float   _SVBRDF_SpecularLobeMapScale;  // Optional scale factor to the specularLob map (useful when the map contains arbitrary Phong exponents)
 
-    float   _SVBRDF_heightMapMax_mm;        // Maximum height map displacement, in millimeters
+    float   _SVBRDF_HeightMapMaxMM;        // Maximum height map displacement, in millimeters
 
 
     //////////////////////////////////////////////////////////////////////////////
     // Car Paint
-    float   _CarPaint_CT_diffuse;           // Diffuse factor
-    float   _CarPaint_IOR;                  // Clear coat IOR
+    float   _CarPaint2_CTDiffuse;           // Diffuse factor
+    float   _CarPaint2_ClearcoatIOR;                  // Clearcoat IOR
 
         // BRDF
-    float   _CarPaint_BRDFColorMap_Scale;   // Optional scale factor to the BRDFColor map
-    float   _CarPaint_BTFFlakesMap_Scale;   // Optional scale factor to the BTFFlakes map
+    float   _CarPaint2_BRDFColorMapScale;   // Optional scale factor to the BRDFColor map
+    float   _CarPaint2_BTFFlakeMapScale;   // Optional scale factor to the BTFFlakes map
 
         // Cook-Torrance Lobes Descriptors
-    uint    _CarPaint_lobesCount;           // Amount of valid components in the vectors below
-    float4  _CarPaint_CT_F0s;               // Description of multi-lobes F0 values
-    float4  _CarPaint_CT_coeffs;            // Description of multi-lobes coefficients values
-    float4  _CarPaint_CT_spreads;           // Description of multi-lobes spread values
+    uint    _CarPaint2_LobeCount;           // Amount of valid components in the vectors below
+    float4  _CarPaint2_CTF0s;               // Description of multi-lobes F0 values
+    float4  _CarPaint2_CTCoeffs;            // Description of multi-lobes coefficients values
+    float4  _CarPaint2_CTSpreads;           // Description of multi-lobes spread values
 
         // Flakes
-    float   _CarPaint_FlakesTiling;         // Tiling factor for flakes
-    uint    _CarPaint_maxThetaI;            // Maximum thetaI index
-    uint    _CarPaint_numThetaF;            // Amount of thetaF entries (in litterature, that's called thetaH, the angle between the normal and the half vector)
-    uint    _CarPaint_numThetaI;            // Amount of thetaI entries (in litterature, that's called thetaD, the angle between the light/view and the half vector)
+    float   _CarPaint2_FlakeTiling;         // Tiling factor for flakes
+    uint    _CarPaint2_FlakeMaxThetaI;            // Maximum thetaI index
+    uint    _CarPaint2_FlakeNumThetaF;            // Amount of thetaF entries (in litterature, that's called thetaH, the angle between the normal and the half vector)
+    uint    _CarPaint2_FlakeNumThetaI;            // Amount of thetaI entries (in litterature, that's called thetaD, the angle between the light/view and the half vector)
 
 
     //////////////////////////////////////////////////////////////////////////////
@@ -112,7 +112,7 @@ CBUFFER_START(UnityPerMaterial)
 float   _DEBUG_anisotropyAngle;
 float   _DEBUG_anisotropicRoughessX;
 float   _DEBUG_anisotropicRoughessY;
-float   _DEBUG_clearCoatIOR;
+float   _DEBUG_clearcoatIOR;
 
 
 
