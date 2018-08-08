@@ -7,67 +7,67 @@ Shader "HDRenderPipeline/AxF"
 
         /////////////////////////////////////////////////////////////////////////////
         // General Parameters
-        _materialSizeU_mm( "Material U Size (mm)", Float ) = 1
-        _materialSizeV_mm( "Material V Size (mm)", Float ) = 1
+        _MaterialTilingU( "Material U Tiling", Float ) = 1
+        _MaterialTilingV( "Material V Tiling", Float ) = 1
 
-        [Enum( SVBRDF, CarPaint, BTF )] _AxF_BRDFType( "AxF BRDF Type", Int ) = 0
+        [Enum( SVBRDF, CarPaint, BTF )] _AxF_BRDFType( "_AxF_BRDFType", Int ) = 0
 
-        [HideInInspector] _flags( "Flags", Int ) = 0
+        [HideInInspector] _Flags( "_Flags", Int ) = 0
 
         /////////////////////////////////////////////////////////////////////////////
         // SVBRDF Parameters
 
         // SVBRDF maps
-        _SVBRDF_DiffuseColorMap_sRGB("_SVBRDF_DiffuseColor (sRGB)", 2D) = "white" {}
-        _SVBRDF_SpecularColorMap_sRGB("_SVBRDF_SpecularColor", 2D) = "white" {}
-        _SVBRDF_NormalMap("_SVBRDF_Normal", 2D) = "bump" {}
-        _SVBRDF_SpecularLobeMap("_SVBRDF_SpecularLobe", 2D) = "white" {}
-        _SVBRDF_SpecularLobeMap_Scale("_SVBRDF_SpecularLobeMap_Scale", Float) = 1         // Scale is useless if we're directly provided a RG16F format
-        _SVBRDF_OpacityMap("_SVBRDF_Opacity", 2D) = "white" {}
-        _SVBRDF_FresnelMap_sRGB("_SVBRDF_Fresnel (sRGB)", 2D) = "white" {}
-        _SVBRDF_AnisotropicRotationAngleMap("_SVBRDF_AnisotropicRotationAngle", 2D) = "black" {}
-        _SVBRDF_HeightMap("_SVBRDF_Height", 2D) = "black" {}
-        _SVBRDF_ClearCoatColorMap_sRGB("_SVBRDF_ClearCoatColor (sRGB)", 2D) = "white" {}
-        _SVBRDF_ClearCoatNormalMap("_SVBRDF_ClearCoatNormal", 2D) = "bump" {}
-        _SVBRDF_ClearCoatIORMap_sRGB("_SVBRDF_ClearCoatIOR_sRGB", 2D) = "black" {}
+        _SVBRDF_DiffuseColorMap("_SVBRDF_DiffuseColorMap", 2D) = "white" {}
+        _SVBRDF_SpecularColorMap("_SVBRDF_SpecularColorMap", 2D) = "white" {}
+        _SVBRDF_NormalMap("_SVBRDF_NormalMap", 2D) = "bump" {}
+        _SVBRDF_SpecularLobeMap("_SVBRDF_SpecularLobeMap", 2D) = "white" {}
+        _SVBRDF_SpecularLobeMapScale("_SVBRDF_SpecularLobeMapScale", Float) = 1         // Scale is useless if we're directly provided a RG16F format
+        _SVBRDF_AlphaMap("_SVBRDF_AlphaMap", 2D) = "white" {}
+        _SVBRDF_FresnelMap("_SVBRDF_FresnelMap", 2D) = "white" {}
+        _SVBRDF_AnisoRotationMap("_SVBRDF_AnisoRotationMap", 2D) = "black" {}
+        _SVBRDF_HeightMap("_SVBRDF_HeightMap", 2D) = "black" {}
+        _SVBRDF_ClearcoatColorMap("_SVBRDF_ClearcoatColorMap", 2D) = "white" {}
+        _ClearcoatNormalMap("_ClearcoatNormal", 2D) = "bump" {}
+        _SVBRDF_ClearcoatIORMap("_SVBRDF_ClearcoatIORMap", 2D) = "black" {}
 
         // SVBRDF Constants
-        [HideInInspector] _SVBRDF_BRDFType( "BRDF Type", Int ) = 0
-        [HideInInspector] _SVBRDF_BRDFVariants( "BRDF Variants", Int ) = 0
-        [HideInInspector] _SVBRDF_heightMapMax_mm( "Height Map Max Displacement (mm)", Float ) = 0
+        [HideInInspector] _SVBRDF_BRDFType( "_SVBRDF_BRDFType", Int ) = 0
+        [HideInInspector] _SVBRDF_BRDFVariants( "_SVBRDF_BRDFVariants", Int ) = 0
+        [HideInInspector] _SVBRDF_HeightMapMaxMM( "_SVBRDF_HeightMapMax", Float ) = 0
 
 
         /////////////////////////////////////////////////////////////////////////////
         // Car Paint Parameters
-        _CarPaint_CT_diffuse("_CarPaint_CT_diffuse", Float) = 0
-        _CarPaint_IOR("_CarPaint_IOR", Float) = 1
+        _CarPaint2_CTDiffuse("_CarPaint2_CTDiffuse", Float) = 0
+        _CarPaint2_ClearcoatIOR("_CarPaint2_ClearcoatIOR", Float) = 1
 
         // BRDF
-        _CarPaint_BRDFColorMap_Scale("_CarPaint_BRDFColorMap_Scale", Float) = 1        // Scale is useless if we're directly provided a RGBA16F format
-        _CarPaint_BRDFColorMap_sRGB("_CarPaint_BRDFColorMap_sRGB (sRGB)", 2D) = "white" {}
+        _CarPaint2_BRDFColorMapScale("_CarPaint2_BRDFColorMapScale", Float) = 1        // Scale is useless if we're directly provided a RGBA16F format
+        _CarPaint2_BRDFColorMap("_CarPaint2_BRDFColorMap", 2D) = "white" {}
 
         // Flakes
-        _CarPaint_FlakesTiling("_CarPaint_FlakesTiling", Float) = 1
-        _CarPaint_BTFFlakesMap_Scale("_CarPaint_BTFFlakesMap_Scale", Float) = 1         // Scale is useless if we're directly provided a RGBA16F format
-        _CarPaint_BTFFlakesMap_sRGB("_CarPaint_BTFFlakesMap_sRGB (sRGB)", 2DArray) = "black" {}
-        _CarPaint_thetaFI_sliceLUTMap( "_CarPaint_thetaFI_sliceLUTMap", 2D ) = "black" {}
+        _CarPaint2_FlakeTiling("_CarPaint2_FlakeTiling", Float) = 1
+        _CarPaint2_BTFFlakeMapScale("_CarPaint2_BTFFlakeMapScale", Float) = 1         // Scale is useless if we're directly provided a RGBA16F format
+        _CarPaint2_BTFFlakeMap("_CarPaint2_BTFFlakeMap", 2DArray) = "black" {}
+        _CarPaint2_FlakeThetaFISliceLUTMap( "_CarPaint2_FlakeThetaFISliceLUTMap", 2D ) = "black" {}
 
-        _CarPaint_maxThetaI("_CarPaint_maxThetaI", Int) = 0
-        _CarPaint_numThetaF("_CarPaint_numThetaF", Int) = 0
-        _CarPaint_numThetaI("_CarPaint_numThetaI", Int) = 0
+        _CarPaint2_FlakeMaxThetaI("_CarPaint2_FlakeMaxThetaI", Int) = 0
+        _CarPaint2_FlakeNumThetaF("_CarPaint2_FlakeNumThetaF", Int) = 0
+        _CarPaint2_FlakeNumThetaI("_CarPaint2_FlakeNumThetaI", Int) = 0
 
         // Cook-Torrance Lobes Descriptors
-        _CarPaint_lobesCount("_CarPaint_lobesCount", Int) = 0
-        _CarPaint_CT_F0s("_CarPaint_CT_F0s", Color) = (1,1,1,1)
-        _CarPaint_CT_coeffs("_CarPaint_CT_coeffs", Color) = (1,1,1,1)
-        _CarPaint_CT_spreads("_CarPaint_CT_spreads", Color) = (1,1,1,1)
+        _CarPaint2_LobeCount("_CarPaint2_LobeCount", Int) = 0
+        _CarPaint2_CTF0s("_CarPaint2_CTF0s", Color) = (1,1,1,1)
+        _CarPaint2_CTCoeffs("_CarPaint2_CTCoeffs", Color) = (1,1,1,1)
+        _CarPaint2_CTSpreads("_CarPaint2_CTSpreads", Color) = (1,1,1,1)
 
 
         /////////////////////////////////////////////////////////////////////////////
 _DEBUG_anisotropyAngle( "Anisotropy Angle", Range (-3.14, 3.14) ) = 0
 _DEBUG_anisotropicRoughessX( "Anisotropic Roughness X", Range( 0, 1 ) ) = 0.5
 _DEBUG_anisotropicRoughessY( "Anisotropic Roughness Y", Range( 0, 1 ) ) = 0.5
-_DEBUG_clearCoatIOR( "Clear Coat IOR", Float ) = 1
+_DEBUG_clearcoatIOR( "Clearcoat IOR", Float ) = 1
 
 
 

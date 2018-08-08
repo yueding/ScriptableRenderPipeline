@@ -26,7 +26,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
     
     float2 UV0 = TRANSFORM_TEX(input.texCoord0, _BaseColorMap);
 
-    UV0 *= float2(_materialSizeU_mm, _materialSizeV_mm);
+    UV0 *= float2(_MaterialTilingU, _MaterialTilingV);
 
     //-----------------------------------------------------------------------------
     // _AXF_BRDF_TYPE_SVBRDF
@@ -34,27 +34,27 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 
 #ifdef _AXF_BRDF_TYPE_SVBRDF
 
-    surfaceData.diffuseColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_DiffuseColorMap_sRGB, sampler_SVBRDF_DiffuseColorMap_sRGB, UV0).xyz) * _BaseColor.xyz;
-    surfaceData.specularColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_SpecularColorMap_sRGB, sampler_SVBRDF_SpecularColorMap_sRGB, UV0).xyz);
-    surfaceData.specularLobe = _SVBRDF_SpecularLobeMap_Scale * SAMPLE_TEXTURE2D(_SVBRDF_SpecularLobeMap, sampler_SVBRDF_SpecularLobeMap, UV0).xy;
+    surfaceData.diffuseColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_DiffuseColorMap, sampler_SVBRDF_DiffuseColorMap, UV0).xyz) * _BaseColor.xyz;
+    surfaceData.specularColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_SpecularColorMap, sampler_SVBRDF_SpecularColorMap, UV0).xyz);
+    surfaceData.specularLobe = _SVBRDF_SpecularLobeMapScale * SAMPLE_TEXTURE2D(_SVBRDF_SpecularLobeMap, sampler_SVBRDF_SpecularLobeMap, UV0).xy;
 
     // Check influence of anisotropy
     //surfaceData.specularLobe.y = lerp(surfaceData.specularLobe.x, surfaceData.specularLobe.y, saturate(_DEBUG_anisotropicRoughessX));
 
-    surfaceData.fresnelF0 = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_FresnelMap_sRGB, sampler_SVBRDF_FresnelMap_sRGB, UV0).x);
-    surfaceData.height_mm = SAMPLE_TEXTURE2D(_SVBRDF_HeightMap, sampler_SVBRDF_HeightMap, UV0).x * _SVBRDF_heightMapMax_mm;
-    surfaceData.anisotropyAngle = PI * (2.0 * SAMPLE_TEXTURE2D(_SVBRDF_AnisotropicRotationAngleMap, sampler_SVBRDF_AnisotropicRotationAngleMap, UV0).x - 1.0);
-    surfaceData.clearCoatColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatColorMap_sRGB, sampler_SVBRDF_ClearCoatColorMap_sRGB, UV0).xyz);
+    surfaceData.fresnelF0 = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_FresnelMap, sampler_SVBRDF_FresnelMap, UV0).x);
+    surfaceData.height_mm = SAMPLE_TEXTURE2D(_SVBRDF_HeightMap, sampler_SVBRDF_HeightMap, UV0).x * _SVBRDF_HeightMapMaxMM;
+    surfaceData.anisotropyAngle = PI * (2.0 * SAMPLE_TEXTURE2D(_SVBRDF_AnisoRotationMap, sampler_SVBRDF_AnisoRotationMap, UV0).x - 1.0);
+    surfaceData.clearcoatColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearcoatColorMap, sampler_SVBRDF_ClearcoatColorMap, UV0).xyz);
 
-    float clearCoatF0 = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatIORMap_sRGB, sampler_SVBRDF_ClearCoatIORMap_sRGB, UV0).x).x;
-    float sqrtF0 = sqrt(clearCoatF0);
-    surfaceData.clearCoatIOR = max(1.0, (1.0 + sqrtF0) / (1.00001 - sqrtF0));    // We make sure it's working for F0=1
+    float clearcoatF0 = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_ClearcoatIORMap, sampler_SVBRDF_ClearcoatIORMap, UV0).x).x;
+    float sqrtF0 = sqrt(clearcoatF0);
+    surfaceData.clearcoatIOR = max(1.0, (1.0 + sqrtF0) / (1.00001 - sqrtF0));    // We make sure it's working for F0=1
 
     // TBN
     GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_NormalMap, sampler_SVBRDF_NormalMap, UV0).xyz - 1.0, surfaceData.normalWS);
-    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0).xyz - 1.0, surfaceData.clearCoatNormalWS);
+    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_ClearcoatNormalMap, sampler_ClearcoatNormalMap, UV0).xyz - 1.0, surfaceData.clearcoatNormalWS);
 
-    float alpha = SAMPLE_TEXTURE2D(_SVBRDF_OpacityMap, sampler_SVBRDF_OpacityMap, UV0).x * _BaseColor.w;
+    float alpha = SAMPLE_TEXTURE2D(_SVBRDF_AlphaMap, sampler_SVBRDF_AlphaMap, UV0).x * _BaseColor.w;
 
     // Hardcoded values for debug purpose
     //surfaceData.normalWS = input.worldToTangent[2].xyz;
@@ -73,18 +73,18 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 
 #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
 
-    surfaceData.diffuseColor = _CarPaint_CT_diffuse * _BaseColor.xyz;
-    surfaceData.clearCoatIOR = max(1.001, _CarPaint_IOR);    // Can't be exactly 1 otherwise the precise fresnel divides by 0!
+    surfaceData.diffuseColor = _CarPaint2_CTDiffuse * _BaseColor.xyz;
+    surfaceData.clearcoatIOR = max(1.001, _CarPaint2_ClearcoatIOR);    // Can't be exactly 1 otherwise the precise fresnel divides by 0!
 
-    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_SVBRDF_ClearCoatNormalMap, sampler_SVBRDF_ClearCoatNormalMap, UV0).xyz - 1.0, surfaceData.clearCoatNormalWS);
-    // surfaceData.normalWS = surfaceData.clearCoatNormalWS; // Use clear coat normal map as global surface normal map
+    GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_ClearcoatNormalMap, sampler_ClearcoatNormalMap, UV0).xyz - 1.0, surfaceData.clearcoatNormalWS);
+    // surfaceData.normalWS = surfaceData.clearcoatNormalWS; // Use clearcoat normal map as global surface normal map
 
 
     // Create mirrored UVs to hide flakes tiling
-    surfaceData.flakesUV = _CarPaint_FlakesTiling * UV0;
+    surfaceData.flakesUV = _CarPaint2_FlakeTiling * UV0;
 
-    surfaceData.flakesMipLevel = _CarPaint_BTFFlakesMap_sRGB.CalculateLevelOfDetail(sampler_CarPaint_BTFFlakesMap_sRGB, surfaceData.flakesUV);
-    //surfaceData.flakesMipLevel = _DEBUG_clearCoatIOR;      // DEBUG!!!
+    surfaceData.flakesMipLevel = _CarPaint2_BTFFlakeMap.CalculateLevelOfDetail(sampler_CarPaint2_BTFFlakeMap, surfaceData.flakesUV);
+    //surfaceData.flakesMipLevel = _DEBUG_clearcoatIOR;      // DEBUG!!!
 
     if ((int(surfaceData.flakesUV.y) & 1) == 0)
         surfaceData.flakesUV.x += 0.5;
@@ -99,7 +99,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
     surfaceData.fresnelF0 = 0;
     surfaceData.height_mm = 0;
     surfaceData.anisotropyAngle = 0;
-    surfaceData.clearCoatColor = 0;
+    surfaceData.clearcoatColor = 0;
 
     float alpha = 1.0;
 

@@ -54,15 +54,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             
             // BTF Variables
 
-            // Clear Coat
-            [SurfaceDataAttributes("Clear Coat Color")]
-            public Vector3  clearCoatColor;
+            // Clearcoat
+            [SurfaceDataAttributes("Clearcoat Color")]
+            public Vector3  clearcoatColor;
 
-            [SurfaceDataAttributes("Clear Coat Normal", true, true)]
-            public Vector3  clearCoatNormalWS;
+            [SurfaceDataAttributes("Clearcoat Normal", true, true)]
+            public Vector3  clearcoatNormalWS;
 
-            [SurfaceDataAttributes("Clear Coat IOR")]
-            public float    clearCoatIOR;
+            [SurfaceDataAttributes("Clearcoat IOR")]
+            public float    clearcoatIOR;
         };
 
         //-----------------------------------------------------------------------------
@@ -94,10 +94,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // BTF Variables
 
-            // Clear Coat
-            public Vector3  clearCoatColor;
-            public Vector3  clearCoatNormalWS;
-            public float	clearCoatIOR;
+            // Clearcoat
+            public Vector3  clearcoatColor;
+            public Vector3  clearcoatNormalWS;
+            public float	clearcoatIOR;
         };
 
         //-----------------------------------------------------------------------------

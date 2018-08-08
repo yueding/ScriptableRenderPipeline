@@ -12,28 +12,28 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             /////////////////////////////////////////////////////////////////////////////////////////////////
             // SVBRDF Parameters
-	        public static GUIContent	diffuseColorMapText = new GUIContent( "Diffuse Color (sRGB)" );
-	        public static GUIContent	specularColorMapText = new GUIContent( "Specular Color (sRGB)" );
+	        public static GUIContent	diffuseColorMapText = new GUIContent( "Diffuse Color" );
+	        public static GUIContent	specularColorMapText = new GUIContent( "Specular Color" );
 	        public static GUIContent	specularLobeMapText = new GUIContent( "Specular Lobe" );
 	        public static GUIContent	specularLobeMapScaleText = new GUIContent( "Specular Lobe Scale" );
-	        public static GUIContent	fresnelMapText = new GUIContent( "Fresnel (sRGB)" );
+	        public static GUIContent	fresnelMapText = new GUIContent( "Fresnel" );
 	        public static GUIContent	normalMapText = new GUIContent( "Normal" );
 
-            // Opacity
-	        public static GUIContent	opacityMapText = new GUIContent( "Opacity" );
+            // Alpha
+	        public static GUIContent	alphaMapText = new GUIContent( "Alpha" );
 
             // Displacement
 	        public static GUIContent	heightMapText = new GUIContent( "Height" );
 
             // Anisotropy
-	        public static GUIContent	anisotropyRotationAngleMapText = new GUIContent( "Anisotropy Angle" );
+	        public static GUIContent	anisoRotationMapText = new GUIContent( "Anisotropy Angle" );
 
             /////////////////////////////////////////////////////////////////////////////////////////////////
             // Car Paint Parameters
-	        public static GUIContent	BRDFColorMapText = new GUIContent( "BRDF Color (sRGB)" );
+	        public static GUIContent	BRDFColorMapText = new GUIContent( "BRDF Color" );
 	        public static GUIContent	BRDFColorMapScaleText = new GUIContent( "BRDF Color Scale" );
 
-	        public static GUIContent	BTFFlakesMapText = new GUIContent( "BTF Flakes Color (sRGB) Texture2DArray" );
+	        public static GUIContent	BTFFlakesMapText = new GUIContent( "BTF Flake Color Texture2DArray" );
 	        public static GUIContent	BTFFlakesMapScaleText = new GUIContent( "BTF Flakes Scale" );
 	        public static GUIContent	FlakesTilingText = new GUIContent( "Flakes Tiling" );
 
@@ -44,10 +44,10 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             /////////////////////////////////////////////////////////////////////////////////////////////////
             // Generic
   
-            // Clear-coat
-	        public static GUIContent	clearCoatColorMapText = new GUIContent( "Clear-Coat Color (sRGB)" );
-	        public static GUIContent	clearCoatNormalMapText = new GUIContent( "Clear-Coat Normal" );
-	        public static GUIContent	clearCoatIORMapText = new GUIContent( "Clear-Coat IOR" );
+            // Clearcoat
+	        public static GUIContent	clearcoatColorMapText = new GUIContent( "Clearcoat Color" );
+	        public static GUIContent	clearcoatNormalMapText = new GUIContent( "Clearcoat Normal" );
+	        public static GUIContent	clearcoatIORMapText = new GUIContent( "Clearcoat IOR" );
         }
 
         enum	AxfBrdfType
@@ -101,16 +101,16 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         /////////////////////////////////////////////////////////////////////////////////////////////////
         // Generic Parameters
-        static string               m_materialSizeU_mmText = "_materialSizeU_mm";
-        protected MaterialProperty  m_materialSizeU_mm;
-        static string               m_materialSizeV_mmText = "_materialSizeV_mm";
-        protected MaterialProperty  m_materialSizeV_mm;
+        static string               m_MaterialTilingUText = "_MaterialTilingU";
+        protected MaterialProperty  m_MaterialTilingU;
+        static string               m_MaterialTilingVText = "_MaterialTilingV";
+        protected MaterialProperty  m_MaterialTilingV;
 
         static string               m_AxF_BRDFTypeText = "_AxF_BRDFType";
         protected MaterialProperty  m_AxF_BRDFType = null;
 
-        static string               m_flagsText = "_flags";
-        protected MaterialProperty  m_flags;
+        static string               m_FlagsText = "_Flags";
+        protected MaterialProperty  m_Flags;
 
         /////////////////////////////////////////////////////////////////////////////////////////////////
         // SVBRDF Parameters
@@ -118,76 +118,76 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         protected MaterialProperty  m_SVBRDF_BRDFType;
         static string               m_SVBRDF_BRDFVariantsText = "_SVBRDF_BRDFVariants";
         protected MaterialProperty  m_SVBRDF_BRDFVariants;
-        static string               m_SVBRDF_heightMapMax_mmText = "_SVBRDF_heightMapMax_mm";
-        protected MaterialProperty  m_SVBRDF_heightMapMax_mm;
+        static string               m_SVBRDF_HeightMapMaxMMText = "_SVBRDF_HeightMapMaxMM";
+        protected MaterialProperty  m_SVBRDF_HeightMapMaxMM;
 
         // Regular maps
-        static string               m_diffuseColorMapText = "_SVBRDF_DiffuseColorMap_sRGB";
+        static string               m_diffuseColorMapText = "_SVBRDF_DiffuseColorMap";
         protected MaterialProperty  m_diffuseColorMap = null;
-        static string               m_specularColorMapText = "_SVBRDF_SpecularColorMap_sRGB";
+        static string               m_specularColorMapText = "_SVBRDF_SpecularColorMap";
 		protected MaterialProperty  m_specularColorMap = null;
 
         static string               m_specularLobeMapText = "_SVBRDF_SpecularLobeMap";
 		protected MaterialProperty	m_specularLobeMap = null;
-        static string               m_specularLobeMap_ScaleText = "_SVBRDF_SpecularLobeMap_Scale";
-        protected MaterialProperty  m_specularLobeMap_Scale;
+        static string               m_specularLobeMapScaleText = "_SVBRDF_SpecularLobeMapScale";
+        protected MaterialProperty  m_specularLobeMapScale;
 
-        static string               m_fresnelMapText = "_SVBRDF_FresnelMap_sRGB";
+        static string               m_fresnelMapText = "_SVBRDF_FresnelMap";
 		protected MaterialProperty	m_fresnelMap = null;
         static string               m_normalMapText = "_SVBRDF_NormalMap";
 		protected MaterialProperty	m_normalMap = null;
 
-        // Opacity
-        static string               m_opacityMapText = "_SVBRDF_OpacityMap";
-		protected MaterialProperty	m_opacityMap = null;
+        // Alpha
+        static string               m_alphaMapText = "_SVBRDF_AlphaMap";
+		protected MaterialProperty	m_alphaMap = null;
 
         // Displacement
         static string               m_heightMapText = "_SVBRDF_HeightMap";
 		protected MaterialProperty	m_heightMap = null;
 
         // Anisotropy
-        static string               m_anisotropicRotationAngleMapText = "_SVBRDF_AnisotropicRotationAngleMap";
-		protected MaterialProperty	m_anisotropicRotationAngleMap = null;
+        static string               m_anisoRotationMapText = "_SVBRDF_AnisoRotationMap";
+		protected MaterialProperty	m_anisoRotationMap = null;
 
 
         /////////////////////////////////////////////////////////////////////////////////////////////////
         // Car Paint Parameters
-        static string               m_CarPaint_BRDFColorMap_sRGBText = "_CarPaint_BRDFColorMap_sRGB";
-        protected MaterialProperty  m_CarPaint_BRDFColorMap_sRGB = null;
+        static string               m_CarPaint2_BRDFColorMapText = "_CarPaint2_BRDFColorMap";
+        protected MaterialProperty  m_CarPaint2_BRDFColorMap = null;
 
-        static string               m_CarPaint_BRDFColorMap_ScaleText = "_CarPaint_BRDFColorMap_Scale";
-        protected MaterialProperty  m_CarPaint_BRDFColorMap_Scale;
+        static string               m_CarPaint2_BRDFColorMapScaleText = "_CarPaint2_BRDFColorMapScale";
+        protected MaterialProperty  m_CarPaint2_BRDFColorMapScale;
 
-        static string               m_CarPaint_BTFFlakesMap_sRGBText = "_CarPaint_BTFFlakesMap_sRGB";
-        protected MaterialProperty  m_CarPaint_BTFFlakesMap_sRGB = null;
+        static string               m_CarPaint2_BTFFlakeMapText = "_CarPaint2_BTFFlakeMap";
+        protected MaterialProperty  m_CarPaint2_BTFFlakeMap = null;
 
-        static string               m_CarPaint_BTFFlakesMap_ScaleText = "_CarPaint_BTFFlakesMap_Scale";
-        protected MaterialProperty  m_CarPaint_BTFFlakesMap_Scale;
+        static string               m_CarPaint2_BTFFlakeMapScaleText = "_CarPaint2_BTFFlakeMapScale";
+        protected MaterialProperty  m_CarPaint2_BTFFlakeMapScale;
 
-        static string               m_CarPaint_FlakesTilingText = "_CarPaint_FlakesTiling";
-        protected MaterialProperty  m_CarPaint_FlakesTiling;
+        static string               m_CarPaint2_FlakeTilingText = "_CarPaint2_FlakeTiling";
+        protected MaterialProperty  m_CarPaint2_FlakeTiling;
 
-        static string               m_CarPaint_thetaFI_sliceLUTMapText = "_CarPaint_thetaFI_sliceLUTMap";
-        protected MaterialProperty  m_CarPaint_thetaFI_sliceLUTMap;
+        static string               m_CarPaint2_FlakeThetaFISliceLUTMapText = "_CarPaint2_FlakeThetaFISliceLUTMap";
+        protected MaterialProperty  m_CarPaint2_FlakeThetaFISliceLUTMap;
 
-        static string               m_CarPaint_maxThetaIText = "_CarPaint_maxThetaI";
-        protected MaterialProperty  m_CarPaint_maxThetaI;
-        static string               m_CarPaint_numThetaFText = "_CarPaint_numThetaF";
-        protected MaterialProperty  m_CarPaint_numThetaF;
-        static string               m_CarPaint_numThetaIText = "_CarPaint_numThetaI";
-        protected MaterialProperty  m_CarPaint_numThetaI;
+        static string               m_CarPaint2_FlakeMaxThetaIText = "_CarPaint2_FlakeMaxThetaI";
+        protected MaterialProperty  m_CarPaint2_FlakeMaxThetaI;
+        static string               m_CarPaint2_FlakeNumThetaFText = "_CarPaint2_FlakeNumThetaF";
+        protected MaterialProperty  m_CarPaint2_FlakeNumThetaF;
+        static string               m_CarPaint2_FlakeNumThetaIText = "_CarPaint2_FlakeNumThetaI";
+        protected MaterialProperty  m_CarPaint2_FlakeNumThetaI;
 
-        static string               m_CarPaint_IORText = "_CarPaint_IOR";
-        protected MaterialProperty  m_CarPaint_IOR;
+        static string               m_CarPaint2_ClearcoatIORText = "_CarPaint2_ClearcoatIOR";
+        protected MaterialProperty  m_CarPaint2_ClearcoatIOR;
 
         /////////////////////////////////////////////////////////////////////////////////////////////////
-        // Clear-Coat
-        static string               m_clearCoatColorMapText = "_SVBRDF_ClearCoatColorMap_sRGB";
-		protected MaterialProperty	m_clearCoatColorMap = null;
-        static string               m_clearCoatNormalMapText = "_SVBRDF_ClearCoatNormalMap";
-		protected MaterialProperty	m_clearCoatNormalMap = null;
-        static string               m_clearCoatIORMapText = "_SVBRDF_ClearCoatIORMap_sRGB";
-		protected MaterialProperty	m_clearCoatIORMap = null;
+        // Clearcoat
+        static string               m_clearcoatColorMapText = "_SVBRDF_ClearcoatColorMap";
+		protected MaterialProperty	m_clearcoatColorMap = null;
+        static string               m_clearcoatNormalMapText = "_ClearcoatNormalMap";
+		protected MaterialProperty	m_clearcoatNormalMap = null;
+        static string               m_clearcoatIORMapText = "_SVBRDF_ClearcoatIORMap";
+		protected MaterialProperty	m_clearcoatIORMap = null;
 
 
 MaterialProperty    m_debug_prop0;
@@ -199,65 +199,65 @@ MaterialProperty    m_debug_prop4;
 		override protected void FindMaterialProperties( MaterialProperty[] props )
         {
 
-            m_materialSizeU_mm = FindProperty( m_materialSizeU_mmText, props );
-            m_materialSizeV_mm = FindProperty( m_materialSizeV_mmText, props );
+            m_MaterialTilingU = FindProperty( m_MaterialTilingUText, props );
+            m_MaterialTilingV = FindProperty( m_MaterialTilingVText, props );
 
  			m_AxF_BRDFType = FindProperty( m_AxF_BRDFTypeText, props );
 
-            m_flags = FindProperty( m_flagsText, props );
+            m_Flags = FindProperty( m_FlagsText, props );
 
             //////////////////////////////////////////////////////////////////////////
             // SVBRDF
             m_SVBRDF_BRDFType = FindProperty( m_SVBRDF_BRDFTypeText, props );
             m_SVBRDF_BRDFVariants = FindProperty( m_SVBRDF_BRDFVariantsText, props );
-            m_SVBRDF_heightMapMax_mm = FindProperty( m_SVBRDF_heightMapMax_mmText, props );
+            m_SVBRDF_HeightMapMaxMM = FindProperty( m_SVBRDF_HeightMapMaxMMText, props );
 
             // Regular maps
 			m_diffuseColorMap = FindProperty( m_diffuseColorMapText, props );
 			m_specularColorMap = FindProperty( m_specularColorMapText, props );
 			m_specularLobeMap = FindProperty( m_specularLobeMapText, props );
-            m_specularLobeMap_Scale = FindProperty( m_specularLobeMap_ScaleText, props );
+            m_specularLobeMapScale = FindProperty( m_specularLobeMapScaleText, props );
 			m_fresnelMap = FindProperty( m_fresnelMapText, props );
 			m_normalMap = FindProperty( m_normalMapText, props );
 
-            // Opacity
-			m_opacityMap = FindProperty( m_opacityMapText, props );
+            // Alpha
+			m_alphaMap = FindProperty( m_alphaMapText, props );
 
             // Displacement
 			m_heightMap = FindProperty( m_heightMapText, props );
 
             // Anisotropy
-			m_anisotropicRotationAngleMap = FindProperty( m_anisotropicRotationAngleMapText, props );
+			m_anisoRotationMap = FindProperty( m_anisoRotationMapText, props );
 
 
             //////////////////////////////////////////////////////////////////////////
             // Car Paint
-			m_CarPaint_BRDFColorMap_sRGB = FindProperty( m_CarPaint_BRDFColorMap_sRGBText, props );
-			m_CarPaint_BTFFlakesMap_sRGB = FindProperty( m_CarPaint_BTFFlakesMap_sRGBText, props );
-			m_CarPaint_thetaFI_sliceLUTMap = FindProperty( m_CarPaint_thetaFI_sliceLUTMapText, props );
+			m_CarPaint2_BRDFColorMap = FindProperty( m_CarPaint2_BRDFColorMapText, props );
+			m_CarPaint2_BTFFlakeMap = FindProperty( m_CarPaint2_BTFFlakeMapText, props );
+			m_CarPaint2_FlakeThetaFISliceLUTMap = FindProperty( m_CarPaint2_FlakeThetaFISliceLUTMapText, props );
 
-            m_CarPaint_BRDFColorMap_Scale = FindProperty( m_CarPaint_BRDFColorMap_ScaleText, props );
-            m_CarPaint_BTFFlakesMap_Scale = FindProperty( m_CarPaint_BTFFlakesMap_ScaleText, props );
-            m_CarPaint_FlakesTiling = FindProperty( m_CarPaint_FlakesTilingText, props );
+            m_CarPaint2_BRDFColorMapScale = FindProperty( m_CarPaint2_BRDFColorMapScaleText, props );
+            m_CarPaint2_BTFFlakeMapScale = FindProperty( m_CarPaint2_BTFFlakeMapScaleText, props );
+            m_CarPaint2_FlakeTiling = FindProperty( m_CarPaint2_FlakeTilingText, props );
 
-            m_CarPaint_maxThetaI = FindProperty( m_CarPaint_maxThetaIText, props );
-            m_CarPaint_numThetaF = FindProperty( m_CarPaint_numThetaFText, props );
-            m_CarPaint_numThetaI = FindProperty( m_CarPaint_numThetaIText, props );
+            m_CarPaint2_FlakeMaxThetaI = FindProperty( m_CarPaint2_FlakeMaxThetaIText, props );
+            m_CarPaint2_FlakeNumThetaF = FindProperty( m_CarPaint2_FlakeNumThetaFText, props );
+            m_CarPaint2_FlakeNumThetaI = FindProperty( m_CarPaint2_FlakeNumThetaIText, props );
 
-            m_CarPaint_IOR = FindProperty( m_CarPaint_IORText, props );
+            m_CarPaint2_ClearcoatIOR = FindProperty( m_CarPaint2_ClearcoatIORText, props );
 
             //////////////////////////////////////////////////////////////////////////
-            // Clear-Coat
-			m_clearCoatColorMap = FindProperty( m_clearCoatColorMapText, props );
-			m_clearCoatNormalMap = FindProperty( m_clearCoatNormalMapText, props );
-			m_clearCoatIORMap = FindProperty( m_clearCoatIORMapText, props );
+            // Clearcoat
+			m_clearcoatColorMap = FindProperty( m_clearcoatColorMapText, props );
+			m_clearcoatNormalMap = FindProperty( m_clearcoatNormalMapText, props );
+			m_clearcoatIORMap = FindProperty( m_clearcoatIORMapText, props );
 
 
 
 m_debug_prop0 = FindProperty( "_DEBUG_anisotropyAngle", props );
 m_debug_prop1 = FindProperty( "_DEBUG_anisotropicRoughessX", props );
 m_debug_prop2 = FindProperty( "_DEBUG_anisotropicRoughessY", props );
-m_debug_prop3 = FindProperty( "_DEBUG_clearCoatIOR", props );
+m_debug_prop3 = FindProperty( "_DEBUG_clearcoatIOR", props );
 		}
 
 	    protected unsafe override void MaterialPropertiesGUI( Material _material ) {
@@ -267,19 +267,19 @@ m_debug_prop3 = FindProperty( "_DEBUG_clearCoatIOR", props );
 m_debug_prop0.floatValue = EditorGUILayout.FloatField( "Anisotropy Angle", m_debug_prop0.floatValue * 180.0f / Mathf.PI ) * Mathf.PI / 180.0f;
 m_debug_prop1.floatValue = EditorGUILayout.FloatField( "Anisotropic Roughness X", m_debug_prop1.floatValue );
 m_debug_prop2.floatValue = EditorGUILayout.FloatField( "Anisotropic Roughness Y", m_debug_prop2.floatValue );
-m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug_prop3.floatValue );
+m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clearcoat IOR", m_debug_prop3.floatValue );
 //m_MaterialEditor.ShaderProperty( m_debug_prop0,  );
 //m_MaterialEditor.ShaderProperty( m_debug_prop1, "Anisotropy Roughness X" );
 //m_MaterialEditor.ShaderProperty( m_debug_prop2, "Anisotropy Roughness Y" );
-//m_MaterialEditor.ShaderProperty( m_debug_prop3, "Clear Coat IOR" );
+//m_MaterialEditor.ShaderProperty( m_debug_prop3, "Clearcoat IOR" );
 
 
 
 
 		    EditorGUILayout.LabelField( Styles.InputsText, EditorStyles.boldLabel );
 
-            m_MaterialEditor.ShaderProperty( m_materialSizeU_mm, "Material Size U (mm)" );
-            m_MaterialEditor.ShaderProperty( m_materialSizeV_mm, "Material Size V (mm)" );
+            m_MaterialEditor.ShaderProperty( m_MaterialTilingU, "Material Tiling U" );
+            m_MaterialEditor.ShaderProperty( m_MaterialTilingV, "Material Tiling V" );
 
             AxfBrdfType	AxF_BRDFType = (AxfBrdfType) m_AxF_BRDFType.floatValue;
                             AxF_BRDFType = (AxfBrdfType) EditorGUILayout.Popup( "BRDF Type", (int) AxF_BRDFType, AxfBrdfTypeNames );
@@ -293,7 +293,7 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     ++EditorGUI.indentLevel;
 
                     // Read as compact flags
-                    uint    flags = (uint) m_flags.floatValue;
+                    uint    flags = (uint) m_Flags.floatValue;
                     uint    BRDFType = (uint) m_SVBRDF_BRDFType.floatValue;
                     uint    BRDFVariants = (uint) m_SVBRDF_BRDFVariants.floatValue;
 
@@ -324,12 +324,12 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     m_MaterialEditor.TexturePropertySingleLine( Styles.diffuseColorMapText, m_diffuseColorMap );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.specularColorMapText, m_specularColorMap );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.specularLobeMapText, m_specularLobeMap );
-                    m_specularLobeMap_Scale.floatValue = EditorGUILayout.FloatField( Styles.specularLobeMapScaleText, m_specularLobeMap_Scale.floatValue );
+                    m_specularLobeMapScale.floatValue = EditorGUILayout.FloatField( Styles.specularLobeMapScaleText, m_specularLobeMapScale.floatValue );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.fresnelMapText, m_fresnelMap );
                     m_MaterialEditor.TexturePropertySingleLine( Styles.normalMapText, m_normalMap );
 
-                    // Opacity
-                    m_MaterialEditor.TexturePropertySingleLine( Styles.opacityMapText, m_opacityMap );
+                    // Alpha
+                    m_MaterialEditor.TexturePropertySingleLine( Styles.alphaMapText, m_alphaMap );
 
                     // Displacement
                     bool    useDisplacementMap = EditorGUILayout.Toggle( "Enable Displacement Map", (flags & 8) != 0 );
@@ -337,7 +337,7 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     {
                         ++EditorGUI.indentLevel;
                         m_MaterialEditor.TexturePropertySingleLine( Styles.heightMapText, m_heightMap );
-                        m_MaterialEditor.ShaderProperty( m_SVBRDF_heightMapMax_mm, "Max Displacement (mm)" );
+                        m_MaterialEditor.ShaderProperty( m_SVBRDF_HeightMapMaxMM, "Max Displacement (mm)" );
                         --EditorGUI.indentLevel;
                     }
 
@@ -346,23 +346,23 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     if (isAnisotropic)
                     {
                         ++EditorGUI.indentLevel;
-                        m_MaterialEditor.TexturePropertySingleLine( Styles.anisotropyRotationAngleMapText, m_anisotropicRotationAngleMap );
+                        m_MaterialEditor.TexturePropertySingleLine( Styles.anisoRotationMapText, m_anisoRotationMap );
                         --EditorGUI.indentLevel;
                     }
 
-                    // Clear-coat
-                    bool    hasClearCoat = EditorGUILayout.Toggle( "Enable Clear-Coat", (flags & 2) != 0 );
-                    bool    clearCoatUsesRefraction = (flags & 4) != 0;
-                    if ( hasClearCoat )
+                    // Clearcoat
+                    bool    hasClearcoat = EditorGUILayout.Toggle( "Enable Clearcoat", (flags & 2) != 0 );
+                    bool    clearcoatUsesRefraction = (flags & 4) != 0;
+                    if ( hasClearcoat )
                     {
                         ++EditorGUI.indentLevel;
-                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatColorMapText, m_clearCoatColorMap );
-                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatNormalMapText, m_clearCoatNormalMap );
-                        clearCoatUsesRefraction = EditorGUILayout.Toggle( "Enable Refraction", clearCoatUsesRefraction );
-                        if ( clearCoatUsesRefraction )
+                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearcoatColorMapText, m_clearcoatColorMap );
+                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearcoatNormalMapText, m_clearcoatNormalMap );
+                        clearcoatUsesRefraction = EditorGUILayout.Toggle( "Enable Refraction", clearcoatUsesRefraction );
+                        if ( clearcoatUsesRefraction )
                         {
                             ++EditorGUI.indentLevel;
-                            m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatIORMapText, m_clearCoatIORMap );
+                            m_MaterialEditor.TexturePropertySingleLine( Styles.clearcoatIORMapText, m_clearcoatIORMap );
                             --EditorGUI.indentLevel;
                         }
                         --EditorGUI.indentLevel;
@@ -371,8 +371,8 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     // Write back as compact flags
                     flags = 0;
                     flags |= isAnisotropic ? 1U : 0U;
-                    flags |= hasClearCoat ? 2U : 0U;
-                    flags |= clearCoatUsesRefraction ? 4U : 0U;
+                    flags |= hasClearcoat ? 2U : 0U;
+                    flags |= clearcoatUsesRefraction ? 4U : 0U;
                     flags |= useDisplacementMap ? 8U : 0U;
                     
                     BRDFType = 0;
@@ -385,7 +385,7 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     BRDFVariants |= ((uint) blinnVariant) << 4;
 
 //                    cmd.SetGlobalFloat( HDShaderIDs._TexturingModeFlags, *(float*) &texturingModeFlags );
-                    m_flags.floatValue = (float) flags;
+                    m_Flags.floatValue = (float) flags;
                     m_SVBRDF_BRDFType.floatValue = (float) BRDFType;
                     m_SVBRDF_BRDFVariants.floatValue = (float) BRDFVariants;
 
@@ -399,7 +399,7 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     ++EditorGUI.indentLevel;
 
                     // Read as compact flags
-                    uint    flags = (uint) m_flags.floatValue;
+                    uint    flags = (uint) m_Flags.floatValue;
 
                     bool    isAnisotropic = false;
                     bool    useDisplacementMap = false;
@@ -407,49 +407,49 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clear Coat IOR", m_debug
                     // Expand as user-friendly UI
 
                     // Regular maps
-                    m_MaterialEditor.TexturePropertySingleLine( Styles.BRDFColorMapText, m_CarPaint_BRDFColorMap_sRGB );
-                    m_CarPaint_BRDFColorMap_Scale.floatValue = EditorGUILayout.FloatField( Styles.BRDFColorMapScaleText, m_CarPaint_BRDFColorMap_Scale.floatValue );
+                    m_MaterialEditor.TexturePropertySingleLine( Styles.BRDFColorMapText, m_CarPaint2_BRDFColorMap );
+                    m_CarPaint2_BRDFColorMapScale.floatValue = EditorGUILayout.FloatField( Styles.BRDFColorMapScaleText, m_CarPaint2_BRDFColorMapScale.floatValue );
 
-                    m_MaterialEditor.TexturePropertySingleLine( Styles.BTFFlakesMapText, m_CarPaint_BTFFlakesMap_sRGB );
+                    m_MaterialEditor.TexturePropertySingleLine( Styles.BTFFlakesMapText, m_CarPaint2_BTFFlakeMap );
 //EditorGUILayout.LabelField( "Texture Dimension = " + m_CarPaint_BTFFlakesMap_sRGB.textureDimension );
 //EditorGUILayout.LabelField( "Texture Format = " + m_CarPaint_BTFFlakesMap_sRGB.textureValue. );
-                    m_CarPaint_BTFFlakesMap_Scale.floatValue = EditorGUILayout.FloatField( Styles.BTFFlakesMapScaleText, m_CarPaint_BTFFlakesMap_Scale.floatValue );
-                    m_CarPaint_FlakesTiling.floatValue = EditorGUILayout.FloatField( Styles.FlakesTilingText, m_CarPaint_FlakesTiling.floatValue );
+                    m_CarPaint2_BTFFlakeMapScale.floatValue = EditorGUILayout.FloatField( Styles.BTFFlakesMapScaleText, m_CarPaint2_BTFFlakeMapScale.floatValue );
+                    m_CarPaint2_FlakeTiling.floatValue = EditorGUILayout.FloatField( Styles.FlakesTilingText, m_CarPaint2_FlakeTiling.floatValue );
 
-                    m_MaterialEditor.TexturePropertySingleLine( Styles.thetaFI_sliceLUTMapText, m_CarPaint_thetaFI_sliceLUTMap );
+                    m_MaterialEditor.TexturePropertySingleLine( Styles.thetaFI_sliceLUTMapText, m_CarPaint2_FlakeThetaFISliceLUTMap );
 
 // m_CarPaint_maxThetaI = FindProperty( m_CarPaint_maxThetaIText, props );
 // m_CarPaint_numThetaF = FindProperty( m_CarPaint_numThetaFText, props );
 // m_CarPaint_numThetaI = FindProperty( m_CarPaint_numThetaIText, props );
 
 
-                    // Clear-coat
-                    bool    hasClearCoat = EditorGUILayout.Toggle( "Enable Clear-Coat", (flags & 2) != 0 );
-                    bool    clearCoatUsesRefraction = (flags & 4) != 0;
-                    if ( hasClearCoat ) {
+                    // Clearcoat
+                    bool    hasClearcoat = EditorGUILayout.Toggle( "Enable Clearcoat", (flags & 2) != 0 );
+                    bool    clearcoatUsesRefraction = (flags & 4) != 0;
+                    if ( hasClearcoat ) {
                         ++EditorGUI.indentLevel;
-//                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatColorMapText, m_clearCoatColorMap );
-                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatNormalMapText, m_clearCoatNormalMap );
-//                        if ( clearCoatUsesRefraction ) {
+//                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearcoatColorMapText, m_clearcoatColorMap );
+                        m_MaterialEditor.TexturePropertySingleLine( Styles.clearcoatNormalMapText, m_clearcoatNormalMap );
+//                        if ( clearcoatUsesRefraction ) {
                         {
                             ++EditorGUI.indentLevel;
-//                            m_MaterialEditor.TexturePropertySingleLine( Styles.clearCoatIORMapText, m_clearCoatIORMap );
-                            m_CarPaint_IOR.floatValue = EditorGUILayout.FloatField( Styles.CarPaintIORText, m_CarPaint_IOR.floatValue );
+//                            m_MaterialEditor.TexturePropertySingleLine( Styles.clearcoatIORMapText, m_clearcoatIORMap );
+                            m_CarPaint2_ClearcoatIOR.floatValue = EditorGUILayout.FloatField( Styles.CarPaintIORText, m_CarPaint2_ClearcoatIOR.floatValue );
                             --EditorGUI.indentLevel;
                         }
                         --EditorGUI.indentLevel;
-                        clearCoatUsesRefraction = EditorGUILayout.Toggle( "Enable Refraction", clearCoatUsesRefraction );
+                        clearcoatUsesRefraction = EditorGUILayout.Toggle( "Enable Refraction", clearcoatUsesRefraction );
                     }
 
                     // Write back as compact flags
                     flags = 0;
                     flags |= isAnisotropic ? 1U : 0U;
-                    flags |= hasClearCoat ? 2U : 0U;
-                    flags |= clearCoatUsesRefraction ? 4U : 0U;
+                    flags |= hasClearcoat ? 2U : 0U;
+                    flags |= clearcoatUsesRefraction ? 4U : 0U;
                     flags |= useDisplacementMap ? 8U : 0U;
 
 //                    cmd.SetGlobalFloat( HDShaderIDs._TexturingModeFlags, *(float*) &texturingModeFlags );
-                    m_flags.floatValue = (float) flags;
+                    m_Flags.floatValue = (float) flags;
 
                     --EditorGUI.indentLevel;
                     break;
