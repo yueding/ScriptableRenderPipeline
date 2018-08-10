@@ -1,6 +1,8 @@
+using System;
 using UnityEditor.AnimatedValues;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering.LightweightPipeline;
+using UnityEngine.Rendering;
 
 namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 {
@@ -293,5 +295,102 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 
             EditorGUILayout.Space();
         }
+
+        int m_HandleHotControl = 0;
+        bool m_ShowOuterLabel = true;
+        bool m_ShowRange = false;
+
+        protected override void OnSceneGUI()
+        {
+            Light light = target as Light;
+
+            if (!(GraphicsSettings.renderPipelineAsset is LightweightPipelineAsset))
+                return;
+
+            if( light.type == LightType.Spot )
+            {
+                Vector2 angleAndRange = new Vector2(light.spotAngle, light.range);
+                Vector2 innerAngleAndRange = new Vector2(light.innerSpotAngle, light.range);
+                Handles.color = Color.white;
+                EditorGUI.BeginChangeCheck();
+                angleAndRange = CoreLightEditorUtilities.DrawConeHandles(light.transform.rotation, light.transform.position, angleAndRange);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    m_HandleHotControl = GUIUtility.hotControl;
+                    m_ShowOuterLabel = true;
+                }
+
+                EditorGUI.BeginChangeCheck();
+                innerAngleAndRange = CoreLightEditorUtilities.DrawConeHandles(light.transform.rotation, light.transform.position, innerAngleAndRange);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    m_HandleHotControl = GUIUtility.hotControl;
+                    m_ShowOuterLabel = false;
+                }
+
+                float range = light.range;
+                EditorGUI.BeginChangeCheck();
+                range = CoreLightEditorUtilities.DrawCenterHandle(light.transform.rotation, light.transform.position, range);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    m_HandleHotControl = GUIUtility.hotControl;
+                    m_ShowRange = true;
+                }
+
+
+                var innerProcentage = (light.innerSpotAngle / light.spotAngle);
+                Handles.color = Color.yellow;
+                CoreLightEditorUtilities.DrawSpotlightGizmo(light, innerProcentage, true);
+
+                Vector3 labelPosition = (light.transform.position + light.transform.forward * light.range);
+
+                if (GUIUtility.hotControl != 0 && GUIUtility.hotControl == m_HandleHotControl)
+                {
+                    string labelText = "";
+                    if (m_ShowRange)
+                        labelText = (light.range).ToString("0.00");
+                    else if (m_ShowOuterLabel)
+                        labelText = (light.spotAngle).ToString("0.00");
+                    else
+                        labelText = (light.innerSpotAngle).ToString("0.00");
+
+                    var style = new GUIStyle(GUI.skin.label);
+                    var offsetFromHandle = 10;
+                    style.contentOffset = new Vector2(0, -(style.font.lineHeight + HandleUtility.GetHandleSize(labelPosition) * 0.03f + offsetFromHandle));
+                    Handles.Label(labelPosition, labelText, style);
+                }
+
+                if (GUI.changed)
+                {
+                    light.spotAngle = angleAndRange.x;
+
+                    light.innerSpotAngle = innerAngleAndRange.x;
+                    light.range = Math.Max(range, 0.01f);
+                }
+            }
+
+            if (EditorGUIUtility.hotControl == 0 && EditorGUIUtility.hotControl != m_HandleHotControl)
+            {
+                m_HandleHotControl = 0;
+                m_ShowOuterLabel = true;
+                m_ShowRange = false;
+            }
+        }
+
+//        [DrawGizmo(GizmoType.Selected | GizmoType.Active)]
+//        static void DrawGizmo(Light light, GizmoType gizmoType)
+//        {
+//            if (!(GraphicsSettings.renderPipelineAsset is LightweightPipelineAsset))
+//                return;
+//
+//            if( light.type == LightType.Spot )
+//            {
+//                var gizmoColor = light.color;
+//
+//                var innerProcentage = (light.innerSpotAngle / light.spotAngle);
+//                CoreLightEditorUtilities.DrawSpotlightGizmo(light, innerProcentage, true);
+//
+//            }
+//        }
     }
 }

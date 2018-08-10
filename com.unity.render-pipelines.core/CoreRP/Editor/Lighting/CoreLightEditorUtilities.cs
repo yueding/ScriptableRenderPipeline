@@ -12,7 +12,8 @@ namespace UnityEditor.Experimental.Rendering
         {
             Matrix4x4 rotation = Matrix4x4.TRS(Vector3.zero, q, Vector3.one);
 
-            Gizmos.color = Color.white;
+            //Handles.color = Color.white;
+            //Gizmos.color = Color.white;
             float theta = 0.0f;
             float x = radius * Mathf.Cos(theta);
             float y = radius * Mathf.Sin(theta);
@@ -27,10 +28,12 @@ namespace UnityEditor.Experimental.Rendering
 
                 newPos = rotation * new Vector3(x, y, 0);
                 newPos += position;
-                Gizmos.DrawLine(pos, newPos);
+                Handles.DrawLine(pos, newPos);
+                //Gizmos.DrawLine(pos, newPos);
                 pos = newPos;
             }
-            Gizmos.DrawLine(pos, lastPos);
+            Handles.DrawLine(pos, lastPos);
+            //Gizmos.DrawLine(pos, lastPos);
         }
 
         public static void DrawSpotlightGizmo(Light spotlight, float innerSpotPercent, bool selected)
@@ -51,10 +54,19 @@ namespace UnityEditor.Experimental.Rendering
             DrawWireDisc(spotlight.gameObject.transform.rotation, spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * rangeDiscDistance, spotlight.gameObject.transform.forward, rangeDiscRadius);
             //Draw Lines
 
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
+
+
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
+
+
+
 
             if (selected)
             {
@@ -66,8 +78,129 @@ namespace UnityEditor.Experimental.Rendering
                     DrawWireDisc(spotlight.gameObject.transform.rotation, spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * nearDiscDistance, spotlight.gameObject.transform.forward, nearDiscRadius);
 
                 //Inner Cone
+                //Handles.color = new Color(Color.cyan.r, Color.cyan.g, Color.cyan.b,  0.2f);
+                Handles.color = new Color(Color.yellow.r, Color.yellow.g, Color.yellow.b,  0.5f);
                 DrawInnerCone(spotlight, innerSpotPercent);
             }
+        }
+
+        public static float DrawCenterHandle(Quaternion rotation, Vector3 position, float range)
+        {
+            Vector3 forward = rotation * Vector3.forward;
+
+            // Range handle at the center of the circle
+            bool temp = GUI.changed;
+            GUI.changed = false;
+            range = SizeSlider(position, forward, range);
+            if (GUI.changed)
+            {
+                range = Mathf.Max(0.0F, range);
+            }
+            GUI.changed |= temp;
+            return range;
+        }
+
+        public static Vector2 DrawConeHandles(Quaternion rotation, Vector3 position, Vector2 angleAndRange)
+        {
+            float spotAngle = angleAndRange.x;
+            float range = angleAndRange.y;
+
+            Vector3 forward = rotation * Vector3.forward;
+            Vector3 up = rotation * Vector3.up;
+            Vector3 right = rotation * Vector3.right;
+
+//            // Range handle at the center of the circle
+//            bool temp = GUI.changed;
+//            GUI.changed = false;
+//            range = SizeSlider(position, forward, range);
+//            if (GUI.changed)
+//            {
+//                range = Mathf.Max(0.0F, range);
+//            }
+//
+//            GUI.changed |= temp;
+
+            spotAngle = SizeSliderSpotAngle(position, forward, right, range, spotAngle);
+            spotAngle = SizeSliderSpotAngle(position, forward, -right, range, spotAngle);
+            spotAngle = SizeSliderSpotAngle(position, forward, up, range, spotAngle);
+            spotAngle = SizeSliderSpotAngle(position, forward, -up, range, spotAngle);
+
+            return new Vector2(spotAngle, range);
+        }
+
+//        public static Vector2 DrawConeHandles(Light spotLight)
+//        {
+//            float spotAngle = spotLight.spotAngle;
+//            float rangeScale = 1.0f;
+//            float angleScale = 1.0f;
+//            float range = spotLight.range;
+//            float actualRange = range * rangeScale;
+//            Vector3 position = spotLight.transform.position;
+//
+//            Vector3 forward = spotLight.transform.rotation * Vector3.forward;
+//            Vector3 up = spotLight.transform.rotation * Vector3.up;
+//            Vector3 right = spotLight.transform.rotation * Vector3.right;
+//
+//            // Range handle at the center of the circle
+//            bool temp = GUI.changed;
+//            GUI.changed = false;
+//            actualRange = SizeSlider(position, forward, actualRange);
+//            if (GUI.changed)
+//                range = Mathf.Max(0.0F, actualRange / rangeScale);
+//            GUI.changed |= temp;
+//
+//            // Angle handles on circle
+//            temp = GUI.changed;
+//            GUI.changed = false;
+//
+//            float lightDisc = actualRange * Mathf.Tan(Mathf.Deg2Rad * spotLight.spotAngle / 2.0f) * angleScale;
+//            lightDisc = SizeSlider(position + forward * actualRange, up, lightDisc);
+//            lightDisc = SizeSlider(position + forward * actualRange, -up, lightDisc);
+//            lightDisc = SizeSlider(position + forward * actualRange, right, lightDisc);
+//            lightDisc = SizeSlider(position + forward * actualRange, -right, lightDisc);
+//            if (GUI.changed)
+//                spotAngle = Mathf.Clamp((Mathf.Rad2Deg * Mathf.Atan(lightDisc / (actualRange * angleScale)) * 2), 0.0F, 179F);
+//            GUI.changed |= temp;
+//
+//            return new Vector2(spotAngle, range);
+//        }
+
+        static float SizeSlider(Vector3 p, Vector3 d, float t)
+        {
+            Vector3 position = p + d * t;
+            float size = HandleUtility.GetHandleSize(position);
+            bool temp = GUI.changed;
+            GUI.changed = false;
+            position = Handles.Slider(position, d, size * 0.04f, Handles.DotHandleCap, 0f);
+            if (GUI.changed)
+                t = Vector3.Dot(position - p, d);
+
+            GUI.changed |= temp;
+            return t;
+        }
+
+        static int s_SliderSpotAngleId;
+
+        static float SizeSliderSpotAngle(Vector3 position, Vector3 forward, Vector3 axis, float range, float spotAngle)
+        {
+            if (Math.Abs(spotAngle) <= 0.05f && GUIUtility.hotControl != s_SliderSpotAngleId)
+                return spotAngle;
+            var angledForward = Quaternion.AngleAxis(Mathf.Max(spotAngle, 0.05f) * 0.5f, axis) * forward;
+            var centerToLeftOnSphere = (angledForward * range + position) - (position + forward * range);
+            bool temp = GUI.changed;
+            GUI.changed = false;
+            var newMagnitude = Mathf.Max(0f, SizeSlider(position + forward * range, centerToLeftOnSphere.normalized, centerToLeftOnSphere.magnitude));
+            if (GUI.changed)
+            {
+                s_SliderSpotAngleId = GUIUtility.hotControl;
+                centerToLeftOnSphere = centerToLeftOnSphere.normalized * newMagnitude;
+                angledForward = (centerToLeftOnSphere + (position + forward * range) - position).normalized;
+                spotAngle = Mathf.Clamp(Mathf.Acos(Vector3.Dot(forward, angledForward)) * Mathf.Rad2Deg * 2, 0f, 179f);
+                if (spotAngle <= 0.05f || float.IsNaN(spotAngle))
+                    spotAngle = 0f;
+            }
+            GUI.changed |= temp;
+            return spotAngle;
         }
 
         // innerSpotPercent - 0 to 1 value (percentage 0 - 100%)
@@ -82,10 +215,15 @@ namespace UnityEditor.Experimental.Rendering
 
             //Draw Lines
 
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
-            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
+//
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
+//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
 
             var innerAngle = spotlight.spotAngle * innerSpotPercent;
             if (innerAngle > 0)
@@ -234,3 +372,23 @@ namespace UnityEditor.Experimental.Rendering
         }
     }
 }
+
+
+
+//        public static Vector2 DrawSpotligtCenterHandle(Light spotlight)
+//        {
+//            // Range handle at the center of the circle
+//            bool temp = GUI.changed;
+//            GUI.changed = false;
+//            float actualRange = spotlight.range;
+//            Vector3 position = spotlight.transform.position;
+//            Vector3 forward = spotlight.transform.rotation * Vector3.forward;
+//            float range = spotlight.range;
+//            float rangeScale = 1.0f;
+//            actualRange = SizeSlider(position, forward, actualRange);
+//            if (GUI.changed)
+//                range = Mathf.Max(0.0F, actualRange / rangeScale);
+//            GUI.changed |= temp;
+//
+//            return new Vector2(spotlight.spotAngle, range);
+//        }
