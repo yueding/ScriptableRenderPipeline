@@ -135,7 +135,7 @@ _DEBUG_clearcoatIOR( "Clearcoat IOR", Float ) = 1
     //-------------------------------------------------------------------------------------
     // Variant
     //-------------------------------------------------------------------------------------
-    #pragma shader_feature _AXF_BRDF_TYPE_SVBRDF _AXF_BRDF_TYPE_CAR_PAINT _AXF_BRDF_TYPE_BTF
+    #pragma shader_feature _AXF_BRDF_TYPE_SVBRDF
 
     #pragma shader_feature _ALPHATEST_ON
     #pragma shader_feature _DOUBLESIDED_ON

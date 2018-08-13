@@ -29,10 +29,6 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 
     UV0 *= float2(_MaterialTilingU, _MaterialTilingV);
 
-    //-----------------------------------------------------------------------------
-    // _AXF_BRDF_TYPE_SVBRDF
-    //-----------------------------------------------------------------------------
-
 #ifdef _AXF_BRDF_TYPE_SVBRDF
 
     surfaceData.baseColor = ReadsRGBColor(SAMPLE_TEXTURE2D(_SVBRDF_DiffuseColorMap, sampler_SVBRDF_DiffuseColorMap, UV0).xyz) * _BaseColor.xyz;
@@ -57,29 +53,18 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 
     float alpha = SAMPLE_TEXTURE2D(_SVBRDF_AlphaMap, sampler_SVBRDF_AlphaMap, UV0).x * _BaseColor.w;
 
-    // Hardcoded values for debug purpose
-    //surfaceData.normalWS = input.worldToTangent[2].xyz;
-    //surfaceData.fresnelF0 = 0.04;
-    //surfaceData.diffuseColor = pow(float3(48, 54, 60) / 255.0, 2.2);
-    //surfaceData.specularColor = 1.0;
-    //surfaceData.specularLobe = PerceptualSmoothnessToRoughness(0.785);
-
     // Useless for SVBRDF
     surfaceData.flakesUV = input.texCoord0;
     surfaceData.flakesMipLevel = 0.0;
 
-    //-----------------------------------------------------------------------------
-    // _AXF_BRDF_TYPE_CAR_PAINT
-    //-----------------------------------------------------------------------------
+// Car paint exclusive case
+#else
 
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
-
-    surfaceData.diffuseColor = _CarPaint2_CTDiffuse * _BaseColor.xyz;
+    surfaceData.baseColor = _CarPaint2_CTDiffuse * _BaseColor.xyz;
     surfaceData.clearcoatIOR = max(1.001, _CarPaint2_ClearcoatIOR);    // Can't be exactly 1 otherwise the precise fresnel divides by 0!
 
     GetNormalWS(input, 2.0 * SAMPLE_TEXTURE2D(_ClearcoatNormalMap, sampler_ClearcoatNormalMap, UV0).xyz - 1.0, surfaceData.clearcoatNormalWS);
     // surfaceData.normalWS = surfaceData.clearcoatNormalWS; // Use clearcoat normal map as global surface normal map
-
 
     // Create mirrored UVs to hide flakes tiling
     surfaceData.flakesUV = _CarPaint2_FlakeTiling * UV0;
@@ -107,8 +92,6 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 #endif
 
     // Finalize tangent space
-    // surfaceData.tangentWS = input.worldToTangent[0];
-    // surfaceData.biTangentWS = input.worldToTangent[1];
     surfaceData.tangentWS = Orthonormalize(input.worldToTangent[0], surfaceData.normalWS);
     surfaceData.biTangentWS = Orthonormalize(input.worldToTangent[1], surfaceData.normalWS);
 
@@ -125,7 +108,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 #if defined(DEBUG_DISPLAY)
     if (_DebugMipMapMode != DEBUGMIPMAPMODE_NONE)
     {
-        surfaceData.diffuseColor = GetTextureDataDebug(_DebugMipMapMode, UV0, _BaseColorMap, _BaseColorMap_TexelSize, _BaseColorMap_MipInfo, surfaceData.diffuseColor);
+        surfaceData.baseColor = GetTextureDataDebug(_DebugMipMapMode, UV0, _BaseColorMap, _BaseColorMap_TexelSize, _BaseColorMap_MipInfo, surfaceData.baseColor);
     }
 #endif
 

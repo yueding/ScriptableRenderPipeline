@@ -237,7 +237,8 @@ void AddDecalContribution(PositionInputs posInput, inout SurfaceData surfaceData
             surfaceData.metallic = surfaceData.metallic * decalSurfaceData.MAOSBlend.x + decalSurfaceData.mask.x;
 			surfaceData.ambientOcclusion = surfaceData.ambientOcclusion * decalSurfaceData.MAOSBlend.y + decalSurfaceData.mask.y;
 #endif
-#if defined(_AXF_BRDF_TYPE_SVBRDF) || defined(_AXF_BRDF_TYPE_CAR_PAINT) || defined(_AXF_BRDF_TYPE_BTF)
+
+#if defined(UNITY_MATERIAL_AXF)
             surfaceData.specularLobe = surfaceData.specularLobe * decalSurfaceData.mask.w + decalSurfaceData.mask.z;
 #else
             surfaceData.perceptualSmoothness = surfaceData.perceptualSmoothness * decalSurfaceData.mask.w + decalSurfaceData.mask.z;

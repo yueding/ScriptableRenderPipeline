@@ -72,12 +72,9 @@ NormalData ConvertSurfaceDataToNormalData(SurfaceData surfaceData)
 
     normalData.normalWS = surfaceData.normalWS;
 #if defined(_AXF_BRDF_TYPE_SVBRDF)
-    normalData.perceptualRoughness = surfaceData.specularLobe;
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
-    normalData.perceptualRoughness = 0.0;
+    normalData.perceptualRoughness = RoughnessToPerceptualSmoothness(surfaceData.specularLobe);
 #else
-    // This is only possible if the AxF is a BTF type. However, there is a bunch of ifdefs do not support this third case
-    normalData.perceptualRoughness = 0.0;
+    normalData.perceptualRoughness = 1.0;
 #endif
     return normalData;
 }
@@ -294,13 +291,11 @@ float   G_smith(float NdotV, float roughness)
 BSDFData ConvertSurfaceDataToBSDFData(uint2 positionSS, SurfaceData surfaceData)
 {
     BSDFData    data;
-    //	ZERO_INITIALIZE(BSDFData, data);
 
     data.normalWS = surfaceData.normalWS;
     data.tangentWS = surfaceData.tangentWS;
     data.biTangentWS = surfaceData.biTangentWS;
 
-    ////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _AXF_BRDF_TYPE_SVBRDF
     data.diffuseColor = surfaceData.baseColor;
     data.specularColor = surfaceData.specularColor;
@@ -316,8 +311,8 @@ BSDFData ConvertSurfaceDataToBSDFData(uint2 positionSS, SurfaceData surfaceData)
     data.flakesUV = surfaceData.flakesUV;
     data.flakesMipLevel = surfaceData.flakesMipLevel;
 
-    ////////////////////////////////////////////////////////////////////////////////////////
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+#else
+    // Car paint
     data.diffuseColor = surfaceData.baseColor;
     data.flakesUV = surfaceData.flakesUV;
     data.flakesMipLevel = surfaceData.flakesMipLevel;
@@ -366,7 +361,7 @@ struct PreLightData
     float   IBLPerceptualRoughness;
     float3  specularFGD;
     float   diffuseFGD;
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT) & !defined(USE_COOK_TORRANCE_MULTI_LOBES)
+#elif !defined(USE_COOK_TORRANCE_MULTI_LOBES)
     float   IBLPerceptualRoughness;     // Use this to store an average lobe roughness
 #endif
 
@@ -445,8 +440,8 @@ PreLightData    GetPreLightData(float3 viewWS_Clearcoat, PositionInputs posInput
         break;
     }
 
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
-#if !USE_COOK_TORRANCE_MULTI_LOBES
+#else
+    #if !USE_COOK_TORRANCE_MULTI_LOBES
     // ==============================================================================
     // Computes weighted average of roughness values
     float2  sumRoughness = 0.0;
@@ -457,7 +452,7 @@ PreLightData    GetPreLightData(float3 viewWS_Clearcoat, PositionInputs posInput
         sumRoughness += coeff * float2(spread, 1);
     }
     preLightData.IBLPerceptualRoughness = RoughnessToPerceptualRoughness(sumRoughness.x / sumRoughness.y);    // Not used if sampling the environment for each Cook-Torrance lobe
-#endif
+    #endif
 #endif
 
 
@@ -513,11 +508,7 @@ PreLightData    GetPreLightData(float3 viewWS_Clearcoat, PositionInputs posInput
     // ref: http://advances.realtimerendering.com/s2016/s2016_ltc_fresnel.pdf
     preLightData.ltcTransformSpecular_Amplitude = preLightData.specularFGD;
 
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
-
-    // NOTHING TO DO!
-
-#endif  // _AXF_BRDF_TYPE_SVBRDF
+#endif
 
 // Load clear-coat LTC & FGD
     preLightData.ltcTransformClearcoat = 0.0;
@@ -803,7 +794,7 @@ void	BSDF(float3 viewWS_UnderCoat, float3 lightWS_UnderCoat, float NdotL, float3
     specularLighting = clearcoatExtinction * specularTerm + clearcoatReflection;
 }
 
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+#else
 
 // Samples the "BRDF Color Table" as explained in "AxF-Decoding-SDK-1.5.1/doc/html/page2.html#carpaint_ColorTable" from the SDK
 float3  GetBRDFColor(float thetaH, float thetaD)
@@ -1042,21 +1033,6 @@ void	BSDF(float3 viewWS_UnderCoat, float3 lightWS_UnderCoat, float NdotL, float3
 
 #endif
 }
-
-#else
-
-// This function applies the BSDF. Assumes that NdotL is positive.
-void	BSDF(float3 viewWS, float3 lightWS, float NdotL, float3 positionWS, PreLightData preLightData, BSDFData bsdfData,
-    out float3 diffuseLighting, out float3 specularLighting)
-{
-
-    float  diffuseTerm = Lambert();
-
-    // We don't multiply by 'bsdfData.diffuseColor' here. It's done only once in PostEvaluateBSDF().
-    diffuseLighting = diffuseTerm;
-    specularLighting = 0;
-}
-
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1343,7 +1319,7 @@ DirectLighting  EvaluateBSDF_Line(LightLoopContext lightLoopContext,
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+#else
 
     float   NdotV = ClampNdotV(preLightData.NdotV_UnderCoat);
 
@@ -1553,7 +1529,7 @@ DirectLighting  EvaluateBSDF_Rect(LightLoopContext lightLoopContext,
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+#else
 
     float   NdotV = ClampNdotV(preLightData.NdotV_UnderCoat);
 
@@ -1778,7 +1754,7 @@ IndirectLighting    EvaluateBSDF_Env(LightLoopContext lightLoopContext,
     float3  envLighting = envBRDF * preLD.xyz;
 
     //-----------------------------------------------------------------------------
-#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+#else
     // Evaluate BRDF response in specular direction
     float3  viewWS_UnderCoat = preLightData.viewWS_UnderCoat;
     float3  lightWS_UnderCoat = environmentSamplingDirectionWS_UnderCoat;
@@ -1792,7 +1768,7 @@ IndirectLighting    EvaluateBSDF_Env(LightLoopContext lightLoopContext,
     float   thetaD = acos(clamp(VdotH, -1, 1));
 
     //-----------------------------------------------------------------------------
-#if USE_COOK_TORRANCE_MULTI_LOBES
+    #if USE_COOK_TORRANCE_MULTI_LOBES
     // Multi-lobes approach
     // Each CT lobe samples the environment with the appropriate roughness
     float3  envLighting = 0.0;
@@ -1829,7 +1805,7 @@ IndirectLighting    EvaluateBSDF_Env(LightLoopContext lightLoopContext,
 
     weight *= sumWeights / _CarPaint2_LobeCount;
 
-#else
+    #else
     // Single lobe approach
     // We computed an average mip level stored in preLightData.IBLPerceptualRoughness that we use for all CT lobes
     //
@@ -1845,13 +1821,7 @@ IndirectLighting    EvaluateBSDF_Env(LightLoopContext lightLoopContext,
 
     weight *= preLD.w; // Used by planar reflection to discard pixel
 
-#endif
-
-//-----------------------------------------------------------------------------
-#else
-
-    float3  envLighting = 0;
-
+    #endif
 #endif
 
     //-----------------------------------------------------------------------------
@@ -1911,9 +1881,7 @@ void PostEvaluateBSDF(LightLoopContext lightLoopContext,
     diffuseLighting = bsdfData.diffuseColor * lighting.direct.diffuse + builtinData.bakeDiffuseLighting;
     specularLighting = lighting.direct.specular + lighting.indirect.specularReflected;
 
-#if !defined(_AXF_BRDF_TYPE_SVBRDF) && !defined(_AXF_BRDF_TYPE_CAR_PAINT)
-    diffuseLighting = 10 * float3(1, 0.3, 0.01);  // @TODO!
-#endif
+    // diffuseLighting = 10 * float3(1, 0.3, 0.01);  // @TODO!
 
 #ifdef DEBUG_DISPLAY
     PostEvaluateBSDFDebugDisplay(aoFactor, builtinData, lighting, bsdfData.diffuseColor, diffuseLighting, specularLighting);

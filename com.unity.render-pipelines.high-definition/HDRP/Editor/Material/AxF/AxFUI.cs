@@ -53,8 +53,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         enum	AxfBrdfType
         {
             SVBRDF,
-            CAR_PAINT,
-            BTF,
+            CAR_PAINT
         }
         static readonly string[]	AxfBrdfTypeNames = Enum.GetNames(typeof(AxfBrdfType));
 
@@ -483,11 +482,11 @@ m_debug_prop3.floatValue = EditorGUILayout.FloatField( "Clearcoat IOR", m_debug_
 
 //          CoreUtils.SetKeyword(_material, "_EMISSIVE_COLOR_MAP", _material.GetTexture(kEmissiveColorMap));
 
+            // Fetch and cast the type of this AxF
             AxfBrdfType   BRDFType = (AxfBrdfType) _material.GetFloat( m_AxF_BRDFTypeText );
-
+            // To save preprocessor macro slots, we only inject the SVBRDF flag as it is exclusive with
+            // the other type. If not defined, then it is the car paint case.
             CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_SVBRDF", BRDFType == AxfBrdfType.SVBRDF );
-            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_CAR_PAINT", BRDFType == AxfBrdfType.CAR_PAINT );
-            CoreUtils.SetKeyword( _material, "_AXF_BRDF_TYPE_BTF", BRDFType == AxfBrdfType.BTF );
 		}
 	}
 } // namespace UnityEditor
