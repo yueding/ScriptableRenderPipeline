@@ -72,9 +72,9 @@ NormalData ConvertSurfaceDataToNormalData(SurfaceData surfaceData)
 
     normalData.normalWS = surfaceData.normalWS;
 #if defined(_AXF_BRDF_TYPE_SVBRDF)
-    normalData.perceptualRoughness = RoughnessToPerceptualSmoothness(surfaceData.specularLobe);
+    normalData.perceptualRoughness = RoughnessToPerceptualRoughness(surfaceData.specularLobe);
 #else
-    normalData.perceptualRoughness = 1.0;
+    normalData.perceptualRoughness = 0.0;
 #endif
     return normalData;
 }
@@ -1880,8 +1880,6 @@ void PostEvaluateBSDF(LightLoopContext lightLoopContext,
 
     diffuseLighting = bsdfData.diffuseColor * lighting.direct.diffuse + builtinData.bakeDiffuseLighting;
     specularLighting = lighting.direct.specular + lighting.indirect.specularReflected;
-
-    // diffuseLighting = 10 * float3(1, 0.3, 0.01);  // @TODO!
 
 #ifdef DEBUG_DISPLAY
     PostEvaluateBSDFDebugDisplay(aoFactor, builtinData, lighting, bsdfData.diffuseColor, diffuseLighting, specularLighting);
