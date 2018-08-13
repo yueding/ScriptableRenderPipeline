@@ -27,8 +27,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public Vector3  biTangentWS;
 
             // SVBRDF Variables
-            [SurfaceDataAttributes("Diffuse Color", false, true)]
-            public Vector3  diffuseColor;
+            [SurfaceDataAttributes("Base Color", false, true)]
+            public Vector3  baseColor;
 
             [SurfaceDataAttributes("Specular Color", false, true)]
             public Vector3  specularColor;

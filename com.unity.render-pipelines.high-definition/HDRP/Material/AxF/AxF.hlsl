@@ -11,6 +11,8 @@
 // Add support for LTC Area Lights
 #include "HDRP/Material/LTCAreaLight/LTCAreaLight.hlsl"
 
+// Required for normal buffer support
+#include "HDRP/Material/NormalBuffer.hlsl"
 
 //-----------------------------------------------------------------------------
 #define CLEAR_COAT_ROUGHNESS 0.03
@@ -64,7 +66,21 @@ void GetBSDFDataDebug(uint paramId, BSDFData bsdfData, inout float3 result, inou
     }
 }
 
+NormalData ConvertSurfaceDataToNormalData(SurfaceData surfaceData)
+{
+    NormalData normalData;
 
+    normalData.normalWS = surfaceData.normalWS;
+#if defined(_AXF_BRDF_TYPE_SVBRDF)
+    normalData.perceptualRoughness = surfaceData.specularLobe;
+#elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
+    normalData.perceptualRoughness = 0.0;
+#else
+    // This is only possible if the AxF is a BTF type. However, there is a bunch of ifdefs do not support this third case
+    normalData.perceptualRoughness = 0.0;
+#endif
+    return normalData;
+}
 
 // This function is used to help with debugging and must be implemented by any lit material
 // Implementer must take into account what are the current override component and
@@ -81,7 +97,7 @@ void ApplyDebugToSurfaceData(float3x3 worldToTangent, inout SurfaceData surfaceD
 
     if (overrideAlbedo)
     {
-        surfaceData.diffuseColor = _DebugLightingAlbedo.yzw;
+        surfaceData.baseColor = _DebugLightingAlbedo.yzw;
     }
 
     if (overrideSmoothness)
@@ -286,7 +302,7 @@ BSDFData ConvertSurfaceDataToBSDFData(uint2 positionSS, SurfaceData surfaceData)
 
     ////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _AXF_BRDF_TYPE_SVBRDF
-    data.diffuseColor = surfaceData.diffuseColor;
+    data.diffuseColor = surfaceData.baseColor;
     data.specularColor = surfaceData.specularColor;
     data.fresnelF0 = surfaceData.fresnelF0;
     data.roughness = surfaceData.specularLobe;
@@ -302,7 +318,7 @@ BSDFData ConvertSurfaceDataToBSDFData(uint2 positionSS, SurfaceData surfaceData)
 
     ////////////////////////////////////////////////////////////////////////////////////////
 #elif defined(_AXF_BRDF_TYPE_CAR_PAINT)
-    data.diffuseColor = surfaceData.diffuseColor;
+    data.diffuseColor = surfaceData.baseColor;
     data.flakesUV = surfaceData.flakesUV;
     data.flakesMipLevel = surfaceData.flakesMipLevel;
     data.clearcoatColor = 1.0;  // Not provided, assume white...

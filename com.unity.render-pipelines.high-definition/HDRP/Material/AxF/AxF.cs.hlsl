@@ -11,7 +11,7 @@
 #define DEBUGVIEW_AXF_SURFACEDATA_NORMAL_VIEW_SPACE (1201)
 #define DEBUGVIEW_AXF_SURFACEDATA_TANGENT (1202)
 #define DEBUGVIEW_AXF_SURFACEDATA_BI_TANGENT (1203)
-#define DEBUGVIEW_AXF_SURFACEDATA_DIFFUSE_COLOR (1204)
+#define DEBUGVIEW_AXF_SURFACEDATA_BASE_COLOR (1204)
 #define DEBUGVIEW_AXF_SURFACEDATA_SPECULAR_COLOR (1205)
 #define DEBUGVIEW_AXF_SURFACEDATA_FRESNEL_F0 (1206)
 #define DEBUGVIEW_AXF_SURFACEDATA_SPECULAR_LOBE (1207)
@@ -49,7 +49,7 @@ struct SurfaceData
     float3 normalWS;
     float3 tangentWS;
     float3 biTangentWS;
-    float3 diffuseColor;
+    float3 baseColor;
     float3 specularColor;
     float3 fresnelF0;
     float2 specularLobe;
@@ -101,8 +101,8 @@ void GetGeneratedSurfaceDataDebug(uint paramId, SurfaceData surfacedata, inout f
         case DEBUGVIEW_AXF_SURFACEDATA_BI_TANGENT:
             result = surfacedata.biTangentWS * 0.5 + 0.5;
             break;
-        case DEBUGVIEW_AXF_SURFACEDATA_DIFFUSE_COLOR:
-            result = surfacedata.diffuseColor;
+        case DEBUGVIEW_AXF_SURFACEDATA_BASE_COLOR:
+            result = surfacedata.baseColor;
             needLinearToSRGB = true;
             break;
         case DEBUGVIEW_AXF_SURFACEDATA_SPECULAR_COLOR:
