@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [3.3.0-preview]
 ### Added
 - Add callbacks to LWRP that can be attached to a camera (IBeforeCameraRender, IAfterDepthPrePass, IAfterOpaquePass, IAfterOpaquePostProcess, IAfterSkyboxPass, IAfterTransparentPass, IAfterRender)
+- Custom Light Explorer to be more relevant for LWRP.
 
 ###Changed
 - Clean up LWRP creation of render textures. If we are not going straight to screen ensure that we create both depth and color targets.
