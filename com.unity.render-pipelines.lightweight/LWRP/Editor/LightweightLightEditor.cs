@@ -22,11 +22,6 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
 
         class Styles
         {
-            public readonly GUIContent SpotAngle = new GUIContent("Spot Angle", "Controls the angle in degrees at the base of a Spot light's cone.");
-            public readonly GUIContent InnerSpotAngleFalloff = new GUIContent("Inner Angle", ".");
-            public readonly GUIContent OuterSpotAngleFalloff = new GUIContent("Outer Angle", ".");
-            public readonly GUIContent InnerOuterSpotAngle = new GUIContent("Inner Outer Spot Angle", ".");
-
             public readonly GUIContent Cookie = new GUIContent("Cookie", "Specifies the Texture mask to cast shadows, create silhouettes, or patterned illumination for the light.");
             public readonly GUIContent CookieSize = new GUIContent("Cookie Size", "Controls the size of the cookie mask currently assigned to the light.");
 
@@ -109,7 +104,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             // Spot angle
             using (var group = new EditorGUILayout.FadeGroupScope(m_AnimSpotOptions.faded))
                 if (group.visible)
-                    DrawSpotAngle();
+                    settings.DrawSpotAngleInnerAndOuter();
 
             // Area width & height
             using (var group = new EditorGUILayout.FadeGroupScope(m_AnimAreaOptions.faded))
@@ -178,72 +173,6 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             SetOptions(m_AnimShadowAngleOptions, initialize, bakedShadowAngle);
             SetOptions(m_AnimShadowRadiusOptions, initialize, bakedShadowRadius);
             SetOptions(m_AnimLightBounceIntensity, initialize, showLightBounceIntensity);
-        }
-
-        void DrawSpotAngle()
-        {
-            float textFieldWidth = 45f;
-
-            float min = settings.innerSpotAngle.floatValue;
-            float max = settings.spotAngle.floatValue;
-            float falloff = max - min;
-
-            EditorGUILayout.BeginHorizontal();
-
-            EditorGUI.BeginChangeCheck();
-
-            EditorGUILayout.PrefixLabel("Inner / Outer Angle");
-            min = EditorGUILayout.FloatField(float.Parse(min.ToString("0.00")), GUILayout.Width(textFieldWidth));
-
-            EditorGUILayout.MinMaxSlider(ref min, ref max, 0f, 180f);
-
-            max = float.Parse(EditorGUILayout.TextField(max.ToString("0.00"), GUILayout.Width(textFieldWidth)));
-            //Rect newRect
-            //EditorGUI.LabelField(new Rect(0,0,30,10), min.ToString());
-
-
-
-            EditorGUILayout.EndHorizontal();
-
-
-
-
-            //min = max - EditorGUILayout.FloatField("Falloff", float.Parse((max-min).ToString("0.00")));
-
-
-            if (EditorGUI.EndChangeCheck())
-            {
-                settings.innerSpotAngle.floatValue = min;
-                settings.spotAngle.floatValue = max;
-            }
-
-            //EditorGUILayout.BeginHorizontal();
-
-            //EditorGUILayout.PrefixLabel(" ");
-            //GUILayout.TextField(min.ToString());
-            //GUILayout.FlexibleSpace();
-            //GUILayout.TextField(max.ToString());
-
-
-
-
-//            var rect = EditorGUILayout.GetControlRect(true, EditorGUI.GetPropertyHeight(SerializedPropertyType.Vector2, new GUIContent(" ")), EditorStyles.numberField);
-//            var values = new[] { min, max };
-//            EditorGUI.MultiFloatField(rect, new GUIContent(" "), new []{new GUIContent("Min"), new GUIContent("Max")}, values);
-//            min = values[0];
-//            max = values[1];
-            //EditorGUILayout.EndHorizontal();
-
-
-
-
-            //EditorGUILayout.Slider(settings.innerSpotAngleFalloff, 0f, max, s_Styles.InnerSpotAngleFalloff);
-            //EditorGUILayout.Slider(settings.spotAngle, min, 180, s_Styles.OuterSpotAngleFalloff);
-
-
-
-            //EditorGUILayout.Slider(settings.spotAngle, 1f, 179f, s_Styles.SpotAngle);
-            //EditorGUILayout.Slider(settings.innerSpotAngleFalloff, 1f, 179f, s_Styles.InnerSpotAngleFalloff);
         }
 
         void DrawCookie()
@@ -376,21 +305,5 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 m_ShowRange = false;
             }
         }
-
-//        [DrawGizmo(GizmoType.Selected | GizmoType.Active)]
-//        static void DrawGizmo(Light light, GizmoType gizmoType)
-//        {
-//            if (!(GraphicsSettings.renderPipelineAsset is LightweightPipelineAsset))
-//                return;
-//
-//            if( light.type == LightType.Spot )
-//            {
-//                var gizmoColor = light.color;
-//
-//                var innerProcentage = (light.innerSpotAngle / light.spotAngle);
-//                CoreLightEditorUtilities.DrawSpotlightGizmo(light, innerProcentage, true);
-//
-//            }
-//        }
     }
 }

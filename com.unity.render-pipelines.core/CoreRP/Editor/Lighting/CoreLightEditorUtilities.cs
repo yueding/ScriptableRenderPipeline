@@ -38,6 +38,10 @@ namespace UnityEditor.Experimental.Rendering
 
         public static void DrawSpotlightGizmo(Light spotlight, float innerSpotPercent, bool selected)
         {
+            Color drawColor = Color.yellow;
+            Color drawColorBehind = new Color(Color.yellow.r, Color.yellow.g, Color.yellow.b,  0.2f);
+            Color drawColorInner = new Color32(255, 180, 100, 150);
+
             var flatRadiusAtRange = spotlight.range * Mathf.Tan(spotlight.spotAngle * Mathf.Deg2Rad * 0.5f);
 
             var vectorLineUp = Vector3.Normalize(spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * spotlight.range + spotlight.gameObject.transform.up * flatRadiusAtRange - spotlight.gameObject.transform.position);
@@ -50,38 +54,55 @@ namespace UnityEditor.Experimental.Rendering
             var nearDiscDistance = Mathf.Cos(Mathf.Deg2Rad * spotlight.spotAngle / 2) * spotlight.shadowNearPlane;
             var nearDiscRadius = spotlight.shadowNearPlane * Mathf.Sin(spotlight.spotAngle * Mathf.Deg2Rad * 0.5f);
 
+            // Saving the default colors
+            var defColor = Handles.color;
+            var defZTest = Handles.zTest;
+
+            // Setting the color to yellow and doing the depth test here
+            Handles.color = drawColor;
+            Handles.zTest = UnityEngine.Rendering.CompareFunction.LessEqual;
+
             //Draw Range disc
             DrawWireDisc(spotlight.gameObject.transform.rotation, spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * rangeDiscDistance, spotlight.gameObject.transform.forward, rangeDiscRadius);
+
             //Draw Lines
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
+            Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
+            Handles.color = drawColorInner;
+            Handles.DrawWireArc(spotlight.gameObject.transform.position, spotlight.gameObject.transform.right, vectorLineUp, spotlight.spotAngle, spotlight.range);
+            Handles.DrawWireArc(spotlight.gameObject.transform.position, spotlight.gameObject.transform.up, vectorLineLeft, spotlight.spotAngle, spotlight.range);
+
+            //Draw Near Plane Disc
+            if (spotlight.shadows != LightShadows.None)
+                DrawWireDisc(spotlight.gameObject.transform.rotation, spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * nearDiscDistance, spotlight.gameObject.transform.forward, nearDiscRadius);
+
+            //Inner Cone
+            Handles.color = drawColorInner;
+            DrawInnerCone(spotlight, innerSpotPercent);
+
+            // Setting the color to the behind color and doing the depth test here
+            Handles.color = drawColorBehind;
+            Handles.zTest = UnityEngine.Rendering.CompareFunction.Greater;
+
+            DrawWireDisc(spotlight.gameObject.transform.rotation, spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * rangeDiscDistance, spotlight.gameObject.transform.forward, rangeDiscRadius);
 
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
+            Handles.DrawWireArc(spotlight.gameObject.transform.position, spotlight.gameObject.transform.right, vectorLineUp, spotlight.spotAngle, spotlight.range);
+            Handles.DrawWireArc(spotlight.gameObject.transform.position, spotlight.gameObject.transform.up, vectorLineLeft, spotlight.spotAngle, spotlight.range);
+            //Draw Near Plane Disc
+            if (spotlight.shadows != LightShadows.None)
+                DrawWireDisc(spotlight.gameObject.transform.rotation, spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * nearDiscDistance, spotlight.gameObject.transform.forward, nearDiscRadius);
 
+            //Inner Cone
+            DrawInnerCone(spotlight, innerSpotPercent);
 
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
-
-
-
-
-            if (selected)
-            {
-                //Draw Range Arcs
-                Handles.DrawWireArc(spotlight.gameObject.transform.position, spotlight.gameObject.transform.right, vectorLineUp, spotlight.spotAngle, spotlight.range);
-                Handles.DrawWireArc(spotlight.gameObject.transform.position, spotlight.gameObject.transform.up, vectorLineLeft, spotlight.spotAngle, spotlight.range);
-                //Draw Near Plane Disc
-                if (spotlight.shadows != LightShadows.None)
-                    DrawWireDisc(spotlight.gameObject.transform.rotation, spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * nearDiscDistance, spotlight.gameObject.transform.forward, nearDiscRadius);
-
-                //Inner Cone
-                //Handles.color = new Color(Color.cyan.r, Color.cyan.g, Color.cyan.b,  0.2f);
-                Handles.color = new Color(Color.yellow.r, Color.yellow.g, Color.yellow.b,  0.5f);
-                DrawInnerCone(spotlight, innerSpotPercent);
-            }
+            Handles.color = defColor;
+            Handles.zTest = defZTest;
         }
 
         public static float DrawCenterHandle(Quaternion rotation, Vector3 position, float range)
@@ -109,17 +130,6 @@ namespace UnityEditor.Experimental.Rendering
             Vector3 up = rotation * Vector3.up;
             Vector3 right = rotation * Vector3.right;
 
-//            // Range handle at the center of the circle
-//            bool temp = GUI.changed;
-//            GUI.changed = false;
-//            range = SizeSlider(position, forward, range);
-//            if (GUI.changed)
-//            {
-//                range = Mathf.Max(0.0F, range);
-//            }
-//
-//            GUI.changed |= temp;
-
             spotAngle = SizeSliderSpotAngle(position, forward, right, range, spotAngle);
             spotAngle = SizeSliderSpotAngle(position, forward, -right, range, spotAngle);
             spotAngle = SizeSliderSpotAngle(position, forward, up, range, spotAngle);
@@ -127,43 +137,6 @@ namespace UnityEditor.Experimental.Rendering
 
             return new Vector2(spotAngle, range);
         }
-
-//        public static Vector2 DrawConeHandles(Light spotLight)
-//        {
-//            float spotAngle = spotLight.spotAngle;
-//            float rangeScale = 1.0f;
-//            float angleScale = 1.0f;
-//            float range = spotLight.range;
-//            float actualRange = range * rangeScale;
-//            Vector3 position = spotLight.transform.position;
-//
-//            Vector3 forward = spotLight.transform.rotation * Vector3.forward;
-//            Vector3 up = spotLight.transform.rotation * Vector3.up;
-//            Vector3 right = spotLight.transform.rotation * Vector3.right;
-//
-//            // Range handle at the center of the circle
-//            bool temp = GUI.changed;
-//            GUI.changed = false;
-//            actualRange = SizeSlider(position, forward, actualRange);
-//            if (GUI.changed)
-//                range = Mathf.Max(0.0F, actualRange / rangeScale);
-//            GUI.changed |= temp;
-//
-//            // Angle handles on circle
-//            temp = GUI.changed;
-//            GUI.changed = false;
-//
-//            float lightDisc = actualRange * Mathf.Tan(Mathf.Deg2Rad * spotLight.spotAngle / 2.0f) * angleScale;
-//            lightDisc = SizeSlider(position + forward * actualRange, up, lightDisc);
-//            lightDisc = SizeSlider(position + forward * actualRange, -up, lightDisc);
-//            lightDisc = SizeSlider(position + forward * actualRange, right, lightDisc);
-//            lightDisc = SizeSlider(position + forward * actualRange, -right, lightDisc);
-//            if (GUI.changed)
-//                spotAngle = Mathf.Clamp((Mathf.Rad2Deg * Mathf.Atan(lightDisc / (actualRange * angleScale)) * 2), 0.0F, 179F);
-//            GUI.changed |= temp;
-//
-//            return new Vector2(spotAngle, range);
-//        }
 
         static float SizeSlider(Vector3 p, Vector3 d, float t)
         {
@@ -214,16 +187,10 @@ namespace UnityEditor.Experimental.Rendering
             var vectorLineLeft = Vector3.Normalize(spotlight.gameObject.transform.position + spotlight.gameObject.transform.forward * spotlight.range + spotlight.gameObject.transform.right * -flatRadiusAtRange - spotlight.gameObject.transform.position);
 
             //Draw Lines
-
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
             Handles.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
-//
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineUp * spotlight.range);
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineDown * spotlight.range);
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineRight * spotlight.range);
-//            Gizmos.DrawLine(spotlight.gameObject.transform.position, spotlight.gameObject.transform.position + vectorLineLeft * spotlight.range);
 
             var innerAngle = spotlight.spotAngle * innerSpotPercent;
             if (innerAngle > 0)
