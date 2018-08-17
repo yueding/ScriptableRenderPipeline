@@ -199,7 +199,7 @@ PreLightData GetPreLightData(float3 V, PositionInputs posInput, inout BSDFData b
     float3 iblN;
 
     // Reminder: This is a static if resolve at compile time
-    if (HasFlag(bsdfData.materialFeatures, MATERIALFEATUREFLAGS_FABRIC_SILK))
+    if (!HasFlag(bsdfData.materialFeatures, MATERIALFEATUREFLAGS_FABRIC_COTTON_WOOL))
     {
         GetPreIntegratedFGDGGXAndDisneyDiffuse(NdotV, preLightData.iblPerceptualRoughness, bsdfData.fresnel0, preLightData.specularFGD, preLightData.diffuseFGD, unused);
 

@@ -8,9 +8,8 @@
 // UnityEngine.Experimental.Rendering.HDPipeline.Fabric+MaterialFeatureFlags:  static fields
 //
 #define MATERIALFEATUREFLAGS_FABRIC_COTTON_WOOL (1)
-#define MATERIALFEATUREFLAGS_FABRIC_SILK (2)
-#define MATERIALFEATUREFLAGS_FABRIC_SUBSURFACE_SCATTERING (4)
-#define MATERIALFEATUREFLAGS_FABRIC_TRANSMISSION (8)
+#define MATERIALFEATUREFLAGS_FABRIC_SUBSURFACE_SCATTERING (2)
+#define MATERIALFEATUREFLAGS_FABRIC_TRANSMISSION (4)
 
 //
 // UnityEngine.Experimental.Rendering.HDPipeline.Fabric+SurfaceData:  static fields
