@@ -10,17 +10,69 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
-  m_Name: Scene Settings Profile 1
+  m_Name: Scene Settings Profile 2
   m_EditorClassIdentifier: 
   components:
-  - {fileID: 114413969882337080}
-  - {fileID: 114128838703966474}
-  - {fileID: 114393872651787808}
-  - {fileID: 114669990816691058}
-  - {fileID: 114902556638068904}
---- !u!114 &114128838703966474
+  - {fileID: 114845553964551284}
+  - {fileID: 114597112003939774}
+  - {fileID: 114871333996650704}
+  - {fileID: 114338767513358228}
+  - {fileID: 114836566474390036}
+--- !u!114 &114338767513358228
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2150ee00179b2f4418ea8b21a7e98eea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  colorMode:
+    m_OverrideState: 1
+    m_Value: 1
+  color:
+    m_OverrideState: 1
+    m_Value: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    hdr: 0
+    showAlpha: 1
+    showEyeDropper: 1
+  density:
+    m_OverrideState: 1
+    m_Value: 1
+    min: 0
+    max: 1
+  mipFogMaxMip:
+    m_OverrideState: 1
+    m_Value: 0.5
+    min: 0
+    max: 1
+  mipFogNear:
+    m_OverrideState: 1
+    m_Value: 0
+    min: 0
+  mipFogFar:
+    m_OverrideState: 1
+    m_Value: 1000
+    min: 0
+  fogDistance:
+    m_OverrideState: 1
+    m_Value: 200
+    min: 0
+  fogBaseHeight:
+    m_OverrideState: 1
+    m_Value: 0
+  fogHeightAttenuation:
+    m_OverrideState: 1
+    m_Value: 0.2
+    min: 0
+    max: 1
+--- !u!114 &114597112003939774
+MonoBehaviour:
+  m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -37,9 +89,106 @@ MonoBehaviour:
   fogType:
     m_OverrideState: 1
     m_Value: 3
---- !u!114 &114393872651787808
+--- !u!114 &114836566474390036
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56b145d2b9ee1ac4f846968484e7485a, type: 3}
+  m_Name: ContactShadows
+  m_EditorClassIdentifier: 
+  active: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 1
+  length:
+    m_OverrideState: 1
+    m_Value: 1
+    min: 0
+    max: 1
+  opacity:
+    m_OverrideState: 0
+    m_Value: 1
+    min: 0
+    max: 1
+  distanceScaleFactor:
+    m_OverrideState: 1
+    m_Value: 0.69
+    min: 0
+    max: 1
+  maxDistance:
+    m_OverrideState: 1
+    m_Value: 50
+    min: 0
+  fadeDistance:
+    m_OverrideState: 1
+    m_Value: 5
+    min: 0
+  sampleCount:
+    m_OverrideState: 1
+    m_Value: 64
+    min: 4
+    max: 64
+--- !u!114 &114845553964551284
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ddcec8a8eb2d684d833ac8f5d26aebd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  maxShadowDistance:
+    m_OverrideState: 1
+    m_Value: 500
+    min: 0
+  cascadeShadowSplitCount:
+    m_OverrideState: 1
+    m_Value: 4
+    min: 1
+    max: 4
+  cascadeShadowSplit0:
+    m_OverrideState: 1
+    m_Value: 0.05
+    min: 0
+    max: 1
+  cascadeShadowSplit1:
+    m_OverrideState: 1
+    m_Value: 0.15
+    min: 0
+    max: 1
+  cascadeShadowSplit2:
+    m_OverrideState: 1
+    m_Value: 0.3
+    min: 0
+    max: 1
+  cascadeShadowBorder0:
+    m_OverrideState: 1
+    m_Value: 0
+    min: 0
+  cascadeShadowBorder1:
+    m_OverrideState: 1
+    m_Value: 0
+    min: 0
+  cascadeShadowBorder2:
+    m_OverrideState: 1
+    m_Value: 0
+    min: 0
+  cascadeShadowBorder3:
+    m_OverrideState: 1
+    m_Value: 0
+    min: 0
+--- !u!114 &114871333996650704
+MonoBehaviour:
+  m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -112,152 +261,3 @@ MonoBehaviour:
   enableSunDisk:
     m_OverrideState: 1
     m_Value: 1
---- !u!114 &114413969882337080
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7ddcec8a8eb2d684d833ac8f5d26aebd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  active: 1
-  maxShadowDistance:
-    m_OverrideState: 1
-    m_Value: 500
-    min: 0
-  cascadeShadowSplitCount:
-    m_OverrideState: 1
-    m_Value: 4
-    min: 1
-    max: 4
-  cascadeShadowSplit0:
-    m_OverrideState: 1
-    m_Value: 0.05
-    min: 0
-    max: 1
-  cascadeShadowSplit1:
-    m_OverrideState: 1
-    m_Value: 0.15
-    min: 0
-    max: 1
-  cascadeShadowSplit2:
-    m_OverrideState: 1
-    m_Value: 0.3
-    min: 0
-    max: 1
-  cascadeShadowBorder0:
-    m_OverrideState: 1
-    m_Value: 0
-    min: 0
-  cascadeShadowBorder1:
-    m_OverrideState: 1
-    m_Value: 0
-    min: 0
-  cascadeShadowBorder2:
-    m_OverrideState: 1
-    m_Value: 0
-    min: 0
-  cascadeShadowBorder3:
-    m_OverrideState: 1
-    m_Value: 0
-    min: 0
---- !u!114 &114669990816691058
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2150ee00179b2f4418ea8b21a7e98eea, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  active: 1
-  colorMode:
-    m_OverrideState: 1
-    m_Value: 1
-  color:
-    m_OverrideState: 1
-    m_Value: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    hdr: 0
-    showAlpha: 1
-    showEyeDropper: 1
-  density:
-    m_OverrideState: 1
-    m_Value: 1
-    min: 0
-    max: 1
-  mipFogMaxMip:
-    m_OverrideState: 1
-    m_Value: 0.5
-    min: 0
-    max: 1
-  mipFogNear:
-    m_OverrideState: 1
-    m_Value: 0
-    min: 0
-  mipFogFar:
-    m_OverrideState: 1
-    m_Value: 1000
-    min: 0
-  fogDistance:
-    m_OverrideState: 1
-    m_Value: 200
-    min: 0
-  fogBaseHeight:
-    m_OverrideState: 1
-    m_Value: 0
-  fogHeightAttenuation:
-    m_OverrideState: 1
-    m_Value: 0.2
-    min: 0
-    max: 1
---- !u!114 &114902556638068904
-MonoBehaviour:
-  m_ObjectHideFlags: 3
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 56b145d2b9ee1ac4f846968484e7485a, type: 3}
-  m_Name: ContactShadows
-  m_EditorClassIdentifier: 
-  active: 1
-  enable:
-    m_OverrideState: 1
-    m_Value: 1
-  length:
-    m_OverrideState: 1
-    m_Value: 1
-    min: 0
-    max: 1
-  opacity:
-    m_OverrideState: 0
-    m_Value: 1
-    min: 0
-    max: 1
-  distanceScaleFactor:
-    m_OverrideState: 1
-    m_Value: 0.748
-    min: 0
-    max: 1
-  maxDistance:
-    m_OverrideState: 1
-    m_Value: 50
-    min: 0
-  fadeDistance:
-    m_OverrideState: 1
-    m_Value: 5
-    min: 0
-  sampleCount:
-    m_OverrideState: 1
-    m_Value: 64
-    min: 4
-    max: 64
