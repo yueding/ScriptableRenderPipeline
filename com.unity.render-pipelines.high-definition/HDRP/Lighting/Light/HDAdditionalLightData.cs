@@ -170,18 +170,26 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return value < 0 ? (uint)LightLayerEnum.Everything : (uint)value;
         }
 
+        // TODO: an array of shadow request for point lights
         HDShadowRequest shadowRequest;
 
-        public HDShadowRequest UpdateShadowRequestData()
+        public void UpdateShadowRequestData(HDShadowManager manager)
         {
+            HDShadowAtlas targetAtlas;
+
             if (shadowRequest == null)
                 shadowRequest = new HDShadowRequest();
             
-            // TODO: Update shadow request parmas (view/proj matrices) if needed
+            // Directional light shadows are stored in a different atlas because we don't want to resize cascades
+            if (m_Light.type == LightType.Directional)
+                targetAtlas = manager.GetCascadeAtlas();
+            else
+                targetAtlas = manager.GetAtlas();
 
-            shadowRequest.view = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);
+            // TODO: Update shadow request params (view/proj matrices) if needed
+            // And push it to the shadow manager
 
-            return shadowRequest;
+            manager.AddShadowRequest(shadowRequest, targetAtlas);
         }
 
 #if UNITY_EDITOR

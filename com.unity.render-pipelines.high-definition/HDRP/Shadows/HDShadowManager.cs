@@ -4,12 +4,6 @@ using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    public class HDShadowAtlasData
-    {
-        // Warning: this field is updated by ProcessShadowRequests and don't contains the good value before
-        public Vector4 scaleOffset;
-    }
-
     [GenerateHLSL]
     public struct HDShadowData
     {
@@ -24,8 +18,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     {
         public Matrix4x4            view;
         public Matrix4x4            projection;
-        public HDShadowAtlasData    atlasData;
-        public VisibleLight         visibleLight;
+        public Vector2              viewportSize;
 
         //TODO: add all the bias and filter stuff
     }
@@ -42,28 +35,28 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         ComputeBuffer               m_ShadowDataBuffer = new ComputeBuffer(64, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDShadowData)));
 
         // The two shadowmaps atlases we uses, one for directional cascade and the second for the rest of the lights
-        HDShadowAtlas               m_DirectionalCascades = new HDShadowAtlas();
+        HDShadowAtlas               m_CascadesAtlas = new HDShadowAtlas();
         HDShadowAtlas               m_Atlas = new HDShadowAtlas();
 
         public HDShadowManager(int width, int height)
         {
-            m_DirectionalCascades.AllocateShadowMaps(width, height);
+            m_CascadesAtlas.AllocateShadowMaps(width, height);
             m_Atlas.AllocateShadowMaps(width, height);
         }
 
-        public void AddShadowRequest(HDShadowRequest shadowRequest)
+        public void AddShadowRequest(HDShadowRequest shadowRequest, HDShadowAtlas atlas)
         {
             m_ShadowRequests.Add(shadowRequest);
 
-            // Directional light shadows are stored in a different atlas
-            if (shadowRequest.visibleLight.lightType == LightType.Directional)
-                m_DirectionalCascades.Reserve(shadowRequest);
-            else
-                m_Atlas.Reserve(shadowRequest);
+            atlas.Reserve(shadowRequest);
         }
 
         public void ProcessShadowRequests(CullResults cullResults, Camera camera)
         {
+            // TODO: prune all shadow we dont need to render
+
+            // TODO maybe: sort all shadows by "importance" (aka size on screen)
+
             m_ShadowDatas.Clear();
 
             // Create all HDShadowDatas and update them with shadow request datas
@@ -75,11 +68,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 data.projection = shadowRequest.projection;
                 data.view = shadowRequest.view;
-                data.scaleOffset = shadowRequest.atlasData.scaleOffset;
+                data.scaleOffset = new Vector4(0, 0, shadowRequest.viewportSize.x, shadowRequest.viewportSize.y);
             }
 
             // Sort and resize all the shadows in the atlas so everything can fit
-            m_DirectionalCascades.LayoutAndResize();
+            m_CascadesAtlas.LayoutAndResize();
             m_Atlas.LayoutAndResize();
         }
         
@@ -111,6 +104,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalBuffer(HDShaderIDs._ShadowDatasExp, m_ShadowDataBuffer);
 
             cmd.SetGlobalTexture(HDShaderIDs._ShadowmapExp_PCF, m_Atlas.identifier);
+        }
+
+        public HDShadowAtlas GetCascadeAtlas()
+        {
+            return m_CascadesAtlas;
+        }
+
+        public HDShadowAtlas GetAtlas()
+        {
+            return m_Atlas;
         }
     }
 }
