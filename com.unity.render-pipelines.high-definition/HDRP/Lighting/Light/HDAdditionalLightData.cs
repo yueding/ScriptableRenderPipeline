@@ -170,6 +170,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return value < 0 ? (uint)LightLayerEnum.Everything : (uint)value;
         }
 
+        HDShadowRequest shadowRequest;
+
+        public HDShadowRequest UpdateShadowRequestData()
+        {
+            if (shadowRequest == null)
+                shadowRequest = new HDShadowRequest();
+            
+            // TODO: Update shadow request parmas (view/proj matrices) if needed
+
+            shadowRequest.view = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);
+
+            return shadowRequest;
+        }
+
 #if UNITY_EDITOR
         // We need these old states to make timeline and the animator record the intensity value and the emissive mesh changes (editor-only)
         [System.NonSerialized]
