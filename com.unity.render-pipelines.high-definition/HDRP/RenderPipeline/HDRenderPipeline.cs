@@ -703,6 +703,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             if (!m_ValidAPI)
                 return;
+            if (XRGraphicsConfig.enabled)
+            {
+                // FIXME add support for renderscale, viewportscale, etc.
+                renderPipelineSettings.xrConfig.SetConfig();
+            }
 
             base.Render(renderContext, cameras);
             RenderPipeline.BeginFrameRendering(cameras);
@@ -915,6 +920,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             DecalSystem.instance.UpdateTextureAtlas(cmd);       // as this is only used for transparent pass, would've been nice not to have to do this if no transparent renderers are visible, needs to happen after CreateDrawData
                         }
                     }
+                    
                     renderContext.SetupCameraProperties(camera, hdCamera.frameSettings.enableStereo);
 
                     PushGlobalParams(hdCamera, cmd, diffusionProfileSettings);

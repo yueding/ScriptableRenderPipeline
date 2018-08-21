@@ -22,9 +22,10 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         public SerializedProperty supportMSAA;
         public SerializedProperty MSAASampleCount;
         public SerializedProperty supportMotionVectors;
-        public SerializedProperty supportStereo;
         public SerializedProperty supportRuntimeDebugDisplay;
         public SerializedProperty supportDitheringCrossFade;
+
+        public SerializedProperty xrConfig;
 
         public SerializedGlobalLightLoopSettings lightLoopSettings;
         public SerializedShadowInitParameters shadowInitParams;
@@ -48,9 +49,10 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             supportMSAA                     = root.Find((RenderPipelineSettings s) => s.supportMSAA);
             MSAASampleCount                 = root.Find((RenderPipelineSettings s) => s.msaaSampleCount);                        
             supportMotionVectors            = root.Find((RenderPipelineSettings s) => s.supportMotionVectors);
-            supportStereo                   = root.Find((RenderPipelineSettings s) => s.supportStereo);
             supportRuntimeDebugDisplay      = root.Find((RenderPipelineSettings s) => s.supportRuntimeDebugDisplay);
             supportDitheringCrossFade       = root.Find((RenderPipelineSettings s) => s.supportDitheringCrossFade);
+
+            xrConfig                        = root.Find((RenderPipelineSettings s) => s.xrConfig);
 
             lightLoopSettings = new SerializedGlobalLightLoopSettings(root.Find((RenderPipelineSettings s) => s.lightLoopSettings));
             shadowInitParams  = new SerializedShadowInitParameters(root.Find((RenderPipelineSettings s) => s.shadowInitParams));

@@ -79,16 +79,18 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             EditorGUILayout.PropertyField(d.increaseResolutionOfVolumetrics, _.GetContent("Increase resolution of volumetrics|Increase the resolution of volumetric lighting buffers. Warning: high performance cost, do not enable on consoles."));
             EditorGUILayout.PropertyField(d.supportLightLayers, _.GetContent("Support LightLayers|Enable light layers. In deferred this imply an extra render target in memory and extra cost."));
             EditorGUILayout.PropertyField(d.supportOnlyForward, _.GetContent("Support Only Forward|Remove all the memory and shader variant of GBuffer. The renderer can be switch to deferred anymore."));
-
+            
             // Engine
             EditorGUILayout.PropertyField(d.supportDecals, _.GetContent("Support Decals|Enable memory and variant for decals buffer and cluster decals"));
             // TODO: Implement MSAA - Hide for now as it doesn't work
             //EditorGUILayout.PropertyField(d.supportMSAA, _.GetContent("Support Multi Sampling Anti-Aliasing|This feature doesn't work currently."));
             //EditorGUILayout.PropertyField(d.MSAASampleCount, _.GetContent("MSAA Sample Count|Allow to select the level of MSAA."));
             EditorGUILayout.PropertyField(d.supportMotionVectors, _.GetContent("Support Motion Vectors|Motion vector are use for Motion Blur, TAA, temporal re-projection of various effect like SSR."));
-            EditorGUILayout.PropertyField(d.supportStereo, _.GetContent("Support Stereo Rendering"));
             EditorGUILayout.PropertyField(d.supportRuntimeDebugDisplay, _.GetContent("Support runtime debug display|Remove all debug display shader variant only in the player. Allow faster build."));
             EditorGUILayout.PropertyField(d.supportDitheringCrossFade, _.GetContent("Support dithering cross fade|Remove all dithering cross fade shader variant only in the player. Allow faster build."));
+
+            // XR 
+            EditorGUILayout.PropertyField(d.xrConfig);
 
             --EditorGUI.indentLevel;
         }

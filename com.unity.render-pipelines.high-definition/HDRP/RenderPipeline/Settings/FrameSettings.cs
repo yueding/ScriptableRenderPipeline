@@ -264,14 +264,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 },
                 new DebugUI.Foldout
                 {
-                    displayName = "XR Settings",
-                    children =
-                    {
-                        new DebugUI.BoolField { displayName = "Enable Stereo Rendering", getter = () => frameSettings.enableStereo, setter = value => frameSettings.enableStereo = value }
-                    }
-                },
-                new DebugUI.Foldout
-                {
                     displayName = "Lighting Settings",
                     children =
                     {
