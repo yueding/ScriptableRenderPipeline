@@ -412,13 +412,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 return false;
             }
 
-            // VR is not supported currently in HD
-            if (XRGraphicsConfig.enabled)
-            {
-                CoreUtils.DisplayUnsupportedXRMessage();
-
-                return false;
-            }
             return true;
         }
 
@@ -948,7 +941,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     ConfigureForLightLayers(hdCamera.frameSettings.enableLightLayers, cmd);
                     ConfigureForDecal(cmd);
 
-                    StartStereoRendering(renderContext, hdCamera);
+                    StartStereoRendering(cmd, renderContext, hdCamera);
 
                     ClearBuffers(hdCamera, cmd);
 
@@ -980,7 +973,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     // TODO: Try to arrange code so we can trigger this call earlier and use async compute here to run sky convolution during other passes (once we move convolution shader to compute).
                     UpdateSkyEnvironment(hdCamera, cmd);
 
-                    StopStereoRendering(renderContext, hdCamera);
+                    StopStereoRendering(cmd, renderContext, hdCamera);
 
                     if (m_CurrentDebugDisplaySettings.IsDebugMaterialDisplayEnabled())
                     {
@@ -990,7 +983,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     }
                     else
                     {
-                        StartStereoRendering(renderContext, hdCamera);
+                        StartStereoRendering(cmd, renderContext, hdCamera);
 
                         using (new ProfilingSample(cmd, "Render SSAO", CustomSamplerId.RenderSSAO.GetSampler()))
                         {
@@ -1014,7 +1007,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             }
                         }
 
-                        StopStereoRendering(renderContext, hdCamera);
+                        StopStereoRendering(cmd, renderContext, hdCamera);
 
                         GPUFence buildGPULightListsCompleteFence = new GPUFence();
                         if (hdCamera.frameSettings.enableAsyncCompute)
@@ -1079,7 +1072,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         RenderDeferredLighting(hdCamera, cmd);
 
                         // Might float this higher if we enable stereo w/ deferred
-                        StartStereoRendering(renderContext, hdCamera);
+                        StartStereoRendering(cmd, renderContext, hdCamera);
 
                         RenderForward(m_CullResults, hdCamera, renderContext, cmd, ForwardPass.Opaque);
 
@@ -1110,7 +1103,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         AccumulateDistortion(m_CullResults, hdCamera, renderContext, cmd);
                         RenderDistortion(hdCamera, cmd, m_Asset.renderPipelineResources);
 
-                        StopStereoRendering(renderContext, hdCamera);
+                        StopStereoRendering(cmd, renderContext, hdCamera);
 
                         PushFullScreenDebugTexture(hdCamera, cmd, m_CameraColorBuffer, FullScreenDebugMode.NanTracker);
                         PushColorPickerDebugTexture(hdCamera, cmd, m_CameraColorBuffer);
@@ -1118,7 +1111,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         // The final pass either postprocess of Blit will flip the screen (as it is reverse by default due to Unity openGL legacy)
                         // Postprocess system (that doesn't use cmd.Blit) handle it with configuration (and do not flip in SceneView) or it is automatically done in Blit
 
-                        StartStereoRendering(renderContext, hdCamera);
+                        StartStereoRendering(cmd, renderContext, hdCamera);
+
 
                         // Final blit
                         if (hdCamera.frameSettings.enablePostprocess)
@@ -1130,11 +1124,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             using (new ProfilingSample(cmd, "Blit to final RT", CustomSamplerId.BlitToFinalRT.GetSampler()))
                             {
                                 // This Blit will flip the screen on anything other than openGL
-                                HDUtils.BlitCameraTexture(cmd, hdCamera, m_CameraColorBuffer, BuiltinRenderTextureType.CameraTarget);
+                                if (srcFrameSettings.enableStereo && (XRGraphicsConfig.eyeTextureDesc.vrUsage == VRTextureUsage.TwoEyes))
+                                {
+                                    cmd.BlitFullscreenTriangle(m_CameraColorBuffer, BuiltinRenderTextureType.CameraTarget); // If double-wide, only blit once (not once per-eye)
+                                } else
+                                {
+                                    HDUtils.BlitCameraTexture(cmd, hdCamera, m_CameraColorBuffer, BuiltinRenderTextureType.CameraTarget);
+                                }
                             }
                         }
 
-                        StopStereoRendering(renderContext, hdCamera);
+                        StopStereoRendering(cmd, renderContext, hdCamera);
                         // Pushes to XR headset and/or display mirror
                         if (hdCamera.frameSettings.enableStereo)
                             renderContext.StereoEndRender(hdCamera.camera);
@@ -1826,7 +1826,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 context.command = cmd;
                 context.camera = hdcamera.camera;
                 context.sourceFormat = RenderTextureFormat.ARGBHalf;
-                context.flip = hdcamera.camera.targetTexture == null;
+                context.flip = (hdcamera.camera.targetTexture == null) && (!hdcamera.camera.stereoEnabled);
 
                 layer.Render(context);
             }
@@ -2055,16 +2055,25 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        void StartStereoRendering(ScriptableRenderContext renderContext, HDCamera hdCamera)
+        void StartStereoRendering(CommandBuffer cmd, ScriptableRenderContext renderContext, HDCamera hdCamera)
         {
             if (hdCamera.frameSettings.enableStereo)
+            {
+                renderContext.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
                 renderContext.StartMultiEye(hdCamera.camera);
+            }
         }
 
-        void StopStereoRendering(ScriptableRenderContext renderContext, HDCamera hdCamera)
+        void StopStereoRendering(CommandBuffer cmd, ScriptableRenderContext renderContext, HDCamera hdCamera)
         {
             if (hdCamera.frameSettings.enableStereo)
+            {
+                renderContext.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
                 renderContext.StopMultiEye(hdCamera.camera);
+            }
+            
         }
 
         /// <summary>
