@@ -10,10 +10,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Matrix4x4    view;
         public Matrix4x4    projection;
         public Vector4      scaleOffset;
-        
-        // Directional light fields
-        public int          cascadeCount;
 
+        // These fields are only for test purpose for HDShadowAlgorithm.hlsl
+        // and should be renamed/removed when we have a stable version
+        public Vector4      textureSize;
+        public Vector4      texelSizeRcp;
+        
         // TODO: add all the bias and filter stuff
     }
 
@@ -29,9 +31,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public int                  lightIndex;
         public ShadowSplitData      splitData;
         // end
-
-        // Directional light fields
-        public int                  cascadeCount;
 
         //TODO: add all the bias and filter stuff
     }
@@ -98,7 +97,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 float rWidth = 1.0f / m_Width;
                 float rHeight = 1.0f / m_Height;
                 Vector4 atlasViewport = new Vector4(shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y, shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height);
-                data.scaleOffset = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight), atlasViewport);
+                data.scaleOffset = Vector4.Scale(new Vector4(rWidth, rHeight, 1, 1), atlasViewport);
+
+                data.textureSize = new Vector4(m_Width, m_Height, shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y);
+                data.texelSizeRcp = new Vector4(rWidth, rHeight, 1.0f / shadowRequest.atlasViewport.x, 1.0f / shadowRequest.atlasViewport.y);
             }
         }
         

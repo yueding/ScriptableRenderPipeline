@@ -109,6 +109,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     s_ShadowPayloadBuffer.SetData(payloads);
                 };
 
+
             // binding code. This needs to be in sync with ShadowContext.hlsl
             ShadowContext.BindDel binder = (ShadowContext sc, CommandBuffer cb, ComputeShader computeShader, int computeKernel) =>
                 {
@@ -117,10 +118,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     sc.GetTex2DArrays(out tex, out offset, out count);
 
                     // bind buffers
-                    // cb.SetGlobalBuffer(HDShaderIDs._ShadowDatasExp, s_ShadowDataBuffer);
-                    // cb.SetGlobalBuffer(HDShaderIDs._ShadowPayloads, s_ShadowPayloadBuffer);
+                    cb.SetGlobalBuffer(HDShaderIDs._ShadowDatasExp, s_ShadowDataBuffer);
+                    cb.SetGlobalBuffer(HDShaderIDs._ShadowPayloads, s_ShadowPayloadBuffer);
                     // bind textures
-                    // cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_PCF, tex[0]);
+                    cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_PCF, tex[0]);
                     // Code kept here for reference if we want to add VSM/MSM later on
                     //cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_VSM_0, tex[1]);
                     //cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_VSM_1, tex[2]);
@@ -304,7 +305,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         ComputeBuffer m_DirectionalLightDatas = null;
         ComputeBuffer m_LightDatas = null;
         ComputeBuffer m_EnvLightDatas = null;
-        ComputeBuffer m_shadowDatas = null;
         ComputeBuffer m_DecalDatas = null;
 
         Texture2DArray  m_DefaultTexture2DArray;
@@ -443,6 +443,24 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         static ComputeBuffer s_PerTileLogBaseTweak = null;
         static ComputeBuffer s_GlobalLightListAtomic = null;
 
+        // TODO: remove this once the new shadow system works
+        static bool useNewShadowSystem = false;
+        #if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoad]
+        static class UseNewShadowSystemSwitcher
+        {
+            static UseNewShadowSystemSwitcher()
+            {
+                UnityEditor.SceneView.onSceneGUIDelegate += (sceneView) => {
+                    if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Space)
+                    {
+                        useNewShadowSystem = !useNewShadowSystem;
+                    }
+                };
+            }
+        }
+        #endif
+
         public enum ClusterPrepassSource : int
         {
             None = 0,
@@ -575,7 +593,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_DirectionalLightDatas = new ComputeBuffer(k_MaxDirectionalLightsOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(DirectionalLightData)));
             m_LightDatas = new ComputeBuffer(k_MaxPunctualLightsOnScreen + k_MaxAreaLightsOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(LightData)));
             m_EnvLightDatas = new ComputeBuffer(k_MaxEnvLightsOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(EnvLightData)));
-            m_shadowDatas = new ComputeBuffer(k_MaxCascadeCount + k_MaxShadowOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(ShadowData)));
             m_DecalDatas = new ComputeBuffer(k_MaxDecalsOnScreen, System.Runtime.InteropServices.Marshal.SizeOf(typeof(DecalData)));
 
             GlobalLightLoopSettings gLightLoopSettings = hdAsset.GetRenderPipelineSettings().lightLoopSettings;
@@ -689,7 +706,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             CoreUtils.SafeRelease(m_DirectionalLightDatas);
             CoreUtils.SafeRelease(m_LightDatas);
             CoreUtils.SafeRelease(m_EnvLightDatas);
-            CoreUtils.SafeRelease(m_shadowDatas);
             CoreUtils.SafeRelease(m_DecalDatas);
 
             if (m_ReflectionProbeCache != null)
@@ -1802,7 +1818,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         // 5 bit (0x1F) light category, 5 bit (0x1F) GPULightType, 5 bit (0x1F) lightVolume, 1 bit for shadow casting, 16 bit index
                         m_SortKeys[sortCount++] = (uint)lightCategory << 27 | (uint)gpuLightType << 22 | (uint)lightVolumeType << 17 | shadow << 16 | (uint)lightIndex;
                     }
-                    
+
                     m_NewShadowManager.ProcessShadowRequests(cullResults, camera);
 
                     CoreUtils.QuickSort(m_SortKeys, 0, sortCount - 1); // Call our own quicksort instead of Array.Sort(sortKeys, 0, sortCount) so we don't allocate memory (note the SortCount-1 that is different from original call).
@@ -2390,7 +2406,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_DirectionalLightDatas.SetData(m_lightList.directionalLights);
             m_LightDatas.SetData(m_lightList.lights);
             m_EnvLightDatas.SetData(m_lightList.envLights);
-            m_shadowDatas.SetData(m_lightList.shadows);
             m_DecalDatas.SetData(DecalSystem.m_DecalDatas, 0, 0, Math.Min(DecalSystem.m_DecalDatasCount, k_MaxDecalsOnScreen)); // don't add more than the size of the buffer
 
             // These two buffers have been set in Rebuild()
@@ -2418,8 +2433,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_ShadowMgr.SyncData();
                 m_ShadowMgr.BindResources(cmd, null, 0);
 
-                m_NewShadowManager.SyncData();
-                m_NewShadowManager.BindResources(cmd);
+                if (useNewShadowSystem)
+                {
+                    m_NewShadowManager.SyncData();
+                    m_NewShadowManager.BindResources(cmd);
+                }
 
                 cmd.SetGlobalTexture(HDShaderIDs._CookieTextures, m_CookieTexArray.GetTexCache());
                 cmd.SetGlobalTexture(HDShaderIDs._CookieCubeTextures, m_CubeCookieTexArray.GetTexCache());
@@ -2436,7 +2454,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetGlobalInt(HDShaderIDs._EnvLightCount, m_lightList.envLights.Count);
                 cmd.SetGlobalBuffer(HDShaderIDs._DecalDatas, m_DecalDatas);
                 cmd.SetGlobalInt(HDShaderIDs._DecalCount, DecalSystem.m_DecalDatasCount);
-                cmd.SetGlobalBuffer(HDShaderIDs._ShadowDatas, m_shadowDatas);
 
                 cmd.SetGlobalInt(HDShaderIDs._NumTileFtplX, GetNumTileFtplX(hdCamera));
                 cmd.SetGlobalInt(HDShaderIDs._NumTileFtplY, GetNumTileFtplY(hdCamera));
@@ -2474,7 +2491,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // kick off the shadow jobs here
             m_ShadowMgr.RenderShadows(m_FrameId, renderContext, cmd, cullResults, cullResults.visibleLights);
 
-            m_NewShadowManager.RenderShadows(renderContext, cmd, cullResults);
+            if (useNewShadowSystem)
+            {
+                m_NewShadowManager.RenderShadows(renderContext, cmd, cullResults);
+            }
         }
 
         public struct LightingPassOptions
@@ -2532,7 +2552,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Passing the compute shader and it's kernel is totally useless i think (because the binder in ShadowSetup ignore them)
                 m_ShadowMgr.BindResources(cmd, screenSpaceShadowComputeShader, kernel);
 
-                m_NewShadowManager.BindResources(cmd);
+                if (useNewShadowSystem)
+                {
+                    m_NewShadowManager.BindResources(cmd);
+                }
 
                 if (m_ContactShadows)
                 {

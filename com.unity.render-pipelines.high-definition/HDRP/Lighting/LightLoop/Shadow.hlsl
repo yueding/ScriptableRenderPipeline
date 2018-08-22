@@ -10,6 +10,7 @@
 #define SHADOW_USE_DEPTH_BIAS                   0   // Enable clip space z biasing
 
 #include "ShadowContext.hlsl"
+// #include "HDRP/Shadows/HDShadowContext.hlsl"
 
 // This is an example of how to override the default dynamic resource dispatcher
 // by hardcoding the resources used and calling the shadow sampling routines that take an explicit texture and sampler.
