@@ -2531,11 +2531,30 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeTextureParam(screenSpaceShadowComputeShader, kernel, HDShaderIDs._CameraDepthTexture, depthTexture);
 
                 int deferredShadowTileSize = 16; // Must match DeferreDirectionalShadow.compute
-                int numTilesX = (hdCamera.actualWidth + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
-                int numTilesY = (hdCamera.actualHeight + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
+                int numTilesX;
+                int numTilesY;
 
-                // TODO: Update for stereo
-                cmd.DispatchCompute(screenSpaceShadowComputeShader, kernel, numTilesX, numTilesY, 1);
+                if (hdCamera.camera.stereoEnabled)
+                {
+                    for (uint eye = 0; eye < 2; eye++)
+                    {
+                        numTilesX = ((hdCamera.actualWidth/2) + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
+                        numTilesY = (hdCamera.actualHeight + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
+                        cmd.SetComputeMatrixParam(screenSpaceShadowComputeShader, HDShaderIDs._Matrix_I_VP, hdCamera.GetViewProjMatrixStereo(eye).inverse);
+                        cmd.SetComputeMatrixParam(screenSpaceShadowComputeShader, HDShaderIDs._Matrix_V, hdCamera.viewMatrixStereo[eye]);
+                        cmd.SetComputeIntParam(screenSpaceShadowComputeShader, HDShaderIDs._Eye, (int)eye);
+                        cmd.DispatchCompute(screenSpaceShadowComputeShader, kernel, numTilesX, numTilesY, 1);
+                    }
+                }
+                else
+                {
+                    numTilesX = (hdCamera.actualWidth + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
+                    numTilesY = (hdCamera.actualHeight + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
+                    cmd.SetComputeMatrixParam(screenSpaceShadowComputeShader, HDShaderIDs._Matrix_I_VP, hdCamera.viewProjMatrix);
+                    cmd.SetComputeMatrixParam(screenSpaceShadowComputeShader, HDShaderIDs._Matrix_V, hdCamera.viewMatrix);
+                    cmd.SetComputeIntParam(screenSpaceShadowComputeShader, HDShaderIDs._Eye, 0);
+                    cmd.DispatchCompute(screenSpaceShadowComputeShader, kernel, numTilesX, numTilesY, 1);
+                }
 
                 cmd.SetGlobalTexture(HDShaderIDs._DeferredShadowTexture, deferredShadowRT);
             }

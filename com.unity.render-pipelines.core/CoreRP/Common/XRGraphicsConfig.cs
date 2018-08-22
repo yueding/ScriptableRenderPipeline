@@ -24,8 +24,7 @@ namespace UnityEngine.Experimental.Rendering
         
         public void SetConfig()
         { // If XR is enabled, sets XRSettings from our saved config
-            if (!enabled)
-                Assert.IsFalse(enabled);
+            Assert.IsTrue(enabled);
             XRSettings.eyeTextureResolutionScale = renderScale;
             XRSettings.renderViewportScale = viewportScale;
             XRSettings.useOcclusionMesh = useOcclusionMesh;
@@ -35,8 +34,7 @@ namespace UnityEngine.Experimental.Rendering
         }
         public void SetViewportScale(float viewportScale)
         { // Only sets viewport- since this is probably the only thing getting updated every frame
-            if (!enabled)
-                Assert.IsFalse(enabled);
+            Assert.IsTrue(enabled);
             XRSettings.renderViewportScale = viewportScale;
         }
 
@@ -52,11 +50,14 @@ namespace UnityEngine.Experimental.Rendering
 
         public static XRGraphicsConfig GetActualXRSettings()
         {
-            XRGraphicsConfig getXRSettings = new XRGraphicsConfig();
-            
+            XRGraphicsConfig getXRSettings = new XRGraphicsConfig();            
+            Assert.IsTrue(enabled);
+
             if (!enabled)
-                Assert.IsFalse(enabled);
-            
+            {
+                return getXRSettings;
+            }
+
             getXRSettings.renderScale = XRSettings.eyeTextureResolutionScale;
             getXRSettings.viewportScale = XRSettings.renderViewportScale;
             getXRSettings.useOcclusionMesh = XRSettings.useOcclusionMesh;
@@ -91,8 +92,11 @@ namespace UnityEngine.Experimental.Rendering
         {
             get
             {
+                Assert.IsTrue(enabled);
                 if (!enabled)
-                    Assert.IsFalse(enabled);
+                {
+                    return StereoRenderingPath.SinglePass;
+                }
 #if UNITY_2018_3_OR_NEWER
                 return (StereoRenderingPath)XRSettings.stereoRenderingMode;
 #else
@@ -106,12 +110,24 @@ namespace UnityEngine.Experimental.Rendering
             }
         }
 #endif
+
+        public static uint GetPixelOffset(uint eye)
+        {
+            Assert.IsTrue(enabled);
+            if (!enabled || XRSettings.eyeTextureDesc.vrUsage != VRTextureUsage.TwoEyes)
+                return 0;
+            return (uint)(Mathf.CeilToInt((eye * XRSettings.eyeTextureWidth) / 2));
+        }
+
         public static RenderTextureDescriptor eyeTextureDesc
         {
             get
             {
+                Assert.IsTrue(enabled);
                 if (!enabled)
-                    Assert.IsFalse(enabled);
+                {
+                    return new RenderTextureDescriptor(0, 0);
+                }
                 return XRSettings.eyeTextureDesc;
             }
         }
@@ -120,8 +136,11 @@ namespace UnityEngine.Experimental.Rendering
         {
             get
             {
+                Assert.IsTrue(enabled);
                 if (!enabled)
-                    Assert.IsFalse(enabled);
+                {
+                    return 0;
+                }
                 return XRSettings.eyeTextureWidth;
             }
         }
@@ -129,8 +148,11 @@ namespace UnityEngine.Experimental.Rendering
         {
             get
             {
+                Assert.IsTrue(enabled);
                 if (!enabled)
-                    Assert.IsFalse(enabled);
+                {
+                    return 0;
+                }
                 return XRSettings.eyeTextureHeight;
             }
         }

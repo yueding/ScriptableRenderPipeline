@@ -48,6 +48,13 @@ void DecodeFromNormalBuffer(uint2 positionSS, out NormalData normalData)
     DecodeFromNormalBuffer(normalBuffer, positionSS, normalData);
 }
 
+void DecodeFromNormalBuffer_Stereo(uint2 pixelCoord, uint2 positionSS, out NormalData normalData)
+{ // When rendering in single-pass stereo, positionSS != pixelCoord. Use pixelCoord instead to load from normal buffer.
+    float4 normalBuffer = LOAD_TEXTURE2D(_NormalBufferTexture0, pixelCoord);
+    DecodeFromNormalBuffer(normalBuffer, positionSS, normalData);
+}
+
+
 // OUTPUT_NORMAL_NORMALBUFFER start from SV_Target0 as it is used during depth prepass where there is no color buffer
 #define OUTPUT_NORMALBUFFER(NAME) out NormalBufferType0 MERGE_NAME(NAME, 0) : SV_Target0
 #define ENCODE_INTO_NORMALBUFFER(SURFACE_DATA, UNPOSITIONSS, NAME) EncodeIntoNormalBuffer(ConvertSurfaceDataToNormalData(SURFACE_DATA), UNPOSITIONSS, MERGE_NAME(NAME, 0))
