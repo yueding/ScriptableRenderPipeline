@@ -65,12 +65,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     // TODO: Would be nice to clean this up at some point
     public static class HDShaderIDs
     {
-        public static readonly int _ShadowDatasExp = Shader.PropertyToID("_ShadowDatasExp");
-        public static readonly int _ShadowPayloads = Shader.PropertyToID("_ShadowPayloads");
-        public static readonly int _ShadowmapExp_VSM_0 = Shader.PropertyToID("_ShadowmapExp_VSM_0");
-        public static readonly int _ShadowmapExp_VSM_1 = Shader.PropertyToID("_ShadowmapExp_VSM_1");
-        public static readonly int _ShadowmapExp_VSM_2 = Shader.PropertyToID("_ShadowmapExp_VSM_2");
-        public static readonly int _ShadowmapExp_PCF = Shader.PropertyToID("_ShadowmapExp_PCF");
+        // TODO: remove these ids from the old shadow system
+        // public static readonly int _ShadowDatasExp = Shader.PropertyToID("_ShadowDatasExp");
+        // public static readonly int _ShadowPayloads = Shader.PropertyToID("_ShadowPayloads");
+        // public static readonly int _ShadowmapExp_VSM_0 = Shader.PropertyToID("_ShadowmapExp_VSM_0");
+        // public static readonly int _ShadowmapExp_VSM_1 = Shader.PropertyToID("_ShadowmapExp_VSM_1");
+        // public static readonly int _ShadowmapExp_VSM_2 = Shader.PropertyToID("_ShadowmapExp_VSM_2");
+        // public static readonly int _ShadowmapExp_PCF = Shader.PropertyToID("_ShadowmapExp_PCF");
+        
+        public static readonly int _HDShadowDatas = Shader.PropertyToID("_HDShadowDatas");
+        public static readonly int _ShadowmapAtlas = Shader.PropertyToID("_ShadowmapAtlas");
+        public static readonly int _ShadowmapCascadeAtlas = Shader.PropertyToID("_ShadowmapCascadeAtlas");
 
         public static readonly int g_LayeredSingleIdxBuffer = Shader.PropertyToID("g_LayeredSingleIdxBuffer");
         public static readonly int _EnvLightIndexShift = Shader.PropertyToID("_EnvLightIndexShift");

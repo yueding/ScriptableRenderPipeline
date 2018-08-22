@@ -1,5 +1,6 @@
 using System;
 #if UNITY_EDITOR
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Experimental.Rendering;
 using UnityEditor.Experimental.Rendering.HDPipeline;
@@ -170,26 +171,61 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return value < 0 ? (uint)LightLayerEnum.Everything : (uint)value;
         }
 
-        // TODO: an array of shadow request for point lights
-        HDShadowRequest shadowRequest;
+        HDShadowRequest[] shadowRequests;
 
-        public void UpdateShadowRequestData(HDShadowManager manager)
+        public int shadowResolution;
+
+        AdditionalShadowData _ShadowData;
+        AdditionalShadowData m_ShadowData
         {
-            HDShadowAtlas targetAtlas;
+            get
+            {
+                if (_ShadowData == null)
+                    _ShadowData = GetComponent<AdditionalShadowData>();
+                return _ShadowData;
+            }
+        }
 
-            if (shadowRequest == null)
-                shadowRequest = new HDShadowRequest();
+        int GetShadowRequestCount()
+        {
+            return (m_Light.type == LightType.Point) ? 6 : (m_Light.type == LightType.Directional) ? 4 : 1;
+        }
+
+        public void UpdateShadowRequest(HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
+        {
+            if (shadowRequests == null)
+            {
+                shadowRequests = Enumerable.Range(0, GetShadowRequestCount()).Select(i => new HDShadowRequest()).ToArray();
+            }
             
-            // Directional light shadows are stored in a different atlas because we don't want to resize cascades
-            if (m_Light.type == LightType.Directional)
-                targetAtlas = manager.GetCascadeAtlas();
-            else
-                targetAtlas = manager.GetAtlas();
-
-            // TODO: Update shadow request params (view/proj matrices) if needed
-            // And push it to the shadow manager
-
-            manager.AddShadowRequest(shadowRequest, targetAtlas);
+            for (int faceIndex = 0; faceIndex < shadowRequests.Length; faceIndex++)
+            {
+                var shadowRequest = shadowRequests[faceIndex];
+                shadowRequest.viewportSize = new Vector2(shadowResolution, shadowResolution);
+    
+                switch (m_Light.type)
+                {
+                    case LightType.Point:
+                    case LightType.Spot:
+                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, shadowRequest.viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out shadowRequest.projection, out shadowRequest.splitData);
+                        break;
+                    case LightType.Directional:
+                        float[] cascadeRatios;
+                        float[] cascadeBorders;
+                        int     cascadeCount;
+                        float   nearPlaneOffset = QualitySettings.shadowNearPlaneOffset;
+                        
+                        m_ShadowData.GetShadowCascades(out cascadeCount, out cascadeRatios, out cascadeBorders);
+                        HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out shadowRequest.projection, out shadowRequest.splitData);
+                        break;
+                    case LightType.Area:
+                        HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.projection, out shadowRequest.splitData);
+                        break;
+                }
+    
+                // We don't allow shadow resize for directional cascade shadow
+                manager.AddShadowRequest(shadowRequest, m_Light.type != LightType.Directional);
+            }
         }
 
 #if UNITY_EDITOR

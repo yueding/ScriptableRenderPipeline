@@ -117,10 +117,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     sc.GetTex2DArrays(out tex, out offset, out count);
 
                     // bind buffers
-                    cb.SetGlobalBuffer(HDShaderIDs._ShadowDatasExp, s_ShadowDataBuffer);
-                    cb.SetGlobalBuffer(HDShaderIDs._ShadowPayloads, s_ShadowPayloadBuffer);
+                    // cb.SetGlobalBuffer(HDShaderIDs._ShadowDatasExp, s_ShadowDataBuffer);
+                    // cb.SetGlobalBuffer(HDShaderIDs._ShadowPayloads, s_ShadowPayloadBuffer);
                     // bind textures
-                    cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_PCF, tex[0]);
+                    // cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_PCF, tex[0]);
                     // Code kept here for reference if we want to add VSM/MSM later on
                     //cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_VSM_0, tex[1]);
                     //cb.SetGlobalTexture(HDShaderIDs._ShadowmapExp_VSM_1, tex[2]);
@@ -502,12 +502,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         FrameId                 m_FrameId = new FrameId();
         ShadowSetup             m_ShadowSetup; // doesn't actually have to reside here, it would be enough to pass the IShadowManager in from the outside
         IShadowManager          m_ShadowMgr;
+        HDShadowManager         m_NewShadowManager;
         List<int>               m_ShadowRequests = new List<int>();
         Dictionary<int, int>    m_ShadowIndices = new Dictionary<int, int>();
 
         void InitShadowSystem(HDRenderPipelineAsset hdAsset, ShadowSettings shadowSettings)
         {
-            m_ShadowSetup = new ShadowSetup(hdAsset.renderPipelineResources, hdAsset.GetRenderPipelineSettings().shadowInitParams, shadowSettings, out m_ShadowMgr);
+            var shadowInitParams = hdAsset.GetRenderPipelineSettings().shadowInitParams;
+            m_ShadowSetup = new ShadowSetup(hdAsset.renderPipelineResources, shadowInitParams, shadowSettings, out m_ShadowMgr);
+            m_NewShadowManager = new HDShadowManager(shadowInitParams.shadowAtlasWidth, shadowInitParams.shadowAtlasHeight);
         }
 
         void DeinitShadowSystem()
@@ -1705,6 +1708,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                         // Light should always have additional data, however preview light right don't have, so we must handle the case by assigning HDUtils.s_DefaultHDAdditionalLightData
                         var additionalData = GetHDAdditionalLightData(lightComponent);
+                    
+                        // Manage shadow requests
+                        if (lightComponent.shadows != LightShadows.None)
+                        {
+                            Bounds bounds;
+
+                            // Update light shadow requests only if the light affects at least one object
+                            if (cullResults.GetShadowCasterBounds(lightIndex, out bounds))
+                                additionalData.UpdateShadowRequest(m_NewShadowManager, light, cullResults, lightIndex);
+                        }
 
                         LightCategory lightCategory = LightCategory.Count;
                         GPULightType gpuLightType = GPULightType.Point;
@@ -1789,6 +1802,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         // 5 bit (0x1F) light category, 5 bit (0x1F) GPULightType, 5 bit (0x1F) lightVolume, 1 bit for shadow casting, 16 bit index
                         m_SortKeys[sortCount++] = (uint)lightCategory << 27 | (uint)gpuLightType << 22 | (uint)lightVolumeType << 17 | shadow << 16 | (uint)lightIndex;
                     }
+                    
+                    m_NewShadowManager.ProcessShadowRequests(cullResults, camera);
 
                     CoreUtils.QuickSort(m_SortKeys, 0, sortCount - 1); // Call our own quicksort instead of Array.Sort(sortKeys, 0, sortCount) so we don't allocate memory (note the SortCount-1 that is different from original call).
 
@@ -2403,6 +2418,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_ShadowMgr.SyncData();
                 m_ShadowMgr.BindResources(cmd, null, 0);
 
+                m_NewShadowManager.SyncData();
+                m_NewShadowManager.BindResources(cmd);
+
                 cmd.SetGlobalTexture(HDShaderIDs._CookieTextures, m_CookieTexArray.GetTexCache());
                 cmd.SetGlobalTexture(HDShaderIDs._CookieCubeTextures, m_CubeCookieTexArray.GetTexCache());
                 cmd.SetGlobalTexture(HDShaderIDs._EnvCubemapTextures, m_ReflectionProbeCache.GetTexCache());
@@ -2455,6 +2473,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // kick off the shadow jobs here
             m_ShadowMgr.RenderShadows(m_FrameId, renderContext, cmd, cullResults, cullResults.visibleLights);
+
+            m_NewShadowManager.RenderShadows(renderContext, cmd, cullResults);
         }
 
         public struct LightingPassOptions
@@ -2509,7 +2529,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     lightDirection.w = 0;
                 }
 
+                // Passing the compute shader and it's kernel is totally useless i think (because the binder in ShadowSetup ignore them)
                 m_ShadowMgr.BindResources(cmd, screenSpaceShadowComputeShader, kernel);
+
+                m_NewShadowManager.BindResources(cmd);
 
                 if (m_ContactShadows)
                 {

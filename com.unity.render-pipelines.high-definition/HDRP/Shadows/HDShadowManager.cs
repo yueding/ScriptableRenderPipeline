@@ -11,6 +11,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Matrix4x4    projection;
         public Vector4      scaleOffset;
         
+        // Directional light fields
+        public int          cascadeCount;
+
         // TODO: add all the bias and filter stuff
     }
 
@@ -19,6 +22,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Matrix4x4            view;
         public Matrix4x4            projection;
         public Vector2              viewportSize;
+        // Warning: this field is updated by ProcessShadowRequests and is invalid before
+        public Rect                 atlasViewport;
+
+        // TODO: Remove these field once scriptable culling is here (currently required by ScriptableRenderContext.DrawShadows)
+        public int                  lightIndex;
+        public ShadowSplitData      splitData;
+        // end
+
+        // Directional light fields
+        public int                  cascadeCount;
 
         //TODO: add all the bias and filter stuff
     }
@@ -34,21 +47,29 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // TODO: hardcoded max shadow data value
         ComputeBuffer               m_ShadowDataBuffer = new ComputeBuffer(64, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDShadowData)));
 
-        // The two shadowmaps atlases we uses, one for directional cascade and the second for the rest of the lights
-        HDShadowAtlas               m_CascadesAtlas = new HDShadowAtlas();
+        // The two shadowmaps atlases we uses, one for directional cascade (without resize) and the second for the rest of the shadows
+        HDShadowAtlas               m_CascadeAtlas = new HDShadowAtlas();
         HDShadowAtlas               m_Atlas = new HDShadowAtlas();
+
+        int                         m_Width;
+        int                         m_Height;
 
         public HDShadowManager(int width, int height)
         {
-            m_CascadesAtlas.AllocateShadowMaps(width, height);
+            m_CascadeAtlas.AllocateShadowMaps(width, height);
             m_Atlas.AllocateShadowMaps(width, height);
+            m_Width = width;
+            m_Height = height;
         }
 
-        public void AddShadowRequest(HDShadowRequest shadowRequest, HDShadowAtlas atlas)
+        public void AddShadowRequest(HDShadowRequest shadowRequest, bool allowResize = true)
         {
             m_ShadowRequests.Add(shadowRequest);
 
-            atlas.Reserve(shadowRequest);
+            if (allowResize)
+                m_CascadeAtlas.Reserve(shadowRequest);
+            else
+                m_Atlas.Reserve(shadowRequest);
         }
 
         public void ProcessShadowRequests(CullResults cullResults, Camera camera)
@@ -56,6 +77,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // TODO: prune all shadow we dont need to render
 
             // TODO maybe: sort all shadows by "importance" (aka size on screen)
+            
+            // Assign a position to all the shadows in the atlas, and scale shadows if needed
+            m_CascadeAtlas.Layout(false);
+            m_Atlas.Layout();
 
             m_ShadowDatas.Clear();
 
@@ -68,18 +93,38 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 data.projection = shadowRequest.projection;
                 data.view = shadowRequest.view;
-                data.scaleOffset = new Vector4(0, 0, shadowRequest.viewportSize.x, shadowRequest.viewportSize.y);
-            }
 
-            // Sort and resize all the shadows in the atlas so everything can fit
-            m_CascadesAtlas.LayoutAndResize();
-            m_Atlas.LayoutAndResize();
+                // Compute the scale and offset (between 0 and 1) for the atlas coordinates
+                float rWidth = 1.0f / m_Width;
+                float rHeight = 1.0f / m_Height;
+                Vector4 atlasViewport = new Vector4(shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y, shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height);
+                data.scaleOffset = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight), atlasViewport);
+            }
         }
         
-        public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults, List<VisibleLight> lights)
-        { 
+        public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults)
+        {
+            // TODO when scriptable culling is available: remove 
+            DrawShadowsSettings dss = new DrawShadowsSettings(cullResults, 0);
 
-            // TODO: Render shadow maps
+            foreach (var shadowRequest in m_ShadowRequests)
+            {
+                cmd.SetViewport(shadowRequest.atlasViewport);
+                cmd.SetViewProjectionMatrices(shadowRequest.view, shadowRequest.projection);
+
+                dss.lightIndex = shadowRequest.lightIndex;
+                dss.splitData = shadowRequest.splitData;
+
+                // TODO: remove this execute when DrawShadows will use a CommandBuffer
+                renderContext.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                renderContext.DrawShadows(ref dss);
+            }
+        
+            // Clear the shadows atlas infos
+            m_Atlas.Clear();
+            m_CascadeAtlas.Clear();
         }
         
         public void DisplayShadow(CommandBuffer cmd, Material debugMaterial, int shadowIndex, uint faceIndex, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
@@ -98,22 +143,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_ShadowDataBuffer.SetData(m_ShadowDatas);
         }
         
-        public void BindResources(CommandBuffer cmd, ComputeShader computeShader, int computeKernel)
+        public void BindResources(CommandBuffer cmd)
         {
             // This code must be in sync with ShadowContext.hlsl
-            cmd.SetGlobalBuffer(HDShaderIDs._ShadowDatasExp, m_ShadowDataBuffer);
+            cmd.SetGlobalBuffer(HDShaderIDs._HDShadowDatas, m_ShadowDataBuffer);
 
-            cmd.SetGlobalTexture(HDShaderIDs._ShadowmapExp_PCF, m_Atlas.identifier);
-        }
-
-        public HDShadowAtlas GetCascadeAtlas()
-        {
-            return m_CascadesAtlas;
-        }
-
-        public HDShadowAtlas GetAtlas()
-        {
-            return m_Atlas;
+            cmd.SetGlobalTexture(HDShaderIDs._ShadowmapAtlas, m_Atlas.identifier);
+            cmd.SetGlobalTexture(HDShaderIDs._ShadowmapCascadeAtlas, m_CascadeAtlas.identifier);
         }
     }
 }
