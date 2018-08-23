@@ -1829,7 +1829,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         m_SortKeys[sortCount++] = (uint)lightCategory << 27 | (uint)gpuLightType << 22 | (uint)lightVolumeType << 17 | shadow << 16 | (uint)lightIndex;
                     }
 
-                    m_NewShadowManager.ProcessShadowRequests(cullResults, camera);
+                    if (useNewShadowSystem)
+                        m_NewShadowManager.ProcessShadowRequests(cullResults, camera);
 
                     CoreUtils.QuickSort(m_SortKeys, 0, sortCount - 1); // Call our own quicksort instead of Array.Sort(sortKeys, 0, sortCount) so we don't allocate memory (note the SortCount-1 that is different from original call).
 
