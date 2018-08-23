@@ -344,7 +344,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public List<DirectionalLightData> directionalLights;
             public List<LightData> lights;
             public List<EnvLightData> envLights;
-            public List<ShadowData> shadows;
 
             public List<SFiniteLightBound> bounds;
             public List<LightVolumeData> lightVolumes;
@@ -356,7 +355,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 directionalLights.Clear();
                 lights.Clear();
                 envLights.Clear();
-                shadows.Clear();
 
                 bounds.Clear();
                 lightVolumes.Clear();
@@ -369,7 +367,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 directionalLights = new List<DirectionalLightData>();
                 lights = new List<LightData>();
                 envLights = new List<EnvLightData>();
-                shadows = new List<ShadowData>();
 
                 bounds = new List<SFiniteLightBound>();
                 lightVolumes = new List<LightVolumeData>();
@@ -455,6 +452,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Space)
                     {
                         useNewShadowSystem = !useNewShadowSystem;
+                        Debug.Log("New shadow system " + (useNewShadowSystem ? "Enabled" : "Disabled"));
                     }
                 };
             }
@@ -539,6 +537,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_ShadowSetup = null;
                 m_ShadowMgr = null;
             }
+
+            m_NewShadowManager.Dispose();
+            m_NewShadowManager = null;
         }
 
         int GetNumTileFtplX(HDCamera hdCamera)
@@ -1696,14 +1697,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         int[]   shadowRequests = m_ShadowRequests.ToArray();
                         int[]   shadowDataIndices;
 
-                        m_ShadowMgr.ProcessShadowRequests(m_FrameId, cullResults, camera, ShaderConfig.s_CameraRelativeRendering != 0, cullResults.visibleLights,
-                            ref shadowRequestCount, shadowRequests, out shadowDataIndices);
-
-                        // update the visibleLights with the shadow information
-                        m_ShadowIndices.Clear();
-                        for (uint i = 0; i < shadowRequestCount; i++)
+                        if (!useNewShadowSystem)
                         {
-                            m_ShadowIndices.Add(shadowRequests[i], shadowDataIndices[i]);
+                            m_ShadowMgr.ProcessShadowRequests(m_FrameId, cullResults, camera, ShaderConfig.s_CameraRelativeRendering != 0, cullResults.visibleLights,
+                                ref shadowRequestCount, shadowRequests, out shadowDataIndices);
+
+                            // update the visibleLights with the shadow information
+                            m_ShadowIndices.Clear();
+                            for (uint i = 0; i < shadowRequestCount; i++)
+                            {
+                                m_ShadowIndices.Add(shadowRequests[i], shadowDataIndices[i]);
+                            }
                         }
                     }
 
@@ -1726,13 +1730,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         var additionalData = GetHDAdditionalLightData(lightComponent);
                     
                         // Manage shadow requests
-                        if (lightComponent.shadows != LightShadows.None)
+                        if (lightComponent.shadows != LightShadows.None && useNewShadowSystem)
                         {
                             Bounds bounds;
 
                             // Update light shadow requests only if the light affects at least one object
                             if (cullResults.GetShadowCasterBounds(lightIndex, out bounds))
                                 additionalData.UpdateShadowRequest(m_NewShadowManager, light, cullResults, lightIndex);
+                            
+                            // TODO: Only for dev purpose remove once stable
+                            if (useNewShadowSystem)
+                                cmd.EnableShaderKeyword("USE_HD_SHADOW_SYSTEM");
+                            else
+                                cmd.DisableShaderKeyword("USE_HD_SHADOW_SYSTEM");
                         }
 
                         LightCategory lightCategory = LightCategory.Count;
@@ -2429,14 +2439,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             using (new ProfilingSample(cmd, "Push Global Parameters", CustomSamplerId.TPPushGlobalParameters.GetSampler()))
             {
                 Camera camera = hdCamera.camera;
-                // Shadows
-                m_ShadowMgr.SyncData();
-                m_ShadowMgr.BindResources(cmd, null, 0);
 
+                // Shadows
                 if (useNewShadowSystem)
                 {
                     m_NewShadowManager.SyncData();
                     m_NewShadowManager.BindResources(cmd);
+                }
+                else
+                {
+                    m_ShadowMgr.SyncData();
+                    m_ShadowMgr.BindResources(cmd, null, 0);
                 }
 
                 cmd.SetGlobalTexture(HDShaderIDs._CookieTextures, m_CookieTexArray.GetTexCache());
@@ -2489,12 +2502,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults)
         {
             // kick off the shadow jobs here
-            m_ShadowMgr.RenderShadows(m_FrameId, renderContext, cmd, cullResults, cullResults.visibleLights);
-
             if (useNewShadowSystem)
-            {
                 m_NewShadowManager.RenderShadows(renderContext, cmd, cullResults);
-            }
+            else
+                m_ShadowMgr.RenderShadows(m_FrameId, renderContext, cmd, cullResults, cullResults.visibleLights);
         }
 
         public struct LightingPassOptions
@@ -2550,12 +2561,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
 
                 // Passing the compute shader and it's kernel is totally useless i think (because the binder in ShadowSetup ignore them)
-                m_ShadowMgr.BindResources(cmd, screenSpaceShadowComputeShader, kernel);
-
                 if (useNewShadowSystem)
-                {
                     m_NewShadowManager.BindResources(cmd);
-                }
+                else
+                    m_ShadowMgr.BindResources(cmd, screenSpaceShadowComputeShader, kernel);
 
                 if (m_ContactShadows)
                 {
@@ -2796,42 +2805,45 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
             }
 
-            using (new ProfilingSample(cmd, "Display Shadows", CustomSamplerId.TPDisplayShadows.GetSampler()))
+            if (!useNewShadowSystem)
             {
-                if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeShadowMap)
+                using (new ProfilingSample(cmd, "Display Shadows", CustomSamplerId.TPDisplayShadows.GetSampler()))
                 {
-                    int index = (int)lightingDebug.shadowMapIndex;
-
-#if UNITY_EDITOR
-                    if (lightingDebug.shadowDebugUseSelection)
+                    if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeShadowMap)
                     {
-                        index = -1;
-                        if (UnityEditor.Selection.activeObject is GameObject)
+                        int index = (int)lightingDebug.shadowMapIndex;
+
+    #if UNITY_EDITOR
+                        if (lightingDebug.shadowDebugUseSelection)
                         {
-                            GameObject go = UnityEditor.Selection.activeObject as GameObject;
-                            Light light = go.GetComponent<Light>();
-                            if (light != null)
+                            index = -1;
+                            if (UnityEditor.Selection.activeObject is GameObject)
                             {
-                                index = m_ShadowMgr.GetShadowRequestIndex(light);
+                                GameObject go = UnityEditor.Selection.activeObject as GameObject;
+                                Light light = go.GetComponent<Light>();
+                                if (light != null)
+                                {
+                                    index = m_ShadowMgr.GetShadowRequestIndex(light);
+                                }
+                            }
+                        }
+    #endif
+
+                        if (index != -1)
+                        {
+                            uint faceCount = m_ShadowMgr.GetShadowRequestFaceCount((uint)index);
+                            for (uint i = 0; i < faceCount; ++i)
+                            {
+                                m_ShadowMgr.DisplayShadow(cmd, m_DebugShadowMapMaterial, index, i, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
+                                HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
                             }
                         }
                     }
-#endif
-
-                    if (index != -1)
+                    else if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeAtlas)
                     {
-                        uint faceCount = m_ShadowMgr.GetShadowRequestFaceCount((uint)index);
-                        for (uint i = 0; i < faceCount; ++i)
-                        {
-                            m_ShadowMgr.DisplayShadow(cmd, m_DebugShadowMapMaterial, index, i, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
-                            HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
-                        }
+                        m_ShadowMgr.DisplayShadowMap(cmd, m_DebugShadowMapMaterial, lightingDebug.shadowAtlasIndex, lightingDebug.shadowSliceIndex, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
+                        HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
                     }
-                }
-                else if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeAtlas)
-                {
-                    m_ShadowMgr.DisplayShadowMap(cmd, m_DebugShadowMapMaterial, lightingDebug.shadowAtlasIndex, lightingDebug.shadowSliceIndex, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
-                    HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
                 }
             }
 

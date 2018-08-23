@@ -9,20 +9,43 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     {
         public Matrix4x4    view;
         public Matrix4x4    projection;
+        public Matrix4x4    shadowToWorld;
         public Vector4      scaleOffset;
 
         // These fields are only for test purpose for HDShadowAlgorithm.hlsl
         // and should be renamed/removed when we have a stable version
         public Vector4      textureSize;
         public Vector4      texelSizeRcp;
-        
-        // TODO: add all the bias and filter stuff
+
+        // TODO: refactor the bias/filter params, they're currently based on the Core shadow system
+        public Vector4      viewBias;
+        public Vector4      normalBias;
+        public float        edgeTolerance;
+    }
+
+    // We use a different structure for directional light because these is a lot of data there
+    // and it will add too much useless stuff for other lights
+    [GenerateHLSL]
+    public struct HDDirectionalShadowData
+    {
+        public Vector4      sphereCascade1;
+        public Vector4      sphereCascade2;
+        public Vector4      sphereCascade3;
+        public Vector4      sphereCascade4;
+
+        public Vector4      cascadeDirection;
+
+        public float        cascadeBorder1;
+        public float        cascadeBorder2;
+        public float        cascadeBorder3;
+        public float        cascadeBorder4;
     }
 
     public class HDShadowRequest
     {
         public Matrix4x4            view;
         public Matrix4x4            projection;
+        public Matrix4x4            shadowToWorld;
         public Vector2              viewportSize;
         // Warning: this field is updated by ProcessShadowRequests and is invalid before
         public Rect                 atlasViewport;
@@ -32,10 +55,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ShadowSplitData      splitData;
         // end
 
-        //TODO: add all the bias and filter stuff
+        // TODO: add all the bias and filter stuff
     }
 
-    public class HDShadowManager
+    public class HDShadowManager : IDisposable
     {
         List<HDShadowData>          m_ShadowDatas = new List<HDShadowData>();
 
@@ -124,7 +147,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 renderContext.DrawShadows(ref dss);
             }
         
-            // Clear the shadows atlas infos
+            // Clear the shadows atlas infos and requests
+            m_ShadowRequests.Clear();
             m_Atlas.Clear();
             m_CascadeAtlas.Clear();
         }
@@ -149,9 +173,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // This code must be in sync with ShadowContext.hlsl
             cmd.SetGlobalBuffer(HDShaderIDs._HDShadowDatas, m_ShadowDataBuffer);
+            cmd.SetGlobalBuffer(HDShaderIDs._HDDirectionalShadowData, m_ShadowDataBuffer);
 
             cmd.SetGlobalTexture(HDShaderIDs._ShadowmapAtlas, m_Atlas.identifier);
             cmd.SetGlobalTexture(HDShaderIDs._ShadowmapCascadeAtlas, m_CascadeAtlas.identifier);
+        }
+
+        public void Dispose()
+        {
+            m_ShadowDataBuffer.Dispose();
+            m_Atlas.Release();
+            m_CascadeAtlas.Release();
         }
     }
 }

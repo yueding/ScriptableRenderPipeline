@@ -41,7 +41,13 @@ void ApplyDebug(LightLoopContext lightLoopContext, float3 positionWS, inout floa
             uint  payloadOffset;
             real  alpha;
             int cascadeCount;
+
+// TODO: Remove once new shadow system works
+#ifdef USE_HD_SHADOW_SYSTEM
+            int shadowSplitIndex = EvalShadow_GetSplitIndex(lightLoopContext.shadowContext, shadowIdx, positionWS, alpha, cascadeCount);
+#else
             int shadowSplitIndex = EvalShadow_GetSplitIndex(lightLoopContext.shadowContext, shadowIdx, positionWS, payloadOffset, alpha, cascadeCount);
+#endif
             if (shadowSplitIndex >= 0)
             {
                 diffuseLighting = lerp(s_CascadeColors[shadowSplitIndex], s_CascadeColors[shadowSplitIndex+1], alpha) * shadow;

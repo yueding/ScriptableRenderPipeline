@@ -70,5 +70,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             m_ShadowRequests.Clear();
         }
+
+        public void Release()
+        {
+            RTHandles.Release(m_Atlas);
+        }
     }
 }

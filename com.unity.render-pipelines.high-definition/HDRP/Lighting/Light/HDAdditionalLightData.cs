@@ -207,7 +207,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     case LightType.Point:
                     case LightType.Spot:
-                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, shadowRequest.viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out shadowRequest.projection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, shadowRequest.viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.splitData);
                         break;
                     case LightType.Directional:
                         float[] cascadeRatios;
@@ -216,10 +216,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         float   nearPlaneOffset = QualitySettings.shadowNearPlaneOffset;
                         
                         m_ShadowData.GetShadowCascades(out cascadeCount, out cascadeRatios, out cascadeBorders);
-                        HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out shadowRequest.projection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.splitData);
                         break;
                     case LightType.Area:
-                        HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.projection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.splitData);
                         break;
                 }
     

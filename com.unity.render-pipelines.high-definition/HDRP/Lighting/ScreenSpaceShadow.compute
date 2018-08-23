@@ -142,6 +142,7 @@ void DEFERRED_DIRECTIONAL(uint2 groupThreadId : SV_GroupThreadID, uint2 groupId 
     DecodeFromNormalBuffer(posInput.positionSS, normalData);
     float3 normalWS = normalData.normalWS;
 
+    // TODO: move this to HDShadowContext
     ShadowContext shadowContext = InitShadowContext();
     float shadow = GetDirectionalShadowAttenuation(shadowContext, posInput.positionWS, normalWS, _DirectionalShadowIndex, _DirectionalLightDirection.xyz);
 

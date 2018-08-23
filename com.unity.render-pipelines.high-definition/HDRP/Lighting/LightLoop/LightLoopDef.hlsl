@@ -7,7 +7,14 @@
 struct LightLoopContext
 {
     int sampleReflection;
+
+// TODO: remove once hd shadow system is stable
+#ifdef USE_HD_SHADOW_SYSTEM
+    HDShadowContext shadowContext;
+#else
     ShadowContext shadowContext;
+#endif
+    
     float contactShadow; // Currently we support only one contact shadow per view
 };
 

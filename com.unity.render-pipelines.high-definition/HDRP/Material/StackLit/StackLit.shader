@@ -325,6 +325,10 @@ Shader "HDRenderPipeline/StackLit"
 
 
     #pragma shader_feature _STACKLIT_DEBUG
+    
+    // TODO: remove this once new shadow system works
+    // Only for dev/test purpose, allow to switch dynamically between HD and Core shadow system
+    #pragma multi_compile _ USE_HD_SHADOW_SYSTEM
 
     //enable GPU instancing support
     #pragma multi_compile_instancing
