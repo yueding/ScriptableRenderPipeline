@@ -76,8 +76,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             foreach (var shadowRequest in shadowRequests)
             {
                 cmd.SetViewport(shadowRequest.atlasViewport);
+                Debug.Log("set viewport: " + shadowRequest.atlasViewport);
                 // Debug.Log("set viewport: " + shadowRequest.atlasViewport + ", view: " + shadowRequest.view);
                 cmd.SetViewProjectionMatrices(shadowRequest.view, shadowRequest.projection);
+                Debug.Log("set proj matrix: " + shadowRequest.projection);
 
                 dss.lightIndex = shadowRequest.lightIndex;
                 dss.splitData = shadowRequest.splitData;

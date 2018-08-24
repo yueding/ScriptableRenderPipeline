@@ -189,7 +189,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return (m_Light.type == LightType.Point) ? 6 : (m_Light.type == LightType.Directional) ? 4 : 1;
         }
 
-        public void UpdateShadowRequest(HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
+        public void UpdateShadowRequest(Camera cam, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
         {
             if (shadowRequests == null)
             {
@@ -205,13 +205,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 var shadowRequest = shadowRequests[faceIndex];
 
-                shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
+                // When creating a new light, at the first frame, there is no AdditionalShadowData so we check against null
+                if (m_ShadowData != null)
+                    shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
     
                 switch (m_Light.type)
                 {
                     case LightType.Point:
                     case LightType.Spot:
-                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, shadowRequest.viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, shadowRequest.viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                     case LightType.Directional:
                         float[] cascadeRatios;
@@ -220,16 +222,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         float   nearPlaneOffset = QualitySettings.shadowNearPlaneOffset;
                         
                         m_ShadowData.GetShadowCascades(out cascadeCount, out cascadeRatios, out cascadeBorders);
-                        HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                     case LightType.Area:
-                        HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                 }
 
+                // Make light position camera relative:
+                shadowRequest.view *= Matrix4x4.Translate(cam.transform.position);
+
                 // We don't allow shadow resize for directional cascade shadow
                 shadowRequest.allowResize = m_Light.type != LightType.Directional;
-                
+
                 manager.AddShadowRequest(shadowRequest);
             }
         }

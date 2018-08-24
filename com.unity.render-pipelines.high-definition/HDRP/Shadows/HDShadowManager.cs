@@ -9,6 +9,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     public struct HDShadowData
     {
         public Matrix4x4    view;
+        // TODO: rename this, it's the device projection matrix
         public Matrix4x4    projection;
         public Matrix4x4    shadowToWorld;
         public Vector4      scaleOffset;
@@ -45,6 +46,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     public class HDShadowRequest
     {
         public Matrix4x4            view;
+        // Use device projection matrix for shader and projection for CommandBuffer.SetViewProjectionMatrices
+        public Matrix4x4            deviceProjection;
         public Matrix4x4            projection;
         public Matrix4x4            shadowToWorld;
         public Vector2              viewportSize;
@@ -118,7 +121,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             HDShadowData data = new HDShadowData();
 
-            data.projection = shadowRequest.projection;
+            data.projection = shadowRequest.deviceProjection;
             data.view = shadowRequest.view;
 
             // Compute the scale and offset (between 0 and 1) for the atlas coordinates
