@@ -205,10 +205,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 var shadowRequest = shadowRequests[faceIndex];
 
-                // When creating a new light, at the first frame, there is no AdditionalShadowData so we check against null
-                if (m_ShadowData != null)
-                    shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
-    
                 switch (m_Light.type)
                 {
                     case LightType.Point:
@@ -227,6 +223,18 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     case LightType.Area:
                         HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
+                }
+                
+                // When creating a new light, at the first frame, there is no AdditionalShadowData so we check against null
+                if (m_ShadowData != null)
+                {
+                    shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
+
+                    // Bias stuff:
+                    shadowRequest.viewBias = new Vector4(m_ShadowData.viewBiasMin, m_ShadowData.viewBiasMax, m_ShadowData.viewBiasScale, 2.0f / shadowRequest.projection.m00 / m_ShadowData.shadowResolution * 1.4142135623730950488016887242097f);
+                    // TODO: Last parameter is technically flags (from the Core shadow system) but not supported here, see how to handle it
+                    shadowRequest.normalBias = new Vector4(m_ShadowData.normalBiasMin, m_ShadowData.normalBiasMax, m_ShadowData.normalBiasScale, 0);
+                    shadowRequest.edgeTolerance = m_ShadowData.edgeTolerance;
                 }
 
                 // Make light position camera relative:

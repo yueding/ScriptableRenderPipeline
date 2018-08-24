@@ -381,7 +381,6 @@ namespace UnityEngine.Experimental.Rendering
                         float spotAngle = lights[sr.index].spotAngle;
                         float guardAngle = ShadowUtils.CalcGuardAnglePerspective(spotAngle, ce.current.viewport.width,  GetFilterWidthInTexels(sr, asd), asd.normalBiasMax, 180.0f - spotAngle);
                         vp = ShadowUtils.ExtractSpotLightMatrix(lights[sr.index], guardAngle, out ce.current.view, out ce.current.proj, out devproj, out invvp, out ce.current.lightDir, out ce.current.splitData);
-                        Debug.Log("proj: " + ce.current.proj);
                     }
                     else if (sr.shadowType == GPUShadowType.Directional)
                     {
@@ -679,9 +678,6 @@ namespace UnityEngine.Experimental.Rendering
                 cmd.SetGlobalFloat(m_ZClipId, m_EntryCache[i].zclip ? 1.0f : 0.0f);
                 if (captureFrame)
                     cmd.EndSample(cbName);
-
-                Debug.Log("[Core] set viewport: " + m_EntryCache[i].current.viewport);
-                Debug.Log("[Core] set proj matrix: " + m_EntryCache[i].current.proj);
 
                 dss.lightIndex = m_EntryCache[i].key.visibleIdx;
                 dss.splitData = m_EntryCache[i].current.splitData;

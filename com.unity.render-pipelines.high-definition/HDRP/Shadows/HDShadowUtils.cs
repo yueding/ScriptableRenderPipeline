@@ -36,6 +36,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 ShadowUtils.ExtractPointLightMatrix(visibleLight, faceIndex, guardAngle, out view, out projection, out deviceProjection, out lightToWorld, out lightDir, out splitData);
             }
             
+            //TODO: I don't think this lightToWorld matrix is good (especially in camera relative space)
             lightToWorld = lightToWorld.transpose;
         }
 

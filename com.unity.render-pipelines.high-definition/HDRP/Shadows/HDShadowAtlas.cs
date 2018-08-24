@@ -76,10 +76,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             foreach (var shadowRequest in shadowRequests)
             {
                 cmd.SetViewport(shadowRequest.atlasViewport);
-                Debug.Log("set viewport: " + shadowRequest.atlasViewport);
-                // Debug.Log("set viewport: " + shadowRequest.atlasViewport + ", view: " + shadowRequest.view);
                 cmd.SetViewProjectionMatrices(shadowRequest.view, shadowRequest.projection);
-                Debug.Log("set proj matrix: " + shadowRequest.projection);
 
                 dss.lightIndex = shadowRequest.lightIndex;
                 dss.splitData = shadowRequest.splitData;
@@ -97,7 +94,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Vector4 validRange = new Vector4(minValue, 1.0f / (maxValue - minValue));
             float rWidth = 1.0f / m_Width;
             float rHeight = 1.0f / m_Height;
-            Vector4 scaleBias = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight),  new Vector4(atlasViewport.x, atlasViewport.y, atlasViewport.width, atlasViewport.height));
+            Vector4 scaleBias = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight), new Vector4(atlasViewport.width, atlasViewport.height, atlasViewport.x, atlasViewport.y));
+
+            Debug.Log("scaleBias: " + scaleBias);
 
             MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
             propertyBlock.SetTexture("_AtlasTexture", m_Atlas.rt);

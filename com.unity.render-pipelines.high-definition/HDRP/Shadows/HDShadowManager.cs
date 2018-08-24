@@ -62,7 +62,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ShadowSplitData      splitData;
         // end
 
-        // TODO: add all the bias and filter stuff
+        public Vector4      viewBias;
+        public Vector4      normalBias;
+        public float        edgeTolerance;
     }
 
     public class HDShadowManager : IDisposable
@@ -133,6 +135,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.textureSize = new Vector4(m_Width, m_Height, shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y);
             data.texelSizeRcp = new Vector4(rWidth, rHeight, 1.0f / shadowRequest.atlasViewport.x, 1.0f / shadowRequest.atlasViewport.y);
 
+            data.viewBias = shadowRequest.viewBias;
+            data.normalBias = shadowRequest.normalBias;
+            data.edgeTolerance = shadowRequest.edgeTolerance;
+
             return data;
         }
 
@@ -196,13 +202,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void DisplayShadowAtlas(CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
         {
             //TODO display debug shadow map
-            m_Atlas.DisplayAtlas(cmd, debugMaterial, new Rect(m_Width, m_Height, 0, 0), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
+            m_Atlas.DisplayAtlas(cmd, debugMaterial, new Rect(0, 0, m_Width, m_Height), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
         }
         
         // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
         public void DisplayShadowCascadeAtlas(CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
         {
-            m_CascadeAtlas.DisplayAtlas(cmd, debugMaterial, new Rect(m_Width, m_Height, 0, 0), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
+            m_CascadeAtlas.DisplayAtlas(cmd, debugMaterial, new Rect(0, 0, m_Width, m_Height), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
         }
 
         // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
