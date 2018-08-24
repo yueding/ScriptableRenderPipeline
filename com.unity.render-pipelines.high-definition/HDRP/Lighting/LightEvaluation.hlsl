@@ -58,6 +58,10 @@ void EvaluateLight_Directional(LightLoopContext lightLoopContext, PositionInputs
     {
 #ifdef USE_DEFERRED_DIRECTIONAL_SHADOWS
         shadow = LOAD_TEXTURE2D(_DeferredShadowTexture, posInput.positionSS).x;
+        // TODO: manage deferred directional shadows in the new system
+#ifdef USE_HD_SHADOW_SYSTEM
+        shadow = 0;
+#endif
 #else
         shadow = GetDirectionalShadowAttenuation(lightLoopContext.shadowContext, positionWS, N, lightData.shadowIndex, L, posInput.positionSS);
 #endif

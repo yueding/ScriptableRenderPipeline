@@ -500,6 +500,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         Material[] m_deferredLightingMaterial;
         Material m_DebugViewTilesMaterial;
         Material m_DebugShadowMapMaterial;
+        Material m_DebugHDShadowMapMaterial;
         Material m_DebugLightVolumeMaterial;
         Material m_CubeToPanoMaterial;
 
@@ -526,7 +527,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             var shadowInitParams = hdAsset.GetRenderPipelineSettings().shadowInitParams;
             m_ShadowSetup = new ShadowSetup(hdAsset.renderPipelineResources, shadowInitParams, shadowSettings, out m_ShadowMgr);
-            m_NewShadowManager = new HDShadowManager(shadowInitParams.shadowAtlasWidth, shadowInitParams.shadowAtlasHeight);
+            m_NewShadowManager = new HDShadowManager(shadowInitParams.shadowAtlasWidth, shadowInitParams.shadowAtlasHeight, hdAsset.renderPipelineResources.shadowClearShader);
         }
 
         void DeinitShadowSystem()
@@ -582,6 +583,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             m_DebugViewTilesMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugViewTilesShader);
             m_DebugShadowMapMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugShadowMapShader);
+            m_DebugHDShadowMapMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugHDShadowMapShader);
             m_DebugLightVolumeMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugLightVolumeShader);
             m_CubeToPanoMaterial = CoreUtils.CreateEngineMaterial(m_Resources.cubeToPanoShader);
 
@@ -757,6 +759,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             CoreUtils.Destroy(m_DebugViewTilesMaterial);
             CoreUtils.Destroy(m_DebugShadowMapMaterial);
+            CoreUtils.Destroy(m_DebugHDShadowMapMaterial);
             CoreUtils.Destroy(m_CubeToPanoMaterial);
         }
 
@@ -1654,6 +1657,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     rightEyeWorldToView = WorldToViewStereo(camera, Camera.StereoscopicEye.Right);
                 }
 
+                // TODO: Only for dev purpose remove once the new shadow system is stable
+                if (useNewShadowSystem)
+                    Shader.EnableKeyword("USE_HD_SHADOW_SYSTEM");
+                else
+                    Shader.DisableKeyword("USE_HD_SHADOW_SYSTEM");
+
                 // Note: Light with null intensity/Color are culled by the C++, no need to test it here
                 if (cullResults.visibleLights.Count != 0 || cullResults.visibleReflectionProbes.Count != 0)
                 {
@@ -1737,12 +1746,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             // Update light shadow requests only if the light affects at least one object
                             if (cullResults.GetShadowCasterBounds(lightIndex, out bounds))
                                 additionalData.UpdateShadowRequest(m_NewShadowManager, light, cullResults, lightIndex);
-                            
-                            // TODO: Only for dev purpose remove once stable
-                            if (useNewShadowSystem)
-                                cmd.EnableShaderKeyword("USE_HD_SHADOW_SYSTEM");
-                            else
-                                cmd.DisableShaderKeyword("USE_HD_SHADOW_SYSTEM");
                         }
 
                         LightCategory lightCategory = LightCategory.Count;
@@ -2754,6 +2757,25 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
+        public IEnumerable<Light> GetLightShadowDebugOverlay(LightingDebugSettings settings)
+        {
+            #if UNITY_EDITOR
+            if (settings.shadowDebugMode == ShadowMapDebugMode.VisualizeShadowMap && settings.shadowDebugUseSelection)
+            {
+                GameObject go = UnityEditor.Selection.activeObject as GameObject;
+                if (go == null)
+                    yield break;
+                Light light = go.GetComponent<Light>();
+                if (light != null)
+                    yield return light;
+                yield break ;
+            }
+            #endif
+
+            foreach (var light in m_NewShadowManager.GetLights())
+                yield return light;
+        }
+
         public void RenderDebugOverlay(HDCamera hdCamera, CommandBuffer cmd, DebugDisplaySettings debugDisplaySettings, ref float x, ref float y, float overlaySize, float width, CullResults cullResults)
         {
             LightingDebugSettings lightingDebug = debugDisplaySettings.lightingDebugSettings;
@@ -2806,9 +2828,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
             }
 
-            if (!useNewShadowSystem)
+            using (new ProfilingSample(cmd, "Display Shadows", CustomSamplerId.TPDisplayShadows.GetSampler()))
             {
-                using (new ProfilingSample(cmd, "Display Shadows", CustomSamplerId.TPDisplayShadows.GetSampler()))
+                if (!useNewShadowSystem)
                 {
                     if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeShadowMap)
                     {
@@ -2843,6 +2865,29 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     else if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeAtlas)
                     {
                         m_ShadowMgr.DisplayShadowMap(cmd, m_DebugShadowMapMaterial, lightingDebug.shadowAtlasIndex, lightingDebug.shadowSliceIndex, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
+                        HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
+                    }
+                }
+                else
+                {
+                    if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeShadowMap)
+                    {
+                        foreach (var light in GetLightShadowDebugOverlay(lightingDebug))
+                        {
+                            int shadowMapCount = m_NewShadowManager.GetShadowRequestCountForLight(light);
+
+                            for (int i = 0; i < shadowMapCount; i++)
+                            {
+                                m_NewShadowManager.DisplayShadowMapForLight(light, i, cmd, m_DebugHDShadowMapMaterial, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
+                                HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
+                            }
+                        }
+                    }
+                    else if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeAtlas)
+                    {
+                        m_NewShadowManager.DisplayShadowAtlas(cmd, m_DebugHDShadowMapMaterial, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
+                        HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
+                        m_NewShadowManager.DisplayShadowCascadeAtlas(cmd, m_DebugHDShadowMapMaterial, x, y, overlaySize, overlaySize, lightingDebug.shadowMinValue, lightingDebug.shadowMaxValue, hdCamera.camera.cameraType != CameraType.SceneView);
                         HDUtils.NextOverlayCoord(ref x, ref y, overlaySize, overlaySize, hdCamera.actualWidth);
                     }
                 }

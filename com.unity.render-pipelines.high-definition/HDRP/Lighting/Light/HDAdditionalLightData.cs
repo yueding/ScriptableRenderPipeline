@@ -173,8 +173,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         HDShadowRequest[] shadowRequests;
 
-        public int shadowResolution;
-
         AdditionalShadowData _ShadowData;
         AdditionalShadowData m_ShadowData
         {
@@ -197,11 +195,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 shadowRequests = Enumerable.Range(0, GetShadowRequestCount()).Select(i => new HDShadowRequest()).ToArray();
             }
-            
+
+#if UNITY_EDITOR
+            // Set the current light for shadow map debug menu
+            manager.SetCurrentLightShadows(m_Light);
+#endif
+
             for (int faceIndex = 0; faceIndex < shadowRequests.Length; faceIndex++)
             {
                 var shadowRequest = shadowRequests[faceIndex];
-                shadowRequest.viewportSize = new Vector2(shadowResolution, shadowResolution);
+
+                shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
     
                 switch (m_Light.type)
                 {
@@ -222,9 +226,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.splitData);
                         break;
                 }
-    
+
                 // We don't allow shadow resize for directional cascade shadow
-                manager.AddShadowRequest(shadowRequest, m_Light.type != LightType.Directional);
+                shadowRequest.allowResize = m_Light.type != LightType.Directional;
+                
+                manager.AddShadowRequest(shadowRequest);
             }
         }
 
