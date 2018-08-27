@@ -89,9 +89,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     {
         List<HDShadowData>          m_ShadowDatas = new List<HDShadowData>();
 
+        HDDirectionalShadowData     m_DirectionalShadowData;
+
         // Structured buffer of shadow datas
         // TODO: hardcoded max shadow data value
         ComputeBuffer               m_ShadowDataBuffer = new ComputeBuffer(64, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDShadowData)));
+        ComputeBuffer               m_DirectionalShadowDataBuffer = new ComputeBuffer(64, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDDirectionalShadowData)));
 
         // The two shadowmaps atlases we uses, one for directional cascade (without resize) and the second for the rest of the shadows
         HDShadowAtlas               m_CascadeAtlas;
@@ -125,6 +128,35 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (m_CurrentLightShadowRequests != null)
                 m_CurrentLightShadowRequests.Add(shadowRequest);
 #endif
+        }
+
+        public void UpdateCascade(int cascadeIndex, Vector4 cullingSphere, float border)
+        {
+            if (cullingSphere.w != float.NegativeInfinity)
+            {
+                cullingSphere.w *= cullingSphere.w;
+            }
+
+            // TODO: refactor this once we can generate arrays in hlsl structs
+            switch (cascadeIndex)
+            {
+                case 1:
+                    m_DirectionalShadowData.sphereCascade1 = cullingSphere;
+                    m_DirectionalShadowData.cascadeBorder1 = border;
+                    break ;
+                case 2:
+                    m_DirectionalShadowData.sphereCascade2 = cullingSphere;
+                    m_DirectionalShadowData.cascadeBorder2 = border;
+                    break ;
+                case 3:
+                    m_DirectionalShadowData.sphereCascade3 = cullingSphere;
+                    m_DirectionalShadowData.cascadeBorder3 = border;
+                    break ;
+                case 4:
+                    m_DirectionalShadowData.sphereCascade4 = cullingSphere;
+                    m_DirectionalShadowData.cascadeBorder4 = border;
+                    break ;
+            }
         }
 
         HDShadowData CreateShadowData(HDShadowRequest shadowRequest)
@@ -181,6 +213,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_ShadowDatas.Add(CreateShadowData(shadowRequest));
                 shadowRequest.shadowIndex = shadowIndex++;
             }
+
+            // Update directional datas:
+            m_DirectionalShadowData.cascadeDirection = (m_DirectionalShadowData.sphereCascade2 - m_DirectionalShadowData.sphereCascade2).normalized;
         }
  
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults)
@@ -251,13 +286,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // Upload the shadow buffers to GPU
             m_ShadowDataBuffer.SetData(m_ShadowDatas);
+            m_DirectionalShadowDataBuffer.SetData(new HDDirectionalShadowData[]{ m_DirectionalShadowData });
         }
         
         public void BindResources(CommandBuffer cmd)
         {
             // This code must be in sync with ShadowContext.hlsl
             cmd.SetGlobalBuffer(HDShaderIDs._HDShadowDatas, m_ShadowDataBuffer);
-            cmd.SetGlobalBuffer(HDShaderIDs._HDDirectionalShadowData, m_ShadowDataBuffer);
+            cmd.SetGlobalBuffer(HDShaderIDs._HDDirectionalShadowData, m_DirectionalShadowDataBuffer);
 
             cmd.SetGlobalTexture(HDShaderIDs._ShadowmapAtlas, m_Atlas.identifier);
             cmd.SetGlobalTexture(HDShaderIDs._ShadowmapCascadeAtlas, m_CascadeAtlas.identifier);

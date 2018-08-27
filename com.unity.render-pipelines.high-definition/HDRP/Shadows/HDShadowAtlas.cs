@@ -15,9 +15,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RTHandleSystem.RTHandle         m_Atlas;
         Material                        m_ClearMaterial;
         
-        public HDShadowAtlas(int width, int height, Material clearMaterial, DepthBits depthBits = DepthBits.Depth24, RenderTextureFormat format = RenderTextureFormat.Shadowmap, string name = "")
+        public HDShadowAtlas(int width, int height, Material clearMaterial, FilterMode filterMode = FilterMode.Bilinear, DepthBits depthBits = DepthBits.Depth24, RenderTextureFormat format = RenderTextureFormat.Shadowmap, string name = "")
         {
-            m_Atlas = RTHandles.Alloc(width, height, depthBufferBits: depthBits, sRGB: false, colorFormat: format, name: name);
+            m_Atlas = RTHandles.Alloc(width, height, filterMode: filterMode, depthBufferBits: depthBits, sRGB: false, colorFormat: format, name: name);
             m_Width = width;
             m_Height = height;
             identifier = new RenderTargetIdentifier(m_Atlas);

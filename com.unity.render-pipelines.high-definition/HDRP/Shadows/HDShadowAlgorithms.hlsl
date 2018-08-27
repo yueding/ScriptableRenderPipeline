@@ -154,7 +154,7 @@ real EvalShadow_PointDepth(HDShadowContext shadowContext, Texture2D tex, Sampler
     /* get the per sample bias */
     real2  sampleBias = EvalShadow_SampleBias_Persp(sd, positionWS, normalWS, posTC);
     /* sample the texture */
-    return SampleShadow_PCF_Tent_5x5(shadowContext, sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
+    return SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
 }
 
 //
@@ -172,7 +172,7 @@ real EvalShadow_SpotDepth(HDShadowContext shadowContext, Texture2D tex, SamplerC
     /* get the per sample bias */
     real2  sampleBias = EvalShadow_SampleBias_Persp(sd, positionWS, normalWS, posTC);
     /* sample the texture */
-    return SampleShadow_PCF_Tent_5x5(shadowContext, sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
+    return SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
 }
 
 //
@@ -206,7 +206,7 @@ real EvalShadow_PunctualDepth(HDShadowContext shadowContext, Texture2D tex, Samp
     /* get the per sample bias */
     real2  sampleBias = EvalShadow_SampleBias_Persp(sd, positionWS, normalWS, posTC);
     /* sample the texture */
-    return SampleShadow_PCF_Tent_5x5(shadowContext, sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
+    return SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
 }
 
 
@@ -220,6 +220,8 @@ real EvalShadow_PunctualDepth(HDShadowContext shadowContext, Texture2D tex, Samp
 void EvalShadow_LoadCascadeData(HDShadowContext shadowContext, uint index, inout HDShadowData sd)
 {
     // TODO: update this function with all cascade datas required
+    sd.proj           = shadowContext.shadowDatas[index].proj;
+    sd.pos            = shadowContext.shadowDatas[index].pos;
     sd.projection     = shadowContext.shadowDatas[index].projection;
     sd.view           = shadowContext.shadowDatas[index].view;
     sd.scaleOffset.zw = shadowContext.shadowDatas[index].scaleOffset.zw; 
@@ -262,16 +264,16 @@ int EvalShadow_GetSplitIndex(HDShadowContext shadowContext, int index, real3 pos
 }
 
 real EvalShadow_CascadedDepth_Blend(HDShadowContext shadowContext, Texture2D tex, SamplerComparisonState samp, real3 positionWS, real3 normalWS, int index, real3 L)
-{                                                                                                                                                                                                               \
+{
     real alpha;
     int  cascadeCount;
     int  shadowSplitIndex = EvalShadow_GetSplitIndex(shadowContext, index, positionWS, alpha, cascadeCount);
 
     if (shadowSplitIndex < 0)
-        return 1.0;
+        return 0.0;
 
     HDShadowData sd = shadowContext.shadowDatas[index];
-    EvalShadow_LoadCascadeData(shadowContext, index + 1 + shadowSplitIndex, sd);
+    EvalShadow_LoadCascadeData(shadowContext, index + shadowSplitIndex, sd);
 
     /* normal based bias */
     real3 orig_pos = positionWS;
@@ -282,7 +284,7 @@ real EvalShadow_CascadedDepth_Blend(HDShadowContext shadowContext, Texture2D tex
     real3 posTC = EvalShadow_GetTexcoords(sd, positionWS, false);
     /* evalute the first cascade */
     real2 sampleBias = EvalShadow_SampleBias_Ortho(sd, normalWS);
-    real  shadow     = SampleShadow_PCF_Tent_5x5(shadowContext, sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
+    real  shadow     = SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
     real  shadow1    = 1.0;
 
     shadowSplitIndex++;
@@ -301,7 +303,7 @@ real EvalShadow_CascadedDepth_Blend(HDShadowContext shadowContext, Texture2D tex
 
             UNITY_BRANCH
             if (all(abs(posNDC.xy) <= (1.0 - sd.texelSizeRcp.zw * 0.5)))
-                shadow1 = SampleShadow_PCF_Tent_5x5(shadowContext, sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
+                shadow1 = SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);
         }
     }
     shadow = lerp(shadow, shadow1, alpha);
@@ -346,7 +348,7 @@ real EvalShadow_hash12(real2 pos)
         }                                                                                                                                                                                                           \
         /* sample the texture */                                                                                                                                                                                    \
         real2 sampleBias = EvalShadow_SampleBias_Ortho(sd, normalWS);                                                                                                                                             \
-        real  shadow     = SampleShadow_PCF_Tent_5x5(shadowContext, sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);                                                      \
+        real  shadow     = SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);                                                      \
         return shadowSplitIndex < (cascadeCount-1) ? shadow : lerp(shadow, 1.0, alpha);                                                                                                                           \
     }                                                                                                                                                                                                               \
                                                                                                                                                                                                                     \

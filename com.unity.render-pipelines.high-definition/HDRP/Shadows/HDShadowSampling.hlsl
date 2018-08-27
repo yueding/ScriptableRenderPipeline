@@ -11,7 +11,7 @@
 //                  5x5 tent PCF sampling (9 taps)
 //
 
-real SampleShadow_PCF_Tent_5x5(HDShadowContext shadowContext, real4 textureSize, real4 texelSizeRcp, real3 coord, real2 sampleBias, Texture2D tex, SamplerComparisonState compSamp)
+real SampleShadow_PCF_Tent_5x5(real4 textureSize, real4 texelSizeRcp, real3 coord, real2 sampleBias, Texture2D tex, SamplerComparisonState compSamp)
 {
     real4 shadowMapTexture_TexelSize = real4(texelSizeRcp.xy, textureSize.xy);
 
@@ -48,7 +48,7 @@ real SampleShadow_PCF_Tent_5x5(HDShadowContext shadowContext, real4 textureSize,
 //
 //                  7x7 tent PCF sampling (16 taps)
 //
-real SampleShadow_PCF_Tent_7x7(HDShadowContext shadowContext, real4 textureSize, real4 texelSizeRcp, real3 coord, real2 sampleBias, Texture2D tex, SamplerComparisonState compSamp)
+real SampleShadow_PCF_Tent_7x7(real4 textureSize, real4 texelSizeRcp, real3 coord, real2 sampleBias, Texture2D tex, SamplerComparisonState compSamp)
 {
     real4 shadowMapTexture_TexelSize = real4(texelSizeRcp.xy, textureSize.xy);
 
@@ -98,7 +98,7 @@ real SampleShadow_PCF_Tent_7x7(HDShadowContext shadowContext, real4 textureSize,
 //
 //                  9 tap adaptive PCF sampling
 //
-real SampleShadow_PCF_9tap_Adaptive(HDShadowContext shadowContext, real4 texelSizeRcp, real3 tcs, real2 sampleBias, real filterSize, Texture2D tex, SamplerComparisonState compSamp)
+real SampleShadow_PCF_9tap_Adaptive(real4 texelSizeRcp, real3 tcs, real2 sampleBias, real filterSize, Texture2D tex, SamplerComparisonState compSamp)
 {
     texelSizeRcp *= filterSize;
 
@@ -138,7 +138,7 @@ real SampleShadow_PCF_9tap_Adaptive(HDShadowContext shadowContext, real4 texelSi
 //
 //                  1 tap VSM sampling
 //
-real SampleShadow_VSM_1tap(HDShadowContext shadowContext, real3 tcs, real lightLeakBias, real varianceBias, Texture2D tex, SamplerState samp)
+real SampleShadow_VSM_1tap(real3 tcs, real lightLeakBias, real varianceBias, Texture2D tex, SamplerState samp)
 {
 #if UNITY_REVERSED_Z
     real  depth      = 1.0 - tcs.z;
@@ -154,7 +154,7 @@ real SampleShadow_VSM_1tap(HDShadowContext shadowContext, real3 tcs, real lightL
 //
 //                  1 tap EVSM sampling
 //
-real SampleShadow_EVSM_1tap(HDShadowContext shadowContext, real3 tcs, real lightLeakBias, real varianceBias, real2 evsmExponents, bool fourMoments, Texture2D tex, SamplerState samp)
+real SampleShadow_EVSM_1tap(real3 tcs, real lightLeakBias, real varianceBias, real2 evsmExponents, bool fourMoments, Texture2D tex, SamplerState samp)
 {
 #if UNITY_REVERSED_Z
     real  depth      = 1.0 - tcs.z;
@@ -187,7 +187,7 @@ real SampleShadow_EVSM_1tap(HDShadowContext shadowContext, real3 tcs, real light
 //
 //                  1 tap MSM sampling
 //
-real SampleShadow_MSM_1tap(HDShadowContext shadowContext, real3 tcs, real lightLeakBias, real momentBias, real depthBias, real bpp16, bool useHamburger, Texture2D tex, SamplerState samp)
+real SampleShadow_MSM_1tap(real3 tcs, real lightLeakBias, real momentBias, real depthBias, real bpp16, bool useHamburger, Texture2D tex, SamplerState samp)
 {
 #if UNITY_REVERSED_Z
     real  depth         = (1.0 - tcs.z) - depthBias;
@@ -214,7 +214,7 @@ real SampleShadow_MSM_1tap(HDShadowContext shadowContext, real3 tcs, real lightL
 //
 //                  PCSS sampling
 //
-real SampleShadow_PCSS(HDShadowContext shadowContext, real3 tcs, real4 scaleOffset, real2 sampleBias, real shadowSoftness, int sampleCount, Texture2D tex, SamplerComparisonState compSamp, SamplerState samp)
+real SampleShadow_PCSS(real3 tcs, real4 scaleOffset, real2 sampleBias, real shadowSoftness, int sampleCount, Texture2D tex, SamplerComparisonState compSamp, SamplerState samp)
 {
     // Can't enable PCSS currently because the sampling is done inside BlockerSeaarch() and PCSS() using TextureArrays
     return 0;

@@ -7,6 +7,7 @@
 // Custom shadowmap sampling functions
 #include "HDRP/Shadows/HDShadowTexFetch.hlsl"
 
+// TODO: refactor this once we can generate arrays in hlsl structs
 struct HDDirectionalShadow
 {
     float4      sphereCascades[4];

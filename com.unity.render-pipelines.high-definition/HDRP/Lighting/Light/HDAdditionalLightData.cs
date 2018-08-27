@@ -223,6 +223,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         
                         m_ShadowData.GetShadowCascades(out cascadeCount, out cascadeRatios, out cascadeBorders);
                         HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
+                        
+                        manager.UpdateCascade(faceIndex, shadowRequest.splitData.cullingSphere, cascadeBorders[0]);
                         break;
                     case LightType.Area:
                         HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);

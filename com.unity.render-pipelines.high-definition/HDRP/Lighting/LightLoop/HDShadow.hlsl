@@ -36,7 +36,7 @@ float GetPointShadowAttenuation(HDShadowContext shadowContext, float3 positionWS
 float GetPunctualShadowClosestDistance(HDShadowContext shadowContext, SamplerState sampl, real3 positionWS, int index, float3 L, float3 lightPositionWS)
 {
     // TODO: call closest distance algorithm
-    return EvalShadow_SampleClosestDistance_Punctual(shadowContext, _ShadowmapAtlas, s_point_clamp_sampler, positionWS, index, L, lightPositionWS);
+    return EvalShadow_SampleClosestDistance_Punctual(shadowContext, _ShadowmapAtlas, s_linear_clamp_sampler, positionWS, index, L, lightPositionWS);
 }
 
 #endif // LIGHTLOOP_HD_SHADOW_HLSL
