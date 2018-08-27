@@ -189,7 +189,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return (m_Light.type == LightType.Point) ? 6 : (m_Light.type == LightType.Directional) ? 4 : 1;
         }
 
-        public void UpdateShadowRequest(Camera cam, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
+        public void UpdateShadowRequest(Camera camera, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
         {
             if (shadowRequests == null)
             {
@@ -204,12 +204,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             for (int faceIndex = 0; faceIndex < shadowRequests.Length; faceIndex++)
             {
                 var shadowRequest = shadowRequests[faceIndex];
+                Matrix4x4   invViewProjection = Matrix4x4.identity;
 
                 switch (m_Light.type)
                 {
                     case LightType.Point:
                     case LightType.Spot:
-                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, shadowRequest.viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, shadowRequest.viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                     case LightType.Directional:
                         float[] cascadeRatios;
@@ -218,10 +219,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         float   nearPlaneOffset = QualitySettings.shadowNearPlaneOffset;
                         
                         m_ShadowData.GetShadowCascades(out cascadeCount, out cascadeRatios, out cascadeBorders);
-                        HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                     case LightType.Area:
-                        HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out shadowRequest.shadowToWorld, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                 }
                 
@@ -238,10 +239,31 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
 
                 // Make light position camera relative:
-                shadowRequest.view *= Matrix4x4.Translate(cam.transform.position);
+                // TODO: think about VR (use different camera position for each eye)
+                if (ShaderConfig.s_CameraRelativeRendering != 0)
+                {
+                    Vector3 cameraPos = camera.transform.position;
+                    var translation = Matrix4x4.Translate(cameraPos);
+                    shadowRequest.view *= translation;
+                    translation.SetColumn(3, -cameraPos);
+                    translation[15] = 1.0f;
+                    invViewProjection = translation * invViewProjection;
+                }
+
+                shadowRequest.shadowToWorld = invViewProjection.transpose;
 
                 // We don't allow shadow resize for directional cascade shadow
                 shadowRequest.allowResize = m_Light.type != LightType.Directional;
+
+                // TODO: remove these field once HDShadowAlgorithms is refactored
+                if (m_Light.type == LightType.Directional)
+                    shadowRequest.pos = new Vector3(shadowRequest.view.m03, shadowRequest.view.m13, shadowRequest.view.m23);
+                else
+                    shadowRequest.pos = transform.position - ((ShaderConfig.s_CameraRelativeRendering != 0) ? camera.transform.position : Vector3.zero);
+                shadowRequest.proj = new Vector4(shadowRequest.deviceProjection.m00, shadowRequest.deviceProjection.m11, shadowRequest.deviceProjection.m22, shadowRequest.deviceProjection.m23);
+                shadowRequest.rot0 = new Vector3(shadowRequest.view.m00, shadowRequest.view.m01, shadowRequest.view.m02);
+                shadowRequest.rot1 = new Vector3(shadowRequest.view.m10, shadowRequest.view.m11, shadowRequest.view.m12);
+                shadowRequest.rot2 = new Vector3(shadowRequest.view.m20, shadowRequest.view.m21, shadowRequest.view.m22);
 
                 manager.AddShadowRequest(shadowRequest);
             }

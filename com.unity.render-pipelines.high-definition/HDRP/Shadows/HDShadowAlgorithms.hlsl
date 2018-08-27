@@ -4,7 +4,7 @@
 
 float4 EvalShadow_WorldToShadow(HDShadowData sd, real3 positionWS, bool perspProj)
 {
-    /*if (perspProj)
+    if(perspProj)
     {
         positionWS = positionWS - sd.pos;
         float3x3 view = { sd.rot0, sd.rot1, sd.rot2 };
@@ -30,11 +30,9 @@ float4 EvalShadow_WorldToShadow(HDShadowData sd, real3 positionWS, bool perspPro
     else
         proj._m33 = 1.0;
 
-    return mul(proj, float4(positionWS, 1.0));*/
-
-    // TODO: this is not what this function is supposed to do
-    return mul(sd.projection, float4(positionWS, 1.0));
+    return mul(proj, float4(positionWS, 1.0));
 }
+
 // function called by spot, point and directional eval routines to calculate shadow coordinates
 real3 EvalShadow_GetTexcoords(HDShadowData sd, real3 positionWS, out real3 posNDC, bool perspProj)
 {

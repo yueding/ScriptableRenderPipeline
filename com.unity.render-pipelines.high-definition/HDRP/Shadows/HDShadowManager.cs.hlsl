@@ -17,6 +17,11 @@ struct HDShadowData
     float4 viewBias;
     float4 normalBias;
     float edgeTolerance;
+    float3 rot0;
+    float3 rot1;
+    float3 rot2;
+    float3 pos;
+    float4 proj;
 };
 
 // Generated from UnityEngine.Experimental.Rendering.HDPipeline.HDDirectionalShadowData
@@ -72,6 +77,26 @@ float4 GetNormalBias(HDShadowData value)
 float GetEdgeTolerance(HDShadowData value)
 {
     return value.edgeTolerance;
+}
+float3 GetRot0(HDShadowData value)
+{
+    return value.rot0;
+}
+float3 GetRot1(HDShadowData value)
+{
+    return value.rot1;
+}
+float3 GetRot2(HDShadowData value)
+{
+    return value.rot2;
+}
+float3 GetPos(HDShadowData value)
+{
+    return value.pos;
+}
+float4 GetProj(HDShadowData value)
+{
+    return value.proj;
 }
 
 //

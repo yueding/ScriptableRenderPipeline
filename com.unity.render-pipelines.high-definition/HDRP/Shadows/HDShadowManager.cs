@@ -23,6 +23,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4      viewBias;
         public Vector4      normalBias;
         public float        edgeTolerance;
+
+        // TODO: remove these fields, they should not be required in further version (and refactor HDShadowAlgorithms.hlsl)
+        public Vector3      rot0;
+        public Vector3      rot1;
+        public Vector3      rot2;
+        public Vector3      pos;
+        public Vector4      proj;
     }
 
     // We use a different structure for directional light because these is a lot of data there
@@ -65,15 +72,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4      viewBias;
         public Vector4      normalBias;
         public float        edgeTolerance;
+        
+        public Vector3      rot0;
+        public Vector3      rot1;
+        public Vector3      rot2;
+        public Vector3      pos;
+        public Vector4      proj;
     }
 
     public class HDShadowManager : IDisposable
     {
         List<HDShadowData>          m_ShadowDatas = new List<HDShadowData>();
-
-        // By default we reserve a bit of space to prevent a part of the Add() allocation
-        // List<HDShadowRequest>       m_ShadowRequests = new List<HDShadowRequest>(50);
-        // List<HDShadowRequest>       m_ShadowCascadesRequests = new List<HDShadowRequest>(4);
 
         // Structured buffer of shadow datas
         // TODO: hardcoded max shadow data value
@@ -103,15 +112,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void AddShadowRequest(HDShadowRequest shadowRequest)
         {
             if (shadowRequest.allowResize)
-            {
-                // m_ShadowRequests.Add(shadowRequest);
                 m_Atlas.Reserve(shadowRequest);
-            }
             else
-            {
-                // m_ShadowCascadesRequests.Add(shadowRequest);
                 m_CascadeAtlas.Reserve(shadowRequest);
-            }
             
 #if UNITY_EDITOR
             if (m_CurrentLightShadowRequests != null)
@@ -125,19 +128,26 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             data.projection = shadowRequest.deviceProjection;
             data.view = shadowRequest.view;
+            data.shadowToWorld = shadowRequest.shadowToWorld;
 
             // Compute the scale and offset (between 0 and 1) for the atlas coordinates
             float rWidth = 1.0f / m_Width;
             float rHeight = 1.0f / m_Height;
-            Vector4 atlasViewport = new Vector4(shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y, shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height);
+            Vector4 atlasViewport = new Vector4(shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height, shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y);
             data.scaleOffset = Vector4.Scale(new Vector4(rWidth, rHeight, 1, 1), atlasViewport);
 
-            data.textureSize = new Vector4(m_Width, m_Height, shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y);
-            data.texelSizeRcp = new Vector4(rWidth, rHeight, 1.0f / shadowRequest.atlasViewport.x, 1.0f / shadowRequest.atlasViewport.y);
+            data.textureSize = new Vector4(m_Width, m_Height, shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height);
+            data.texelSizeRcp = new Vector4(rWidth, rHeight, 1.0f / shadowRequest.atlasViewport.width, 1.0f / shadowRequest.atlasViewport.height);
 
             data.viewBias = shadowRequest.viewBias;
             data.normalBias = shadowRequest.normalBias;
             data.edgeTolerance = shadowRequest.edgeTolerance;
+
+            data.pos = shadowRequest.pos;
+            data.proj = shadowRequest.proj;
+            data.rot0 = shadowRequest.rot0;
+            data.rot1 = shadowRequest.rot1;
+            data.rot2 = shadowRequest.rot2;
 
             return data;
         }
@@ -224,7 +234,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // TODO: manage cascade shadow atlas here
             m_Atlas.DisplayAtlas(cmd, debugMaterial, shadowRequests[shadowMapIndex].atlasViewport, screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
         }
-        
+
         public void SyncData()
         {
             // Upload the shadow buffers to GPU

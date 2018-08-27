@@ -96,8 +96,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             float rHeight = 1.0f / m_Height;
             Vector4 scaleBias = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight), new Vector4(atlasViewport.width, atlasViewport.height, atlasViewport.x, atlasViewport.y));
 
-            Debug.Log("scaleBias: " + scaleBias);
-
             MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
             propertyBlock.SetTexture("_AtlasTexture", m_Atlas.rt);
             propertyBlock.SetVector("_TextureScaleBias", scaleBias);

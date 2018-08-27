@@ -20,6 +20,11 @@ float GetPunctualShadowAttenuation(HDShadowContext shadowContext, float3 positio
     // TODO: we may want to remove this function and replace it with two (one for spot and another for point)
 
     return EvalShadow_SpotDepth(shadowContext, _ShadowmapAtlas, sampler_ShadowmapAtlas, positionWS, normalWS, shadowDataIndex, L, L_dist);
+
+    HDShadowData sd = shadowContext.shadowDatas[shadowDataIndex];
+    real2 atlasUv = sd.scaleOffset.xy + sd.scaleOffset.zw / 2.0;
+    
+    return SAMPLE_TEXTURE2D_SHADOW(_ShadowmapAtlas, sampler_ShadowmapAtlas, real3(atlasUv, positionWS.x));
 }
 
 float GetPunctualShadowAttenuation(HDShadowContext shadowContext, float3 positionWS, float3 normalWS, int shadowDataIndex, float3 L, float L_dist, float2 positionSS)
