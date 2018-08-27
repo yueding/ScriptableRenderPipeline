@@ -104,7 +104,7 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             // Spot angle
             using (var group = new EditorGUILayout.FadeGroupScope(m_AnimSpotOptions.faded))
                 if (group.visible)
-                    settings.DrawSpotAngleInnerAndOuter();
+                    settings.DrawInnerAndOuterSpotAngle();
 
             // Area width & height
             using (var group = new EditorGUILayout.FadeGroupScope(m_AnimAreaOptions.faded))
@@ -265,7 +265,6 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                     m_HandleHotControl = GUIUtility.hotControl;
                     m_ShowRange = true;
                 }
-
 
                 var innerProcentage = (light.innerSpotAngle / light.spotAngle);
                 Handles.color = Color.yellow;
