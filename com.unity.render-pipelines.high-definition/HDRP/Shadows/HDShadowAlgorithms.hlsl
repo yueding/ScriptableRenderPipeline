@@ -144,7 +144,8 @@ float2 EvalShadow_SampleBias_Ortho(HDShadowData sd, float3 normalWS)            
 //
 real EvalShadow_PointDepth(HDShadowContext shadowContext, Texture2D tex, SamplerComparisonState samp, real3 positionWS, real3 normalWS, int index, real3 L, real L_dist)
 {
-    HDShadowData sd = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1];
+    // TODO: Here we assume that all the shadow map cube faces have been added contiguously in the buffer to retreive the shadow information
+    HDShadowData sd = shadowContext.shadowDatas[index + CubeMapFaceID(-L)];
     /* bias the world position */
     real recvBiasWeight = EvalShadow_ReceiverBiasWeight(sd, tex, samp, positionWS, normalWS, L, L_dist, true);
     positionWS = EvalShadow_ReceiverBias(sd, positionWS, normalWS, L, L_dist, recvBiasWeight, true);
@@ -195,7 +196,6 @@ real EvalShadow_PunctualDepth(HDShadowContext shadowContext, Texture2D tex, Samp
     /*    sd.rot2           = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].rot2;                   */
     /*    sd.shadowToWorld  = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].shadowToWorld;          */
     /*    sd.scaleOffset.zw = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].scaleOffset.zw;         */
-    /*      = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].slice;                                  */
     /*}                                                                                                        */
 
     /* bias the world position */

@@ -516,12 +516,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Light GetCurrentSunLight() { return m_CurrentSunLight; }
 
         // shadow related stuff
-        FrameId                 m_FrameId = new FrameId();
-        ShadowSetup             m_ShadowSetup; // doesn't actually have to reside here, it would be enough to pass the IShadowManager in from the outside
-        IShadowManager          m_ShadowMgr;
-        HDShadowManager         m_NewShadowManager;
-        List<int>               m_ShadowRequests = new List<int>();
-        Dictionary<int, int>    m_ShadowIndices = new Dictionary<int, int>();
+        FrameId                             m_FrameId = new FrameId();
+        ShadowSetup                         m_ShadowSetup; // doesn't actually have to reside here, it would be enough to pass the IShadowManager in from the outside
+        IShadowManager                      m_ShadowMgr;
+        HDShadowManager                     m_NewShadowManager;
+        List<int>                           m_ShadowRequests = new List<int>();
+        Dictionary<int, int>                m_ShadowIndices = new Dictionary<int, int>();
+        Dictionary<int, HDShadowRequest>    m_NewShadowRequests = new Dictionary<int, HDShadowRequest>();
 
         void InitShadowSystem(HDRenderPipelineAsset hdAsset, ShadowSettings shadowSettings)
         {
@@ -965,12 +966,25 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 directionalLightData.cookieIndex = m_CookieTexArray.FetchSlice(cmd, lightComponent.cookie);
             }
             // fix up shadow information
-            int shadowIdx;
-            if (m_ShadowIndices.TryGetValue(lightIndex, out shadowIdx))
+            if (useNewShadowSystem)
             {
-                directionalLightData.shadowIndex = shadowIdx;
-                m_CurrentSunLight = lightComponent;
-                m_CurrentSunLightShadowIndex = shadowIdx;
+                HDShadowRequest shadowRequest;
+                if (m_NewShadowRequests.TryGetValue(lightIndex, out shadowRequest))
+                {
+                    directionalLightData.shadowIndex = shadowRequest.shadowIndex;
+                    m_CurrentSunLight = lightComponent;
+                    m_CurrentSunLightShadowIndex = shadowRequest.shadowIndex;
+                }
+            }
+            else
+            {
+                int shadowIdx;
+                if (m_ShadowIndices.TryGetValue(lightIndex, out shadowIdx))
+                {
+                    directionalLightData.shadowIndex = shadowIdx;
+                    m_CurrentSunLight = lightComponent;
+                    m_CurrentSunLightShadowIndex = shadowIdx;
+                }
             }
 
             directionalLightData.shadowMaskSelector = Vector4.zero;
@@ -1179,10 +1193,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
 
             // fix up shadow information
-            int shadowIdx;
-            if (m_ShadowIndices.TryGetValue(lightIndex, out shadowIdx))
+            if (useNewShadowSystem)
             {
-                lightData.shadowIndex = shadowIdx;
+                HDShadowRequest shadowRequest;
+                if (m_NewShadowRequests.TryGetValue(lightIndex, out shadowRequest))
+                {
+                    lightData.shadowIndex = shadowRequest.shadowIndex;
+                }
+            }
+            else
+            {
+                int shadowIdx;
+                if (m_ShadowIndices.TryGetValue(lightIndex, out shadowIdx))
+                {
+                    lightData.shadowIndex = shadowIdx;
+                }
             }
 
             // Value of max smoothness is from artists point of view, need to convert from perceptual smoothness to roughness
@@ -1718,6 +1743,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                 m_ShadowIndices.Add(shadowRequests[i], shadowDataIndices[i]);
                             }
                         }
+                        else
+                        {
+                            m_NewShadowRequests.Clear();
+                        }
                     }
 
                     // 1. Count the number of lights and sort all lights by category, type and volume - This is required for the fptl/cluster shader code
@@ -1745,7 +1774,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                             // Update light shadow requests only if the light affects at least one object
                             if (cullResults.GetShadowCasterBounds(lightIndex, out bounds))
-                                additionalData.UpdateShadowRequest(camera, m_NewShadowManager, light, cullResults, lightIndex);
+                            {
+                                var shadowRequest = additionalData.UpdateShadowRequest(camera, m_NewShadowManager, light, cullResults, lightIndex);
+                                m_NewShadowRequests.Add(lightIndex, shadowRequest);
+                            }
                         }
 
                         LightCategory lightCategory = LightCategory.Count;
@@ -1827,7 +1859,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             }
                         }
 
-                        uint shadow = m_ShadowIndices.ContainsKey(lightIndex) ? 1u : 0;
+                        uint shadow;
+                        if (useNewShadowSystem)
+                            shadow = m_NewShadowRequests.ContainsKey(lightIndex) ? 1u : 0;
+                        else
+                            shadow = m_ShadowIndices.ContainsKey(lightIndex) ? 1u : 0;
                         // 5 bit (0x1F) light category, 5 bit (0x1F) GPULightType, 5 bit (0x1F) lightVolume, 1 bit for shadow casting, 16 bit index
                         m_SortKeys[sortCount++] = (uint)lightCategory << 27 | (uint)gpuLightType << 22 | (uint)lightVolumeType << 17 | shadow << 16 | (uint)lightIndex;
                     }

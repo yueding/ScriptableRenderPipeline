@@ -189,8 +189,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return (m_Light.type == LightType.Point) ? 6 : (m_Light.type == LightType.Directional) ? 4 : 1;
         }
 
-        public void UpdateShadowRequest(Camera camera, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
+        // Must return the first executed shadow request
+        public HDShadowRequest UpdateShadowRequest(Camera camera, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
         {
+            HDShadowRequest firstRequest = null;
+
             if (shadowRequests == null)
             {
                 shadowRequests = Enumerable.Range(0, GetShadowRequestCount()).Select(i => new HDShadowRequest()).ToArray();
@@ -251,6 +254,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
 
                 shadowRequest.shadowToWorld = invViewProjection.transpose;
+                shadowRequest.zClip = (m_Light.type != LightType.Directional);
+                shadowRequest.lightIndex = lightIndex;
 
                 // We don't allow shadow resize for directional cascade shadow
                 shadowRequest.allowResize = m_Light.type != LightType.Directional;
@@ -265,8 +270,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 shadowRequest.rot1 = new Vector3(shadowRequest.view.m10, shadowRequest.view.m11, shadowRequest.view.m12);
                 shadowRequest.rot2 = new Vector3(shadowRequest.view.m20, shadowRequest.view.m21, shadowRequest.view.m22);
 
+                if (firstRequest == null)
+                    firstRequest = shadowRequest;
+                
                 manager.AddShadowRequest(shadowRequest);
             }
+
+            return firstRequest;
         }
 
 #if UNITY_EDITOR

@@ -21,10 +21,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Vector4 lightDir;
             float guardAngle;
 
-            deviceProjection = Matrix4x4.identity;
-            view = Matrix4x4.identity;
-            projection = Matrix4x4.identity;
-
             if (lightType == LightType.Spot)
             {
                 guardAngle = ShadowUtils.CalcGuardAnglePerspective(visibleLight.light.spotAngle, viewportSize.x, GetFilterWidthInTexels(lightType), normalBiasMax, 180.0f - visibleLight.light.spotAngle);

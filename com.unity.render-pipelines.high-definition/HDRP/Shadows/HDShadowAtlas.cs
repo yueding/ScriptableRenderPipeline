@@ -32,7 +32,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void Layout(bool allowResize = true)
         {
             // TODO: change this sort (and maybe the list) by something that don't create garbage
-            shadowRequests.Sort((s1, s2) => s1.viewportSize.x.CompareTo(s2.viewportSize.x));
+            // Note: it is very important to keep the added order for shadow maps that are the same size (for punctual lights)
+            // shadowRequests.Sort((s1, s2) => s1.viewportSize.x.CompareTo(s2.viewportSize.x));
             
             float curX = 0, curY = 0, curH = 0, xMax = m_Width, yMax = m_Height;
 
@@ -77,6 +78,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 cmd.SetViewport(shadowRequest.atlasViewport);
                 cmd.SetViewProjectionMatrices(shadowRequest.view, shadowRequest.projection);
+                
+                cmd.SetGlobalFloat(HDShaderIDs._ZClip, shadowRequest.zClip ? 1.0f : 0.0f);
 
                 dss.lightIndex = shadowRequest.lightIndex;
                 dss.splitData = shadowRequest.splitData;
@@ -87,6 +90,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 renderContext.DrawShadows(ref dss);
             }
+            
+            cmd.SetGlobalFloat(HDShaderIDs._ZClip, 1.0f);   // Re-enable zclip globally
         }
 
         public void DisplayAtlas(CommandBuffer cmd, Material debugMaterial, Rect atlasViewport, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)

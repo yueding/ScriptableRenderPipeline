@@ -60,6 +60,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector2              viewportSize;
         // Warning: this field is updated by ProcessShadowRequests and is invalid before
         public Rect                 atlasViewport;
+        public bool                 zClip;
+
+        // Store the final shadow indice in the shadow data array
+        // Warning: the index is computed during ProcessShadowRequest and so is invalid before calling this function
+        public int                  shadowIndex;
 
         // Determine in which atlas the shadow will be rendered
         public bool                 allowResize = true;
@@ -134,7 +139,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             float rWidth = 1.0f / m_Width;
             float rHeight = 1.0f / m_Height;
             Vector4 atlasViewport = new Vector4(shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height, shadowRequest.atlasViewport.x, shadowRequest.atlasViewport.y);
-            data.scaleOffset = Vector4.Scale(new Vector4(rWidth, rHeight, 1, 1), atlasViewport);
+            data.scaleOffset = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight), atlasViewport);
 
             data.textureSize = new Vector4(m_Width, m_Height, shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height);
             data.texelSizeRcp = new Vector4(rWidth, rHeight, 1.0f / shadowRequest.atlasViewport.width, 1.0f / shadowRequest.atlasViewport.height);
@@ -154,8 +159,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public void ProcessShadowRequests(CullResults cullResults, Camera camera)
         {
-            // TODO: prune all shadow we dont need to render
+            int shadowIndex = 0;
 
+            // TODO: prune all shadow we dont need to render
             // TODO maybe: sort all shadows by "importance" (aka size on screen)
             
             // Assign a position to all the shadows in the atlas, and scale shadows if needed
@@ -166,9 +172,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // Create all HDShadowDatas and update them with shadow request datas
             foreach (var shadowRequest in m_Atlas.shadowRequests)
+            {
                 m_ShadowDatas.Add(CreateShadowData(shadowRequest));
+                shadowRequest.shadowIndex = shadowIndex++;
+            }
             foreach (var shadowRequest in m_CascadeAtlas.shadowRequests)
+            {
                 m_ShadowDatas.Add(CreateShadowData(shadowRequest));
+                shadowRequest.shadowIndex = shadowIndex++;
+            }
         }
  
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults)
