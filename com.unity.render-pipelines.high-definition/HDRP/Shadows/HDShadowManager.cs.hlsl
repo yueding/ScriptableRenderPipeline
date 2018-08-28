@@ -16,6 +16,7 @@ struct HDShadowData
     float4 texelSizeRcp;
     float4 viewBias;
     float4 normalBias;
+    int flags;
     float edgeTolerance;
     float3 rot0;
     float3 rot1;
@@ -73,6 +74,10 @@ float4 GetViewBias(HDShadowData value)
 float4 GetNormalBias(HDShadowData value)
 {
     return value.normalBias;
+}
+int GetFlags(HDShadowData value)
+{
+    return value.flags;
 }
 float GetEdgeTolerance(HDShadowData value)
 {

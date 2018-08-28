@@ -78,14 +78,14 @@ real EvalShadow_WorldTexelSize(HDShadowData sd, float L_dist, bool perspProj)
 }
 
 // used to scale down view biases to mitigate light leaking across shadowed corners
-real EvalShadow_ReceiverBiasWeightFlag(float flag)
+real EvalShadow_ReceiverBiasWeightFlag(int flag)
 {
-    return (asint(flag) & 2) ? 1.0 : 0.0;
+    return (flag & 2) ? 1.0 : 0.0;
 }
 
-bool EvalShadow_ReceiverBiasWeightUseNormalFlag(float flag)
+bool EvalShadow_ReceiverBiasWeightUseNormalFlag(int flag)
 {
-    return (asint(flag) & 4) ? true : false;
+    return (flag & 4) ? true : false;
 }
 
 real3 EvalShadow_ReceiverBiasWeightPos(real3 positionWS, real3 normalWS, real3 L, real worldTexelSize, real tolerance, bool useNormal)
@@ -99,8 +99,8 @@ real3 EvalShadow_ReceiverBiasWeightPos(real3 positionWS, real3 normalWS, real3 L
 
 real EvalShadow_ReceiverBiasWeight(HDShadowData sd, Texture2D tex, SamplerComparisonState samp, real3 positionWS, real3 normalWS, real3 L, real L_dist, bool perspProj)
 {
-    real3 pos = EvalShadow_ReceiverBiasWeightPos(positionWS, normalWS, L, EvalShadow_WorldTexelSize(sd, L_dist, perspProj), sd.edgeTolerance, EvalShadow_ReceiverBiasWeightUseNormalFlag(sd.normalBias.w));
-    return lerp(1.0, SAMPLE_TEXTURE2D_SHADOW(tex, samp, EvalShadow_GetTexcoords(sd, pos, perspProj)).x, EvalShadow_ReceiverBiasWeightFlag(sd.normalBias.w));
+    real3 pos = EvalShadow_ReceiverBiasWeightPos(positionWS, normalWS, L, EvalShadow_WorldTexelSize(sd, L_dist, perspProj), sd.edgeTolerance, EvalShadow_ReceiverBiasWeightUseNormalFlag(sd.flags));
+    return lerp(1.0, SAMPLE_TEXTURE2D_SHADOW(tex, samp, EvalShadow_GetTexcoords(sd, pos, perspProj)).x, EvalShadow_ReceiverBiasWeightFlag(sd.flags));
 }
 
 real EvalShadow_ReceiverBiasWeight(HDShadowData sd, Texture2D tex, SamplerState samp, real3 positionWS, real3 normalWS, real3 L, real L_dist, bool perspProj)

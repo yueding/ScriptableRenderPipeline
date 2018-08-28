@@ -190,25 +190,23 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         }
 
         // Must return the first executed shadow request
-        public HDShadowRequest UpdateShadowRequest(Camera camera, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex)
+        public int UpdateShadowRequest(Camera camera, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex, out int shadowRequestCount)
         {
-            HDShadowRequest firstRequest = null;
+            int firstShadowRequestIndex = -1;
+            shadowRequestCount = 0;
 
             if (shadowRequests == null)
             {
                 shadowRequests = Enumerable.Range(0, GetShadowRequestCount()).Select(i => new HDShadowRequest()).ToArray();
             }
 
-#if UNITY_EDITOR
-            // Set the current light for shadow map debug menu
-            manager.SetCurrentLightShadows(m_Light);
-#endif
-
             for (int faceIndex = 0; faceIndex < shadowRequests.Length; faceIndex++)
             {
-                var shadowRequest = shadowRequests[faceIndex];
+                var         shadowRequest = shadowRequests[faceIndex];
                 Matrix4x4   invViewProjection = Matrix4x4.identity;
+                Vector3     cameraPos = camera.transform.position;
 
+                // Write per light type matrices, splitDatas and culling parameters
                 switch (m_Light.type)
                 {
                     case LightType.Point:
@@ -219,66 +217,88 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         float[] cascadeRatios;
                         float[] cascadeBorders;
                         int     cascadeCount;
+                        Vector4 cullingSphere;
                         float   nearPlaneOffset = QualitySettings.shadowNearPlaneOffset;
                         
                         m_ShadowData.GetShadowCascades(out cascadeCount, out cascadeRatios, out cascadeBorders);
                         HDShadowUtils.ExtractDirectionalLightData(visibleLight, shadowRequest.viewportSize, (uint)faceIndex, m_ShadowData.cascadeCount, cascadeRatios, nearPlaneOffset, cullResults, lightIndex, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
+
+                        cullingSphere = shadowRequest.splitData.cullingSphere;
+
+                        // Camera relative for directional light culling sphere
+                        if (ShaderConfig.s_CameraRelativeRendering != 0)
+                        {
+                            cullingSphere.x -= cameraPos.x;
+                            cullingSphere.y -= cameraPos.y;
+                            cullingSphere.z -= cameraPos.z;
+                        }
                         
-                        manager.UpdateCascade(faceIndex, shadowRequest.splitData.cullingSphere, cascadeBorders[0]);
+                        manager.UpdateCascade(faceIndex, cullingSphere, cascadeBorders[0]);
                         break;
                     case LightType.Area:
                         HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                 }
                 
-                // When creating a new light, at the first frame, there is no AdditionalShadowData so we check against null
-                if (m_ShadowData != null)
-                {
-                    shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
+                // Assign all setting common to every lights
+                SetShadowRequestSettings(shadowRequest, cameraPos, invViewProjection, lightIndex);
 
-                    // Bias stuff:
-                    shadowRequest.viewBias = new Vector4(m_ShadowData.viewBiasMin, m_ShadowData.viewBiasMax, m_ShadowData.viewBiasScale, 2.0f / shadowRequest.projection.m00 / m_ShadowData.shadowResolution * 1.4142135623730950488016887242097f);
-                    // TODO: Last parameter is technically flags (from the Core shadow system) but not supported here, see how to handle it
-                    shadowRequest.normalBias = new Vector4(m_ShadowData.normalBiasMin, m_ShadowData.normalBiasMax, m_ShadowData.normalBiasScale, 0);
-                    shadowRequest.edgeTolerance = m_ShadowData.edgeTolerance;
-                }
+                int shadowRequestIndex = manager.AddShadowRequest(shadowRequest);
+                
+                // Store the first shadow request id to return it
+                if (firstShadowRequestIndex == -1)
+                    firstShadowRequestIndex = shadowRequestIndex;
+                
+                shadowRequestCount++;
+            }
 
-                // Make light position camera relative:
-                // TODO: think about VR (use different camera position for each eye)
-                if (ShaderConfig.s_CameraRelativeRendering != 0)
-                {
-                    Vector3 cameraPos = camera.transform.position;
-                    var translation = Matrix4x4.Translate(cameraPos);
-                    shadowRequest.view *= translation;
-                    translation.SetColumn(3, -cameraPos);
-                    translation[15] = 1.0f;
-                    invViewProjection = translation * invViewProjection;
-                }
+            return firstShadowRequestIndex;
+        }
 
-                shadowRequest.shadowToWorld = invViewProjection.transpose;
-                shadowRequest.zClip = (m_Light.type != LightType.Directional);
-                shadowRequest.lightIndex = lightIndex;
+        void SetShadowRequestSettings(HDShadowRequest shadowRequest, Vector3 cameraPos, Matrix4x4 invViewProjection, int lightIndex)
+        {
+            // When creating a new light, at the first frame, there is no AdditionalShadowData so we check against null
+            if (m_ShadowData != null)
+            {
+                shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
+                shadowRequest.viewBias = new Vector4(m_ShadowData.viewBiasMin, m_ShadowData.viewBiasMax, m_ShadowData.viewBiasScale, 2.0f / shadowRequest.projection.m00 / m_ShadowData.shadowResolution * 1.4142135623730950488016887242097f);
+                shadowRequest.normalBias = new Vector4(m_ShadowData.normalBiasMin, m_ShadowData.normalBiasMax, m_ShadowData.normalBiasScale, 0);
+                shadowRequest.flags = 0;
+                shadowRequest.flags |= m_ShadowData.sampleBiasScale     ? (1 << 0) : 0;
+                shadowRequest.flags |= m_ShadowData.edgeLeakFixup       ? (1 << 1) : 0;
+                shadowRequest.flags |= m_ShadowData.edgeToleranceNormal ? (1 << 2) : 0;
+                shadowRequest.edgeTolerance = m_ShadowData.edgeTolerance;
+            }
 
-                // We don't allow shadow resize for directional cascade shadow
-                shadowRequest.allowResize = m_Light.type != LightType.Directional;
+            // Make light position camera relative:
+            // TODO: think about VR (use different camera position for each eye)
+            if (ShaderConfig.s_CameraRelativeRendering != 0)
+            {
+                var translation = Matrix4x4.Translate(cameraPos);
+                shadowRequest.view *= translation;
+                translation.SetColumn(3, -cameraPos);
+                translation[15] = 1.0f;
+                invViewProjection = translation * invViewProjection;
+            }
 
-                // TODO: remove these field once HDShadowAlgorithms is refactored
+            shadowRequest.shadowToWorld = invViewProjection.transpose;
+            shadowRequest.zClip = (m_Light.type != LightType.Directional);
+            shadowRequest.lightIndex = lightIndex;
+            // We don't allow shadow resize for directional cascade shadow
+            shadowRequest.allowResize = m_Light.type != LightType.Directional;
+
+            // TODO: remove these field once HDShadowAlgorithms is refactored
+            {
                 if (m_Light.type == LightType.Directional)
                     shadowRequest.pos = new Vector3(shadowRequest.view.m03, shadowRequest.view.m13, shadowRequest.view.m23);
                 else
-                    shadowRequest.pos = transform.position - ((ShaderConfig.s_CameraRelativeRendering != 0) ? camera.transform.position : Vector3.zero);
+                    shadowRequest.pos = transform.position - ((ShaderConfig.s_CameraRelativeRendering != 0) ? cameraPos : Vector3.zero);
                 shadowRequest.proj = new Vector4(shadowRequest.deviceProjection.m00, shadowRequest.deviceProjection.m11, shadowRequest.deviceProjection.m22, shadowRequest.deviceProjection.m23);
                 shadowRequest.rot0 = new Vector3(shadowRequest.view.m00, shadowRequest.view.m01, shadowRequest.view.m02);
                 shadowRequest.rot1 = new Vector3(shadowRequest.view.m10, shadowRequest.view.m11, shadowRequest.view.m12);
                 shadowRequest.rot2 = new Vector3(shadowRequest.view.m20, shadowRequest.view.m21, shadowRequest.view.m22);
-
-                if (firstRequest == null)
-                    firstRequest = shadowRequest;
-                
-                manager.AddShadowRequest(shadowRequest);
             }
-
-            return firstRequest;
+            // End
         }
 
 #if UNITY_EDITOR

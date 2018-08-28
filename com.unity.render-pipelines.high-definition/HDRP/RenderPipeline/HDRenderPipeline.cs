@@ -756,6 +756,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // TODO: Render only visible probes
             var probeTypeToRender = ReflectionProbeType.ReflectionProbe;
+            // Caution: Enumerable.Any generate 32B of garbage at each frame here !
             var isPlanarReflection = cameras.Any(c => c.cameraType == CameraType.Reflection);
             if (isPlanarReflection)
                 probeTypeToRender |= ReflectionProbeType.PlanarReflection;
@@ -842,6 +843,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         m_CurrentDebugDisplaySettings = m_DebugDisplaySettings;
                     }
 
+                    // Caution: Component.GetComponent() generate 0.6KB of garbage at each frame here !
                     var postProcessLayer = camera.GetComponent<PostProcessLayer>();
 
                     // Disable post process if we enable debug mode or if the post process layer is disabled
@@ -1651,6 +1653,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     // In case of forward SSS we will bind all the required target. It is up to the shader to write into it or not.
                     if (hdCamera.frameSettings.enableSubsurfaceScattering)
                     {
+                        // Caution new RenderTargetIdentifier[] generate 160B of garbage at each frame here !
                         RenderTargetIdentifier[] m_MRTWithSSS = new RenderTargetIdentifier[2 + m_SSSBufferManager.sssBufferCount];
                         m_MRTWithSSS[0] = m_CameraColorBuffer; // Store the specular color
                         m_MRTWithSSS[1] = m_CameraSssDiffuseLightingBuffer;

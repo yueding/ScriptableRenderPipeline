@@ -43,6 +43,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // for alpha compositing, color is cleared to 0, alpha to 1
             // https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch23.html
 
+            // Warning: new RenderTargetIdentifier[] generates 160B of garbage at each frame here !
             RenderTargetIdentifier[] RTIDs = new RenderTargetIdentifier[rtCount4 ? 4 :3];
             // this clears the targets
             Color clearColor = new Color(0.0f, 0.0f, 0.0f, 1.0f);

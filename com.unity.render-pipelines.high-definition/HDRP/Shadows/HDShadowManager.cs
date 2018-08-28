@@ -22,6 +22,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // TODO: refactor the bias/filter params, they're currently based on the Core shadow system
         public Vector4      viewBias;
         public Vector4      normalBias;
+        public int          flags;
         public float        edgeTolerance;
 
         // TODO: remove these fields, they should not be required in further version (and refactor HDShadowAlgorithms.hlsl)
@@ -77,6 +78,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4      viewBias;
         public Vector4      normalBias;
         public float        edgeTolerance;
+        public int          flags;
         
         public Vector3      rot0;
         public Vector3      rot1;
@@ -88,6 +90,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     public class HDShadowManager : IDisposable
     {
         List<HDShadowData>          m_ShadowDatas = new List<HDShadowData>();
+        List<HDShadowRequest>       m_ShadowRequests = new List<HDShadowRequest>();
 
         HDDirectionalShadowData     m_DirectionalShadowData;
 
@@ -103,11 +106,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         int                         m_Width;
         int                         m_Height;
 
-#if UNITY_EDITOR
-        Dictionary<Light, List<HDShadowRequest>>    m_LightShadowRequests = new Dictionary<Light, List<HDShadowRequest>>();
-        List<HDShadowRequest>                       m_CurrentLightShadowRequests;
-#endif
-
         public HDShadowManager(int width, int height, Shader clearShader)
         {
             Material clearMaterial = CoreUtils.CreateEngineMaterial(clearShader);
@@ -117,17 +115,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_Height = height;
         }
 
-        public void AddShadowRequest(HDShadowRequest shadowRequest)
+        public int AddShadowRequest(HDShadowRequest shadowRequest)
         {
             if (shadowRequest.allowResize)
                 m_Atlas.Reserve(shadowRequest);
             else
                 m_CascadeAtlas.Reserve(shadowRequest);
             
-#if UNITY_EDITOR
-            if (m_CurrentLightShadowRequests != null)
-                m_CurrentLightShadowRequests.Add(shadowRequest);
-#endif
+            // Keep track of all shadow request and the order they was requested
+            m_ShadowRequests.Add(shadowRequest);
+
+            return m_ShadowRequests.Count - 1;
         }
 
         public void UpdateCascade(int cascadeIndex, Vector4 cullingSphere, float border)
@@ -140,19 +138,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // TODO: refactor this once we can generate arrays in hlsl structs
             switch (cascadeIndex)
             {
-                case 1:
+                case 0:
                     m_DirectionalShadowData.sphereCascade1 = cullingSphere;
                     m_DirectionalShadowData.cascadeBorder1 = border;
                     break ;
-                case 2:
+                case 1:
                     m_DirectionalShadowData.sphereCascade2 = cullingSphere;
                     m_DirectionalShadowData.cascadeBorder2 = border;
                     break ;
-                case 3:
+                case 2:
                     m_DirectionalShadowData.sphereCascade3 = cullingSphere;
                     m_DirectionalShadowData.cascadeBorder3 = border;
                     break ;
-                case 4:
+                case 3:
                     m_DirectionalShadowData.sphereCascade4 = cullingSphere;
                     m_DirectionalShadowData.cascadeBorder4 = border;
                     break ;
@@ -179,6 +177,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.viewBias = shadowRequest.viewBias;
             data.normalBias = shadowRequest.normalBias;
             data.edgeTolerance = shadowRequest.edgeTolerance;
+            data.flags = shadowRequest.flags;
 
             data.pos = shadowRequest.pos;
             data.proj = shadowRequest.proj;
@@ -203,12 +202,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_ShadowDatas.Clear();
 
             // Create all HDShadowDatas and update them with shadow request datas
-            foreach (var shadowRequest in m_Atlas.shadowRequests)
-            {
-                m_ShadowDatas.Add(CreateShadowData(shadowRequest));
-                shadowRequest.shadowIndex = shadowIndex++;
-            }
-            foreach (var shadowRequest in m_CascadeAtlas.shadowRequests)
+            foreach (var shadowRequest in m_ShadowRequests)
             {
                 m_ShadowDatas.Add(CreateShadowData(shadowRequest));
                 shadowRequest.shadowIndex = shadowIndex++;
@@ -226,62 +220,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Clear atlas render targets and draw shadows
             m_Atlas.RenderShadows(renderContext, cmd, dss);
             m_CascadeAtlas.RenderShadows(renderContext, cmd, dss);
-        
-            // Clear the shadows atlas infos and requests
-            m_Atlas.Clear();
-            m_CascadeAtlas.Clear();
-        }
-
-#if UNITY_EDITOR
-        // To keep track of which light execute which shadow requests (only used for the debug menu option VisualizeShadowMap with Use Object Selection)
-        public void SetCurrentLightShadows(Light light)
-        {
-            m_CurrentLightShadowRequests = m_LightShadowRequests[light] = new List<HDShadowRequest>();
-        }
-
-        public List<Light> GetLights()
-        {
-            return m_LightShadowRequests.Keys.ToList();
-        }
-
-        public int GetShadowRequestCountForLight(Light light)
-        {
-            List<HDShadowRequest>   shadowRequests;
-            int                     count = 0;
-
-            if (m_LightShadowRequests.TryGetValue(light, out shadowRequests))
-                count = shadowRequests.Count;
-            return count;
-        }
-#endif
-        
-        // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
-        public void DisplayShadowAtlas(CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
-        {
-            //TODO display debug shadow map
-            m_Atlas.DisplayAtlas(cmd, debugMaterial, new Rect(0, 0, m_Width, m_Height), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
         }
         
-        // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
-        public void DisplayShadowCascadeAtlas(CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
-        {
-            m_CascadeAtlas.DisplayAtlas(cmd, debugMaterial, new Rect(0, 0, m_Width, m_Height), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
-        }
-
-        // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
-        public void DisplayShadowMapForLight(Light light, int shadowMapIndex, CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
-        {
-            List<HDShadowRequest>   shadowRequests;
-
-            if (!m_LightShadowRequests.TryGetValue(light, out shadowRequests))
-                return;
-            if (shadowMapIndex >= shadowRequests.Count)
-                return;
-
-            // TODO: manage cascade shadow atlas here
-            m_Atlas.DisplayAtlas(cmd, debugMaterial, shadowRequests[shadowMapIndex].atlasViewport, screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
-        }
-
         public void SyncData()
         {
             // Upload the shadow buffers to GPU
@@ -299,9 +239,51 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalTexture(HDShaderIDs._ShadowmapCascadeAtlas, m_CascadeAtlas.identifier);
         }
 
+        public int GetShadowRequestCount()
+        {
+            return m_ShadowRequests.Count;
+        }
+
+        public void Clear()
+        {
+            // Clear the shadows atlas infos and requests
+            m_Atlas.Clear();
+            m_CascadeAtlas.Clear();
+
+            m_ShadowRequests.Clear();
+        }
+
+        // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
+        public void DisplayShadowAtlas(CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
+        {
+            //TODO display debug shadow map
+            m_Atlas.DisplayAtlas(cmd, debugMaterial, new Rect(0, 0, m_Width, m_Height), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
+        }
+        
+        // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
+        public void DisplayShadowCascadeAtlas(CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
+        {
+            m_CascadeAtlas.DisplayAtlas(cmd, debugMaterial, new Rect(0, 0, m_Width, m_Height), screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
+        }
+
+        // Warning: must be called after ProcessShadowRequests and RenderShadows to have valid informations
+        public void DisplayShadowMap(int shadowIndex, CommandBuffer cmd, Material debugMaterial, float screenX, float screenY, float screenSizeX, float screenSizeY, float minValue, float maxValue, bool flipY)
+        {
+            if (shadowIndex >= m_ShadowRequests.Count)
+                return;
+
+            HDShadowRequest   shadowRequest = m_ShadowRequests[shadowIndex];
+
+            if (shadowRequest.allowResize)
+                m_Atlas.DisplayAtlas(cmd, debugMaterial, shadowRequest.atlasViewport, screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
+            else
+                m_CascadeAtlas.DisplayAtlas(cmd, debugMaterial, shadowRequest.atlasViewport, screenX, screenY, screenSizeX, screenSizeY, minValue, maxValue, flipY);
+        }
+
         public void Dispose()
         {
             m_ShadowDataBuffer.Dispose();
+            m_DirectionalShadowDataBuffer.Dispose();
             m_Atlas.Release();
             m_CascadeAtlas.Release();
         }

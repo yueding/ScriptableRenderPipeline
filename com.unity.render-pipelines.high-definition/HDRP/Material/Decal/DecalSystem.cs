@@ -623,6 +623,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (m_DecalMesh == null)
                 m_DecalMesh = CoreUtils.CreateCubeMesh(kMin, kMax);
 
+            // Caution: List.Enumerable generate 64B of garbage at each frame here !
             foreach (var pair in m_DecalSetsRenderList)
             {
                 foreach(var decalSet in pair.Value)
@@ -717,6 +718,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_BaseColor = new Vector4[newDecalDatasSize];
             }
 
+            // Caution: SortedList.Clear() generate 296B of garbage at each frame here !
             m_DecalSetsRenderList.Clear();
             foreach (var pair in m_DecalSets)
             {
