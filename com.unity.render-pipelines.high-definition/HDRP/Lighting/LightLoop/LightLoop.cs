@@ -2550,7 +2550,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     numTilesX = (hdCamera.actualWidth + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
                     numTilesY = (hdCamera.actualHeight + (deferredShadowTileSize - 1)) / deferredShadowTileSize;
-                    cmd.SetComputeMatrixParam(screenSpaceShadowComputeShader, HDShaderIDs._Matrix_I_VP, hdCamera.viewProjMatrix);
+                    cmd.SetComputeMatrixParam(screenSpaceShadowComputeShader, HDShaderIDs._Matrix_I_VP, hdCamera.viewProjMatrix.inverse);
                     cmd.SetComputeMatrixParam(screenSpaceShadowComputeShader, HDShaderIDs._Matrix_V, hdCamera.viewMatrix);
                     cmd.SetComputeIntParam(screenSpaceShadowComputeShader, HDShaderIDs._Eye, 0);
                     cmd.DispatchCompute(screenSpaceShadowComputeShader, kernel, numTilesX, numTilesY, 1);
