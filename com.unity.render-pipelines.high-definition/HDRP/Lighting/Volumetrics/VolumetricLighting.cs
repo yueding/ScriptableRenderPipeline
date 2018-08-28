@@ -140,6 +140,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Is the feature globally disabled?
         bool m_supportVolumetrics = false;
 
+        // set to true to skip the previous frames feedback such as at the start when frame history has invalid data or during camera switch
+        public bool m_ReinitTemporal = true;
+
         public void Build(HDRenderPipelineAsset asset)
         {
             m_supportVolumetrics = asset.renderPipelineSettings.supportVolumetrics;
@@ -707,6 +710,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeMatrixParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferCoordToViewDirWS, transform);
                 cmd.SetComputeVectorParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferSampleOffset,     offset);
                 cmd.SetComputeFloatParam(  m_VolumetricLightingCS,         HDShaderIDs._CornetteShanksConstant,  CornetteShanksPhasePartConstant(fog.anisotropy));
+                cmd.SetComputeFloatParam( m_VolumetricLightingCS, HDShaderIDs._SkipHistory, m_ReinitTemporal ? 1.0f : 0.0f);
+                m_ReinitTemporal = false; // only do once
                 cmd.SetComputeTextureParam(m_VolumetricLightingCS, kernel, HDShaderIDs._VBufferDensity,          m_DensityBufferHandle);  // Read
                 cmd.SetComputeTextureParam(m_VolumetricLightingCS, kernel, HDShaderIDs._VBufferLightingIntegral, m_LightingBufferHandle); // Write
                 if (enableReprojection)

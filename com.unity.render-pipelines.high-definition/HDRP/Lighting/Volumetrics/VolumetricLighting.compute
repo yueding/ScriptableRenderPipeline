@@ -63,6 +63,7 @@ CBUFFER_START(UnityVolumetricLighting)
     float4   _VBufferSampleOffset;              // Not used by this shader
     float    _CornetteShanksConstant;           // Not used by this shader
     uint     _NumVisibleDensityVolumes;
+    float    _SkipHistory;
 CBUFFER_END
 
 //--------------------------------------------------------------------------------------------------
@@ -540,7 +541,11 @@ void FillVolumetricLightingBuffer(LightLoopContext context, uint featureFlags,
         float  blendFactor     = reprojSuccess ? historyWeight : 0;
         float  reprojScale     = reprojSuccess ? (centerTransmInt * rcp(reprojValue.a)) : 0;
         float3 reprojRadiance  = reprojValue.rgb;
-        float3 blendedRadiance = (1 - blendFactor) * lighting.radianceNoPhase + blendFactor * reprojScale * reprojRadiance;
+        float3 blendedRadiance = (1 - blendFactor) * lighting.radianceNoPhase;
+        if (_SkipHistory == 0.0f)
+        {
+            blendedRadiance += (blendFactor * reprojScale * reprojRadiance);
+        }
 
         // Store the feedback for the voxel.
         // TODO: dynamic lights (which update their position, rotation, cookie or shadow at runtime)
