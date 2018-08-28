@@ -1896,7 +1896,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             Bounds bounds;
 
                             // Update light shadow requests only if the light affects at least one object
-                            if (cullResults.GetShadowCasterBounds(lightIndex, out bounds))
+                            if (shadowSettings.enabled && cullResults.GetShadowCasterBounds(lightIndex, out bounds))
                             {
                                 int shadowRequestCount;
                                 shadowIndex = additionalLightData.UpdateShadowRequest(camera, m_NewShadowManager, light, cullResults, lightIndex, out shadowRequestCount);

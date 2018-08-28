@@ -444,7 +444,7 @@ namespace UnityEngine.Experimental.Rendering
                     sd.PackShadowType(sr.shadowType, sanitizedAlgo);
                     sd.payloadOffset = originalPayloadCount;
                     entries.AddUnchecked(sd);
-
+                    
                     if (multiFace)
                     {
                         entries[multiFaceIdx] = sd;

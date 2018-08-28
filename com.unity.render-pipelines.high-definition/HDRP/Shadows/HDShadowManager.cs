@@ -216,7 +216,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // TODO remove DrawShadowSettings, lightIndex and splitData when scriptable culling is available
             DrawShadowsSettings dss = new DrawShadowsSettings(cullResults, 0);
-            
+
             // Clear atlas render targets and draw shadows
             m_Atlas.RenderShadows(renderContext, cmd, dss);
             m_CascadeAtlas.RenderShadows(renderContext, cmd, dss);

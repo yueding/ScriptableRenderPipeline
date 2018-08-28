@@ -192,19 +192,26 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Must return the first executed shadow request
         public int UpdateShadowRequest(Camera camera, HDShadowManager manager, VisibleLight visibleLight, CullResults cullResults, int lightIndex, out int shadowRequestCount)
         {
-            int firstShadowRequestIndex = -1;
+            int     firstShadowRequestIndex = -1;
+            Vector3 cameraPos = camera.transform.position;
             shadowRequestCount = 0;
 
+            // Create shadow requests array using the light type
             if (shadowRequests == null)
-            {
                 shadowRequests = Enumerable.Range(0, GetShadowRequestCount()).Select(i => new HDShadowRequest()).ToArray();
-            }
+
+            // When creating a new light, at the first frame, there is no AdditionalShadowData so we can't really render shadows
+            if (m_ShadowData == null)
+                return -1;
+            
+            // If the shadow is too far away, we don't render it
+            if (m_Light.type != LightType.Directional && Vector3.Distance(cameraPos, transform.position) >= m_ShadowData.shadowFadeDistance)
+                return -1;
 
             for (int faceIndex = 0; faceIndex < shadowRequests.Length; faceIndex++)
             {
                 var         shadowRequest = shadowRequests[faceIndex];
                 Matrix4x4   invViewProjection = Matrix4x4.identity;
-                Vector3     cameraPos = camera.transform.position;
 
                 // Write per light type matrices, splitDatas and culling parameters
                 switch (m_Light.type)
@@ -241,7 +248,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
                 
                 // Assign all setting common to every lights
-                SetShadowRequestSettings(shadowRequest, cameraPos, invViewProjection, lightIndex);
+                SetCommonShadowRequestSettings(shadowRequest, cameraPos, invViewProjection, lightIndex);
 
                 int shadowRequestIndex = manager.AddShadowRequest(shadowRequest);
                 
@@ -255,20 +262,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return firstShadowRequestIndex;
         }
 
-        void SetShadowRequestSettings(HDShadowRequest shadowRequest, Vector3 cameraPos, Matrix4x4 invViewProjection, int lightIndex)
+        void SetCommonShadowRequestSettings(HDShadowRequest shadowRequest, Vector3 cameraPos, Matrix4x4 invViewProjection, int lightIndex)
         {
-            // When creating a new light, at the first frame, there is no AdditionalShadowData so we check against null
-            if (m_ShadowData != null)
-            {
-                shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
-                shadowRequest.viewBias = new Vector4(m_ShadowData.viewBiasMin, m_ShadowData.viewBiasMax, m_ShadowData.viewBiasScale, 2.0f / shadowRequest.projection.m00 / m_ShadowData.shadowResolution * 1.4142135623730950488016887242097f);
-                shadowRequest.normalBias = new Vector4(m_ShadowData.normalBiasMin, m_ShadowData.normalBiasMax, m_ShadowData.normalBiasScale, 0);
-                shadowRequest.flags = 0;
-                shadowRequest.flags |= m_ShadowData.sampleBiasScale     ? (1 << 0) : 0;
-                shadowRequest.flags |= m_ShadowData.edgeLeakFixup       ? (1 << 1) : 0;
-                shadowRequest.flags |= m_ShadowData.edgeToleranceNormal ? (1 << 2) : 0;
-                shadowRequest.edgeTolerance = m_ShadowData.edgeTolerance;
-            }
+            shadowRequest.viewportSize = new Vector2(m_ShadowData.shadowResolution, m_ShadowData.shadowResolution);
+            shadowRequest.viewBias = new Vector4(m_ShadowData.viewBiasMin, m_ShadowData.viewBiasMax, m_ShadowData.viewBiasScale, 2.0f / shadowRequest.projection.m00 / m_ShadowData.shadowResolution * 1.4142135623730950488016887242097f);
+            shadowRequest.normalBias = new Vector4(m_ShadowData.normalBiasMin, m_ShadowData.normalBiasMax, m_ShadowData.normalBiasScale, 0);
+            shadowRequest.flags = 0;
+            shadowRequest.flags |= m_ShadowData.sampleBiasScale     ? (1 << 0) : 0;
+            shadowRequest.flags |= m_ShadowData.edgeLeakFixup       ? (1 << 1) : 0;
+            shadowRequest.flags |= m_ShadowData.edgeToleranceNormal ? (1 << 2) : 0;
+            shadowRequest.edgeTolerance = m_ShadowData.edgeTolerance;
 
             // Make light position camera relative:
             // TODO: think about VR (use different camera position for each eye)
