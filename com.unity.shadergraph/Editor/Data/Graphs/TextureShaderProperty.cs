@@ -17,7 +17,7 @@ namespace UnityEditor.ShaderGraph
         private bool m_Modifiable = true;
 
         [SerializeField]
-        private DefaultType m_DefaultType = DefaultType.White;
+        private DefaultType m_DefaultType;
 
         public TextureShaderProperty()
         {
@@ -59,7 +59,7 @@ namespace UnityEditor.ShaderGraph
             result.Append(referenceName);
             result.Append("(\"");
             result.Append(displayName);
-            result.Append("\", 2D) = \"" + m_DefaultType.ToString().ToLower() + "\" {}");
+            result.Append("\", 2D) = \"" + defaultType.ToString().ToLower() + "\" {}");
             return result.ToString();
         }
 

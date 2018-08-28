@@ -4,9 +4,7 @@ using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph.Drawing.Controls;
 
 namespace UnityEditor.ShaderGraph
-{
-    using DefaultType = TextureShaderProperty.DefaultType;
-    
+{    
     [Title("UV", "Triplanar")]
     public class TriplanarNode : AbstractMaterialNode, IGeneratesBodyCode, IMayRequirePosition, IMayRequireNormal, IMayRequireTangent, IMayRequireBitangent
     {
@@ -56,6 +54,8 @@ namespace UnityEditor.ShaderGraph
 
                 m_TextureType = value;
                 Dirty(ModificationScope.Graph);
+
+                ValidateNode();
             }
         }
 
@@ -71,12 +71,17 @@ namespace UnityEditor.ShaderGraph
             RemoveSlotsNameNotMatching(new[] { OutputSlotId, TextureInputId, SamplerInputId, PositionInputId, NormalInputId, TileInputId, BlendInputId });
         }
 
+        public override void ValidateNode()
+        {
+            var textureSlot = FindInputSlot<Texture2DInputMaterialSlot>(TextureInputId);
+            textureSlot.defaultType = (textureType == TextureType.Normal ? TextureShaderProperty.DefaultType.Bump : TextureShaderProperty.DefaultType.White);
+
+            base.ValidateNode();
+        }
+
         // Node generations
         public virtual void GenerateNodeCode(ShaderGenerator visitor, GenerationMode generationMode)
         {
-            var textureSlot = FindInputSlot<Texture2DInputMaterialSlot>(TextureInputId);
-            textureSlot.defaultType = (textureType == TextureType.Normal ? DefaultType.Bump : DefaultType.White);
-
             var sb = new ShaderStringBuilder();
             sb.AppendLine("{0}3 {1}_UV = {2} * {3};", precision, GetVariableNameForNode(),
                 GetSlotValue(PositionInputId, generationMode), GetSlotValue(TileInputId, generationMode));
