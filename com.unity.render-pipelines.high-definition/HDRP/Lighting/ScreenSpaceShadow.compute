@@ -174,5 +174,5 @@ void DeferredContactShadow(uint2 groupThreadId : SV_GroupThreadID, uint2 groupId
 
     contactShadow = ComputeContactShadow(posInput, direction);
 
-    _DeferredShadowTextureUAV[pixelCoord] = float4(pixelCoord, 0.0, 1.0); //float4(1.0, contactShadow, 1.0, 1.0); // Note: RT is RG16 format
+    _DeferredShadowTextureUAV[pixelCoord] = float4(1.0, contactShadow, 1.0, 1.0); // Note: RT is RG16 format
 }
