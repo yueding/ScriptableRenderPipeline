@@ -90,6 +90,17 @@ NormalData ConvertSurfaceDataToNormalData(SurfaceData surfaceData)
     return normalData;
 }
 
+SSSData ConvertSurfaceDataToSSSData(SurfaceData surfaceData)
+{
+    SSSData sssData;
+
+    sssData.diffuseColor = surfaceData.baseColor;
+    sssData.subsurfaceMask = surfaceData.subsurfaceMask;
+    sssData.diffusionProfile = surfaceData.diffusionProfile;
+
+    return sssData;
+}
+
 //-----------------------------------------------------------------------------
 // conversion function for forward
 //-----------------------------------------------------------------------------
@@ -312,7 +323,7 @@ void BSDF(  float3 V, float3 L, float NdotL, float3 positionWS, PreLightData pre
         // float Vis = V_Charlie(NdotL, NdotV, bsdfData.roughness);
         float Vis = V_Ashikhmin(NdotL, NdotV);
 
-        specularLighting = F * Vis * D;
+        specularLighting = F * Vis * D * PI;
 
         // Note: diffuseLighting is multiply by color in PostEvaluateBSDF
         diffuseLighting = FabricLambert(bsdfData.roughnessT);

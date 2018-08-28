@@ -157,6 +157,11 @@ Shader "HDRenderPipeline/Fabric"
     //enable GPU instancing support
     #pragma multi_compile_instancing
 
+    // If we use subsurface scattering, enable output split lighting (for forward pass)
+    #if defined(_MATERIAL_FEATURE_SUBSURFACE_SCATTERING)
+    #define OUTPUT_SPLIT_LIGHTING
+    #endif
+
     //-------------------------------------------------------------------------------------
     // Define
     //-------------------------------------------------------------------------------------
@@ -199,6 +204,13 @@ Shader "HDRenderPipeline/Fabric"
 
             ZWrite On
 
+            Stencil
+            {
+                WriteMask[_StencilDepthPrepassWriteMask]
+                Ref[_StencilDepthPrepassRef]
+                Comp Always
+                Pass Replace
+            }
             HLSLPROGRAM
 
             #define WRITE_NORMAL_BUFFER

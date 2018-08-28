@@ -607,6 +607,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             SetupBaseLitKeywords(material);
             SetupBaseLitMaterialPass(material);
 
+            // We need to override the behavior of the baselitui given that we do not use the LitSSS material ID to trigger the stencil
+            int stencilRef = (int)StencilLightingUsage.RegularLighting;
+            if (material.GetFloat(kEnableSubsurfaceScattering) > 0.0f)
+            {
+                stencilRef = (int)StencilLightingUsage.SplitLighting;
+            }
+            material.SetInt(kStencilRef, stencilRef);
+            
             // With details map, we always use a normal map and Unity provide a default (0, 0, 1) normal map for it
             CoreUtils.SetKeyword(material, "_NORMALMAP", material.GetTexture(kNormalMap));
 
