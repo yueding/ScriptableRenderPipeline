@@ -304,19 +304,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             shadowRequest.lightIndex = lightIndex;
             // We don't allow shadow resize for directional cascade shadow
             shadowRequest.allowResize = m_Light.type != LightType.Directional;
-
-            // TODO: remove these field once HDShadowAlgorithms is refactored
-            {
-                if (m_Light.type == LightType.Directional)
-                    shadowRequest.pos = new Vector3(shadowRequest.view.m03, shadowRequest.view.m13, shadowRequest.view.m23);
-                else
-                    shadowRequest.pos = transform.position - ((ShaderConfig.s_CameraRelativeRendering != 0) ? cameraPos : Vector3.zero);
-                shadowRequest.proj = new Vector4(shadowRequest.deviceProjection.m00, shadowRequest.deviceProjection.m11, shadowRequest.deviceProjection.m22, shadowRequest.deviceProjection.m23);
-                shadowRequest.rot0 = new Vector3(shadowRequest.view.m00, shadowRequest.view.m01, shadowRequest.view.m02);
-                shadowRequest.rot1 = new Vector3(shadowRequest.view.m10, shadowRequest.view.m11, shadowRequest.view.m12);
-                shadowRequest.rot2 = new Vector3(shadowRequest.view.m20, shadowRequest.view.m21, shadowRequest.view.m22);
-            }
-            // End
         }
 
 #if UNITY_EDITOR

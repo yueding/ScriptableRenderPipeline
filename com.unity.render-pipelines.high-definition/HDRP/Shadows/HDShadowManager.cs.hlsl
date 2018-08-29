@@ -8,8 +8,7 @@
 // PackingRules = Exact
 struct HDShadowData
 {
-    float4x4 view;
-    float4x4 projection;
+    float4x4 viewProjection;
     float4x4 shadowToWorld;
     float4 scaleOffset;
     float4 textureSize;
@@ -18,11 +17,6 @@ struct HDShadowData
     float4 normalBias;
     int flags;
     float edgeTolerance;
-    float3 rot0;
-    float3 rot1;
-    float3 rot2;
-    float3 pos;
-    float4 proj;
 };
 
 // Generated from UnityEngine.Experimental.Rendering.HDPipeline.HDDirectionalShadowData
@@ -43,13 +37,9 @@ struct HDDirectionalShadowData
 //
 // Accessors for UnityEngine.Experimental.Rendering.HDPipeline.HDShadowData
 //
-float4x4 GetView(HDShadowData value)
+float4x4 GetViewProjection(HDShadowData value)
 {
-    return value.view;
-}
-float4x4 GetProjection(HDShadowData value)
-{
-    return value.projection;
+    return value.viewProjection;
 }
 float4x4 GetShadowToWorld(HDShadowData value)
 {
@@ -82,26 +72,6 @@ int GetFlags(HDShadowData value)
 float GetEdgeTolerance(HDShadowData value)
 {
     return value.edgeTolerance;
-}
-float3 GetRot0(HDShadowData value)
-{
-    return value.rot0;
-}
-float3 GetRot1(HDShadowData value)
-{
-    return value.rot1;
-}
-float3 GetRot2(HDShadowData value)
-{
-    return value.rot2;
-}
-float3 GetPos(HDShadowData value)
-{
-    return value.pos;
-}
-float4 GetProj(HDShadowData value)
-{
-    return value.proj;
 }
 
 //

@@ -8,9 +8,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     [GenerateHLSL]
     public struct HDShadowData
     {
-        public Matrix4x4    view;
-        // TODO: rename this, it's the device projection matrix
-        public Matrix4x4    projection;
+        public Matrix4x4    viewProjection;
         public Matrix4x4    shadowToWorld;
         public Vector4      scaleOffset;
 
@@ -24,13 +22,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4      normalBias;
         public int          flags;
         public float        edgeTolerance;
-
-        // TODO: remove these fields, they should not be required in further version (and refactor HDShadowAlgorithms.hlsl)
-        public Vector3      rot0;
-        public Vector3      rot1;
-        public Vector3      rot2;
-        public Vector3      pos;
-        public Vector4      proj;
     }
 
     // We use a different structure for directional light because these is a lot of data there
@@ -79,12 +70,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4      normalBias;
         public float        edgeTolerance;
         public int          flags;
-        
-        public Vector3      rot0;
-        public Vector3      rot1;
-        public Vector3      rot2;
-        public Vector3      pos;
-        public Vector4      proj;
     }
 
     public class HDShadowManager : IDisposable
@@ -172,8 +157,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             HDShadowData data = new HDShadowData();
 
-            data.projection = shadowRequest.deviceProjection;
-            data.view = shadowRequest.view;
+            data.viewProjection = shadowRequest.deviceProjection * shadowRequest.view;
             data.shadowToWorld = shadowRequest.shadowToWorld;
 
             // Compute the scale and offset (between 0 and 1) for the atlas coordinates
@@ -189,12 +173,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.normalBias = shadowRequest.normalBias;
             data.edgeTolerance = shadowRequest.edgeTolerance;
             data.flags = shadowRequest.flags;
-
-            data.pos = shadowRequest.pos;
-            data.proj = shadowRequest.proj;
-            data.rot0 = shadowRequest.rot0;
-            data.rot1 = shadowRequest.rot1;
-            data.rot2 = shadowRequest.rot2;
 
             return data;
         }
