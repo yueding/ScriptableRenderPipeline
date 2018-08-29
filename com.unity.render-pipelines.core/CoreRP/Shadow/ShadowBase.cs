@@ -20,6 +20,8 @@ namespace UnityEngine.Experimental.Rendering
         public int      maxPointLightShadows = kDefaultMaxPointLightShadows;
         public int      maxSpotLightShadows = kDefaultMaxSpotLightShadows;
         public int      maxDirectionalLightShadows = kDefaultMaxDirectionalLightShadows;
+
+        public int      maxShadowRequests = 128;
     }
 
     // Class used to pass parameters to the shadow system on a per frame basis.

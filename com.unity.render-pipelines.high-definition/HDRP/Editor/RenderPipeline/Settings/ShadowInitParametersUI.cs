@@ -33,6 +33,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             EditorGUILayout.PropertyField(d.maxPointLightShadows, _.GetContent("Max Point Light Shadows"));
             EditorGUILayout.PropertyField(d.maxSpotLightShadows, _.GetContent("Max Spot Light Shadows"));
             EditorGUILayout.PropertyField(d.maxDirectionalLightShadows, _.GetContent("Max Directional Light Shadows"));
+
+            EditorGUILayout.PropertyField(d.maxShadowRequests, _.GetContent("Max Shadow Requests|Max shadow requests (SR) per frame, 1 point light = 6 SR, 1 spot light = 1 SR and the directional is 4 SR"));
             --EditorGUI.indentLevel;
 
             // Clamp negative values

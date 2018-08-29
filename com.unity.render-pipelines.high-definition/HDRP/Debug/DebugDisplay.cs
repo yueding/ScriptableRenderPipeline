@@ -631,6 +631,22 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 onValueChanged = RefreshLightingDebug
             });
 
+            list.Add(new DebugUI.BoolField
+            {
+                displayName = "Use HD Shadow System",
+                getter = () => lightingDebugSettings.useNewShadowSystem,
+                setter = value => lightingDebugSettings.useNewShadowSystem = value,
+                onValueChanged = (f, value) => LightLoop.useNewShadowSystem = value,
+            });
+
+            list.Add(new DebugUI.BoolField
+            {
+                displayName = "Use Light dynamic viewport",
+                getter = () => lightingDebugSettings.useDynamicLightViewport,
+                setter = value => lightingDebugSettings.useDynamicLightViewport = value,
+                onValueChanged = (f, value) => LightLoop.useDynamicLightViewport = value,
+            });
+
             if (lightingDebugSettings.shadowDebugMode == ShadowMapDebugMode.VisualizeShadowMap)
             {
                 var container = new DebugUI.Container();

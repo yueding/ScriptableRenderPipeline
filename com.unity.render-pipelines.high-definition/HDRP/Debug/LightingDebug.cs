@@ -95,6 +95,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public bool                 showAreaLight = true;
         public bool                 showReflectionProbe = true;
 
+        // TODO: only for dev purpose, remove once HD shadow system is done
+        public bool                 useNewShadowSystem;
+        public bool                 useDynamicLightViewport;
+
         public LightLoop.TileClusterDebug tileClusterDebug = LightLoop.TileClusterDebug.None;
         public LightLoop.TileClusterCategoryDebug tileClusterDebugByCategory = LightLoop.TileClusterCategoryDebug.Punctual;
     }

@@ -96,8 +96,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // Structured buffer of shadow datas
         // TODO: hardcoded max shadow data value
-        ComputeBuffer               m_ShadowDataBuffer = new ComputeBuffer(64, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDShadowData)));
-        ComputeBuffer               m_DirectionalShadowDataBuffer = new ComputeBuffer(64, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDDirectionalShadowData)));
+        ComputeBuffer               m_ShadowDataBuffer;
+        ComputeBuffer               m_DirectionalShadowDataBuffer;
 
         // The two shadowmaps atlases we uses, one for directional cascade (without resize) and the second for the rest of the shadows
         HDShadowAtlas               m_CascadeAtlas;
@@ -105,18 +105,29 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         int                         m_Width;
         int                         m_Height;
+        int                         m_maxShadowRequests;
 
-        public HDShadowManager(int width, int height, Shader clearShader)
+        public HDShadowManager(int width, int height, int maxShadowRequests, bool shadowMap16Bt, Shader clearShader)
         {
             Material clearMaterial = CoreUtils.CreateEngineMaterial(clearShader);
-            m_CascadeAtlas = new HDShadowAtlas(width, height, clearMaterial, name: "Cascade Shadow Map Atlas");
-            m_Atlas = new HDShadowAtlas(width, height, clearMaterial, name: "Shadow Map Atlas");
+            // TODO: 32 bit shadowmap are not supported by RThandle currently, when it will be change Depth24 to Depth32
+            DepthBits depthBits = (shadowMap16Bt) ? DepthBits.Depth16 : DepthBits.Depth24;
+            m_CascadeAtlas = new HDShadowAtlas(width, height, clearMaterial, depthBufferBits: depthBits, name: "Cascade Shadow Map Atlas");
+            m_Atlas = new HDShadowAtlas(width, height, clearMaterial, depthBufferBits: depthBits, name: "Shadow Map Atlas");
+
+            m_ShadowDataBuffer = new ComputeBuffer(maxShadowRequests, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDShadowData)));
+            m_DirectionalShadowDataBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDDirectionalShadowData)));
+
             m_Width = width;
+            m_maxShadowRequests = maxShadowRequests;
             m_Height = height;
         }
 
         public int AddShadowRequest(HDShadowRequest shadowRequest)
         {
+            if (m_ShadowRequests.Count >= m_maxShadowRequests)
+                return -1;
+            
             if (shadowRequest.allowResize)
                 m_Atlas.Reserve(shadowRequest);
             else
@@ -214,6 +225,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
  
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults)
         {
+            // Avoid to do any commands if there is no shadow to draw 
+            if (m_ShadowRequests.Count == 0)
+                return ;
+            
+            Debug.Log("shadow request count: " + m_ShadowRequests.Count);
+
             // TODO remove DrawShadowSettings, lightIndex and splitData when scriptable culling is available
             DrawShadowsSettings dss = new DrawShadowsSettings(cullResults, 0);
 
@@ -224,6 +241,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         
         public void SyncData()
         {
+            // Avoid to upload datas which will not be used
+            if (m_ShadowRequests.Count == 0)
+                return;
+            
             // Upload the shadow buffers to GPU
             m_ShadowDataBuffer.SetData(m_ShadowDatas);
             m_DirectionalShadowDataBuffer.SetData(new HDDirectionalShadowData[]{ m_DirectionalShadowData });

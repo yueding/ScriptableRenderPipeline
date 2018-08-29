@@ -15,9 +15,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RTHandleSystem.RTHandle         m_Atlas;
         Material                        m_ClearMaterial;
         
-        public HDShadowAtlas(int width, int height, Material clearMaterial, FilterMode filterMode = FilterMode.Bilinear, DepthBits depthBits = DepthBits.Depth24, RenderTextureFormat format = RenderTextureFormat.Shadowmap, string name = "")
+        public HDShadowAtlas(int width, int height, Material clearMaterial, FilterMode filterMode = FilterMode.Bilinear, DepthBits depthBufferBits = DepthBits.Depth16, RenderTextureFormat format = RenderTextureFormat.Shadowmap, string name = "")
         {
-            m_Atlas = RTHandles.Alloc(width, height, filterMode: filterMode, depthBufferBits: depthBits, sRGB: false, colorFormat: format, name: name);
+            m_Atlas = RTHandles.Alloc(width, height, filterMode: filterMode, depthBufferBits: depthBufferBits, sRGB: false, colorFormat: format, name: name);
             m_Width = width;
             m_Height = height;
             identifier = new RenderTargetIdentifier(m_Atlas);
@@ -33,7 +33,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // TODO: change this sort (and maybe the list) by something that don't create garbage
             // Note: it is very important to keep the added order for shadow maps that are the same size (for punctual lights)
-            // shadowRequests.Sort((s1, s2) => s1.viewportSize.x.CompareTo(s2.viewportSize.x));
+            shadowRequests.Sort((s1, s2) => {
+                if (s1.atlasViewport.height != s2.atlasViewport.height)
+                    return s1.atlasViewport.height > s2.atlasViewport.height ? -1 : 1;
+                if (s1.atlasViewport.width != s2.atlasViewport.width)
+                    return s1.atlasViewport.width > s2.atlasViewport.width ? -1 : 1;
+                return 0;
+            });
             
             float curX = 0, curY = 0, curH = 0, xMax = m_Width, yMax = m_Height;
 

@@ -441,7 +441,27 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         static ComputeBuffer s_GlobalLightListAtomic = null;
 
         // TODO: remove this once the new shadow system works
-        static bool useNewShadowSystem = false;
+        static bool _useNewShadowSystem = false;
+        public static bool useNewShadowSystem
+        {
+            get { return _useNewShadowSystem; }
+            set
+            {
+                _useNewShadowSystem = value;
+                Debug.Log("New shadow system " + (_useNewShadowSystem ? "Enabled" : "Disabled"));
+            }
+        }
+        static bool _useDynamicLightViewport = false;
+        public static bool useDynamicLightViewport
+        {
+            get { return _useDynamicLightViewport; }
+            set
+            {
+                _useDynamicLightViewport = value;
+                Debug.Log("Dynamic light viewport " + (_useDynamicLightViewport ? " Enabled" : "Disabled"));
+            }
+        }
+
         #if UNITY_EDITOR
         [UnityEditor.InitializeOnLoad]
         static class UseNewShadowSystemSwitcher
@@ -449,15 +469,18 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             static UseNewShadowSystemSwitcher()
             {
                 UnityEditor.SceneView.onSceneGUIDelegate += (sceneView) => {
-                    if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Space)
+                    if (Event.current.type == EventType.KeyDown)
                     {
-                        useNewShadowSystem = !useNewShadowSystem;
-                        Debug.Log("New shadow system " + (useNewShadowSystem ? "Enabled" : "Disabled"));
+                        if (Event.current.keyCode == KeyCode.Space)
+                            useNewShadowSystem = !useNewShadowSystem;
+                        else if (Event.current.keyCode == KeyCode.V)
+                            useDynamicLightViewport = !useDynamicLightViewport;
                     }
                 };
             }
         }
         #endif
+        // End 
 
         public enum ClusterPrepassSource : int
         {
@@ -531,7 +554,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             var shadowInitParams = hdAsset.GetRenderPipelineSettings().shadowInitParams;
             m_ShadowSetup = new ShadowSetup(hdAsset.renderPipelineResources, shadowInitParams, shadowSettings, out m_ShadowMgr);
-            m_NewShadowManager = new HDShadowManager(shadowInitParams.shadowAtlasWidth, shadowInitParams.shadowAtlasHeight, hdAsset.renderPipelineResources.shadowClearShader);
+            m_NewShadowManager = new HDShadowManager(shadowInitParams.shadowAtlasWidth, shadowInitParams.shadowAtlasHeight, shadowInitParams.maxShadowRequests, shadowInitParams.shadowMap16Bit, hdAsset.renderPipelineResources.shadowClearShader);
         }
 
         void DeinitShadowSystem()
@@ -1618,7 +1641,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public int GetCurrentShadowCount()
         {
-            return m_ShadowRequests.Count;
+            if (useNewShadowSystem)
+                return m_NewShadowManager.GetShadowRequestCount();
+            else
+                return m_ShadowRequests.Count;
         }
 
         public int GetShadowAtlasCount()
@@ -1899,6 +1925,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             if (shadowSettings.enabled && cullResults.GetShadowCasterBounds(lightIndex, out bounds))
                             {
                                 int shadowRequestCount;
+                                additionalLightData.useDynamicViewportResize = useDynamicLightViewport;
                                 shadowIndex = additionalLightData.UpdateShadowRequest(camera, m_NewShadowManager, light, cullResults, lightIndex, out shadowRequestCount);
 
 #if UNITY_EDITOR
@@ -2902,8 +2929,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     if (lightingDebug.shadowDebugMode == ShadowMapDebugMode.VisualizeShadowMap)
                     {
-                        int startShadowIndex = 0;
-                        int shadowRequestCount = m_NewShadowManager.GetShadowRequestCount();
+                        int startShadowIndex = (int)lightingDebug.shadowMapIndex;
+                        int shadowRequestCount = 1;
 
 #if UNITY_EDITOR
                         if (lightingDebug.shadowDebugUseSelection)

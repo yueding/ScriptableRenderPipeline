@@ -14,6 +14,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         public SerializedProperty maxSpotLightShadows;
         public SerializedProperty maxDirectionalLightShadows;
 
+        public SerializedProperty maxShadowRequests;
+
         public SerializedShadowInitParameters(SerializedProperty root)
         {
             this.root = root;
@@ -24,6 +26,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             maxPointLightShadows = root.Find((ShadowInitParameters s) => s.maxPointLightShadows);
             maxSpotLightShadows = root.Find((ShadowInitParameters s) => s.maxSpotLightShadows);
             maxDirectionalLightShadows = root.Find((ShadowInitParameters s) => s.maxDirectionalLightShadows);
+            maxShadowRequests = root.Find((ShadowInitParameters s) => s.maxShadowRequests);
         }
     }
 }
