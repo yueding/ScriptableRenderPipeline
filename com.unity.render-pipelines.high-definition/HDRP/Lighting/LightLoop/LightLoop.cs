@@ -1711,6 +1711,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     Shader.EnableKeyword("USE_HD_SHADOW_SYSTEM");
                 else
                     Shader.DisableKeyword("USE_HD_SHADOW_SYSTEM");
+                
+                // We must clear the shadow requests before checking if they are any visible light because we would have requests from the last frame executed in the case where we don't see any lights
+                if (useNewShadowSystem)
+                {
+                    m_NewShadowManager.Clear();
+                }
 
                 // Note: Light with null intensity/Color are culled by the C++, no need to test it here
                 if (cullResults.visibleLights.Count != 0 || cullResults.visibleReflectionProbes.Count != 0)
@@ -1767,11 +1773,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                 m_ShadowIndices.Add(shadowRequests[i], shadowDataIndices[i]);
                             }
                         }
-                    }
-
-                    if (useNewShadowSystem)
-                    {
-                        m_NewShadowManager.Clear();
                     }
 
                     // 1. Count the number of lights and sort all lights by category, type and volume - This is required for the fptl/cluster shader code

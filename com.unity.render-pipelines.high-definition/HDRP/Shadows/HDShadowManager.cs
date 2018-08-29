@@ -228,8 +228,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Avoid to do any commands if there is no shadow to draw 
             if (m_ShadowRequests.Count == 0)
                 return ;
-            
-            Debug.Log("shadow request count: " + m_ShadowRequests.Count);
 
             // TODO remove DrawShadowSettings, lightIndex and splitData when scriptable culling is available
             DrawShadowsSettings dss = new DrawShadowsSettings(cullResults, 0);

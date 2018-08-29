@@ -36,6 +36,13 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             EditorGUILayout.PropertyField(d.maxShadowRequests, _.GetContent("Max Shadow Requests|Max shadow requests (SR) per frame, 1 point light = 6 SR, 1 spot light = 1 SR and the directional is 4 SR"));
             --EditorGUI.indentLevel;
+            
+            EditorGUILayout.Space();
+
+            ++EditorGUI.indentLevel;
+            EditorGUILayout.PropertyField(d.punctualShadowAlgorithm, _.GetContent("Punctual Shadow Algorithm"));
+            EditorGUILayout.PropertyField(d.directionalShadowAlgorithm, _.GetContent("Directional Shadow Algorithm"));
+            --EditorGUI.indentLevel;
 
             // Clamp negative values
             d.shadowAtlasHeight.intValue = Mathf.Max(0, d.shadowAtlasHeight.intValue);

@@ -187,17 +187,6 @@ real EvalShadow_PunctualDepth(HDShadowContext shadowContext, Texture2D tex, Samp
     /*uint shadowType;
     /*UnpackShadowType(sd.shadowType, shadowType);     */
 
-    /* load the right shadow data for the current face */                                                                                                                                       \
-    /*UNITY_BRANCH                                                                                             */
-    /*if (shadowType == GPUSHADOWTYPE_POINT)                                                                   */
-    /*{                                                                                                        */
-    /*    sd.rot0           = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].rot0;                   */
-    /*    sd.rot1           = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].rot1;                   */
-    /*    sd.rot2           = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].rot2;                   */
-    /*    sd.shadowToWorld  = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].shadowToWorld;          */
-    /*    sd.scaleOffset.zw = shadowContext.shadowDatas[index + CubeMapFaceID(-L) + 1].scaleOffset.zw;         */
-    /*}                                                                                                        */
-
     /* bias the world position */
     real recvBiasWeight = EvalShadow_ReceiverBiasWeight(sd, tex, samp, positionWS, normalWS, L, L_dist, true);
     positionWS = EvalShadow_ReceiverBias(sd, positionWS, normalWS, L, L_dist, recvBiasWeight, true);
@@ -316,53 +305,6 @@ real EvalShadow_hash12(real2 pos)
            p3 += dot(p3, p3.yzx + 19.19);
     return frac((p3.x + p3.y) * p3.z);
 }
-
-#define EvalShadow_CascadedDepth_(_samplerType)                                                                                                                                                                   \
-    real EvalShadow_CascadedDepth_Dither(HDShadowContext shadowContext, uint shadowAlgorithms[kMaxShadowCascades], Texture2D tex, _samplerType samp, real3 positionWS, real3 normalWS, int index, real3 L)     \
-    {                                                                                                                                                                                                               \
-        /* load the right shadow data for the current face */                                                                                                                                                       \
-        real alpha;                                                                                                                                                                                                 \
-        int  cascadeCount;                                                                                                                                                                                          \
-        int  shadowSplitIndex = EvalShadow_GetSplitIndex(shadowContext, index, positionWS, alpha, cascadeCount);                                                                                   \
-                                                                                                                                                                                                                    \
-        if (shadowSplitIndex < 0)                                                                                                                                                                                  \
-            return 1.0;                                                                                                                                                                                             \
-                                                                                                                                                                                                                    \
-        HDShadowData sd = shadowContext.shadowDatas[index];                                                                                                                                                           \
-        EvalShadow_LoadCascadeData(shadowContext, index + 1 + shadowSplitIndex, sd);                                                                                                                              \
-                                                                                                                                                                                                                    \
-        /* normal based bias */                                                                                                                                                                                     \
-        real3 orig_pos = positionWS;                                                                                                                                                                                \
-        real  recvBiasWeight = EvalShadow_ReceiverBiasWeight(sd, tex, samp, positionWS, normalWS, L, 1.0, false);                                                                                                 \
-        positionWS = EvalShadow_ReceiverBias(sd, positionWS, normalWS, L, 1.0, recvBiasWeight, false);                                                                                                            \
-        /* get shadowmap texcoords */                                                                                                                                                                               \
-        real3 posTC = EvalShadow_GetTexcoords(sd, positionWS, false);                                                                                                                                             \
-                                                                                                                                                                                                                    \
-        int nextSplit = min(shadowSplitIndex+1, cascadeCount-1);                                                                                                                                                  \
-                                                                                                                                                                                                                    \
-        if (shadowSplitIndex != nextSplit && step(EvalShadow_hash12(posTC.xy), alpha))                                                                                                                         \
-        {                                                                                                                                                                                                           \
-            EvalShadow_LoadCascadeData(shadowContext, index + 1 + nextSplit, sd);                                                                                                                                 \
-            positionWS = EvalShadow_ReceiverBias(sd, orig_pos, normalWS, L, 1.0, recvBiasWeight, false);                                                                                                          \
-            posTC      = EvalShadow_GetTexcoords(sd, positionWS, false);                                                                                                                                          \
-        }                                                                                                                                                                                                           \
-        /* sample the texture */                                                                                                                                                                                    \
-        real2 sampleBias = EvalShadow_SampleBias_Ortho(sd, normalWS);                                                                                                                                             \
-        real  shadow     = SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.texelSizeRcp, posTC, sampleBias, tex, samp);                                                      \
-        return shadowSplitIndex < (cascadeCount-1) ? shadow : lerp(shadow, 1.0, alpha);                                                                                                                           \
-    }                                                                                                                                                                                                               \
-                                                                                                                                                                                                                    \
-    real EvalShadow_CascadedDepth_Dither(HDShadowContext shadowContext, uint shadowAlgorithm, Texture2D tex, _samplerType samp, real3 positionWS, real3 normalWS, int index, real3 L)                          \
-    {                                                                                                                                                                                                               \
-        uint shadowAlgorithms[kMaxShadowCascades] = { SHADOW_REPEAT_CASCADE(shadowAlgorithm) };                                                                                                                   \
-        return EvalShadow_CascadedDepth_Dither(shadowContext, shadowAlgorithms, tex, samp, positionWS, normalWS, index, L);                                                                                       \
-    }
-
-
-    EvalShadow_CascadedDepth_(SamplerComparisonState)
-    // EvalShadow_CascadedDepth_(SamplerState)
-#undef EvalShadow_CascadedDepth_
-
 
 //------------------------------------------------------------------------------------------------------------------------------------
 
