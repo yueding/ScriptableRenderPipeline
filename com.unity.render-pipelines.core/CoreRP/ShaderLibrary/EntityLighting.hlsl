@@ -16,7 +16,7 @@
     #endif
 #elif defined(UNITY_LIGHTMAP_DLDR_ENCODING)
     #ifdef UNITY_COLORSPACE_GAMMA
-        #define LIGHTMAP_HDR_MULTIPLIER real(2.2)
+        #define LIGHTMAP_HDR_MULTIPLIER real(2.0)
     #else
         #define LIGHTMAP_HDR_MULTIPLIER real(4.59) // 2.0 ^ 2.2
     #endif
