@@ -115,10 +115,6 @@ real4 unity_SpecCube0_HDR;
 float4 unity_LightmapST;
 float4 unity_DynamicLightmapST;
 
-// No feature block yet!
-// HDR lightmap decode instructions
-real4 unity_Lightmap_HDR;
-
 // SH block feature
 real4 unity_SHAr;
 real4 unity_SHAg;
@@ -127,10 +123,6 @@ real4 unity_SHBr;
 real4 unity_SHBg;
 real4 unity_SHBb;
 real4 unity_SHC;
-
-// Probe Occlusion block feature
-// This contain occlusion factor from 0 to 1 for dynamic objects (no SH here)
-real4 unity_ProbesOcclusion;
 CBUFFER_END
 
 #if defined(UNITY_STEREO_MULTIVIEW_ENABLED) || ((defined(UNITY_SINGLE_PASS_STEREO) || defined(UNITY_STEREO_INSTANCING_ENABLED)) && (defined(SHADER_API_GLCORE) || defined(SHADER_API_GLES3) || defined(SHADER_API_METAL)))
