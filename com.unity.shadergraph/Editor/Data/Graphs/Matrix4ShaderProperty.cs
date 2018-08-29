@@ -17,6 +17,11 @@ namespace UnityEditor.ShaderGraph
             get { return PropertyType.Matrix4; }
         }
 
+        public override bool isBatchable
+        {
+            get { return false; }
+        }
+
         public override INode ToConcreteNode()
         {
             return new Matrix4Node
