@@ -7,7 +7,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     [Serializable]
     public class InfluenceVolume
     {
-        HDProbe probe;
+        HDProbe m_Probe;
 
         [SerializeField, FormerlySerializedAs("m_ShapeType")]
         InfluenceShape m_Shape = InfluenceShape.Box;
@@ -50,6 +50,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         float m_EditorSimplifiedModeBlendNormalDistance;
         [SerializeField, FormerlySerializedAs("editorAdvancedModeEnabled")]
         bool m_EditorAdvancedModeEnabled;
+        [SerializeField]
+        Vector3 m_EditorAdvancedModeFaceFadePositive = Vector3.one;
+        [SerializeField]
+        Vector3 m_EditorAdvancedModeFaceFadeNegative = Vector3.one;
 
         // Sphere
         [SerializeField, FormerlySerializedAs("m_SphereBaseRadius")]
@@ -58,6 +62,34 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         float m_SphereBlendDistance;
         [SerializeField, FormerlySerializedAs("m_SphereInfluenceNormalFade")]
         float m_SphereBlendNormalDistance;
+
+        internal void CopyTo(InfluenceVolume data)
+        {
+            //keep the m_Probe as it is used to reset the probe
+
+            data.m_Shape = m_Shape;
+            data.m_Offset = m_Offset;
+            data.m_BoxSize = m_BoxSize;
+            data.m_BoxBlendDistancePositive = m_BoxBlendDistancePositive;
+            data.m_BoxBlendDistanceNegative = m_BoxBlendDistanceNegative;
+            data.m_BoxBlendNormalDistancePositive = m_BoxBlendNormalDistancePositive;
+            data.m_BoxBlendNormalDistanceNegative = m_BoxBlendNormalDistanceNegative;
+            data.m_BoxSideFadePositive = m_BoxSideFadePositive;
+            data.m_BoxSideFadeNegative = m_BoxSideFadeNegative;
+            data.m_SphereRadius = m_SphereRadius;
+            data.m_SphereBlendDistance = m_SphereBlendDistance;
+            data.m_SphereBlendNormalDistance = m_SphereBlendNormalDistance;
+
+            data.m_EditorAdvancedModeBlendDistancePositive = m_EditorAdvancedModeBlendDistancePositive;
+            data.m_EditorAdvancedModeBlendDistanceNegative = m_EditorAdvancedModeBlendDistanceNegative;
+            data.m_EditorSimplifiedModeBlendDistance = m_EditorSimplifiedModeBlendDistance;
+            data.m_EditorAdvancedModeBlendNormalDistancePositive = m_EditorAdvancedModeBlendNormalDistancePositive;
+            data.m_EditorAdvancedModeBlendNormalDistanceNegative = m_EditorAdvancedModeBlendNormalDistanceNegative;
+            data.m_EditorSimplifiedModeBlendNormalDistance = m_EditorSimplifiedModeBlendNormalDistance;
+            data.m_EditorAdvancedModeEnabled = m_EditorAdvancedModeEnabled;
+            data.m_EditorAdvancedModeFaceFadePositive = m_EditorAdvancedModeFaceFadePositive;
+            data.m_EditorAdvancedModeFaceFadeNegative = m_EditorAdvancedModeFaceFadeNegative;
+        }
 
         /// <summary>Shape of this InfluenceVolume.</summary>
         public InfluenceShape shape
@@ -69,17 +101,25 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 switch (m_Shape)
                 {
                     case InfluenceShape.Box:
-                        probe.UpdatedInfluenceVolumeShape(m_BoxSize, offset);
+                        m_Probe.UpdatedInfluenceVolumeShape(m_BoxSize, offset);
                         break;
                     case InfluenceShape.Sphere:
-                        probe.UpdatedInfluenceVolumeShape(Vector3.one * (2 * m_SphereRadius), offset);
+                        m_Probe.UpdatedInfluenceVolumeShape(Vector3.one * (2 * m_SphereRadius), offset);
                         break;
                 }
             }
         }
 
         /// <summary>Offset of this influence volume to the component handling him.</summary>
-        public Vector3 offset { get { return m_Offset; } set { m_Offset = value; } }
+        public Vector3 offset
+        {
+            get { return m_Offset; }
+            set
+            {
+                m_Offset = value;
+                m_Probe.UpdatedInfluenceVolumeShape(boxSize, m_Offset);
+            }
+        }
 
         /// <summary>Size of the InfluenceVolume in Box Mode.</summary>
         public Vector3 boxSize
@@ -88,7 +128,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             set
             {
                 m_BoxSize = value;
-                probe.UpdatedInfluenceVolumeShape(m_BoxSize, offset);
+                m_Probe.UpdatedInfluenceVolumeShape(m_BoxSize, offset);
             }
         }
 
@@ -135,7 +175,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             set
             {
                 m_SphereRadius = value;
-                probe.UpdatedInfluenceVolumeShape(Vector3.one * (2 * m_SphereRadius), offset);
+                m_Probe.UpdatedInfluenceVolumeShape(Vector3.one * (2 * m_SphereRadius), offset);
             }
         }
         /// <summary>
@@ -148,10 +188,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         /// Value between 0 (on InfluenceVolume hull) and sphereRadius (fade sub volume reduced to a point).
         /// </summary>
         public float sphereBlendNormalDistance { get { return m_SphereBlendNormalDistance; } set { m_SphereBlendNormalDistance = value; } }
-        
+
         internal void Init(HDProbe probe)
         {
-            this.probe = probe;
+            this.m_Probe = probe;
         }
 
         internal BoundingSphere GetBoundingSphereAt(Transform probeTransform)

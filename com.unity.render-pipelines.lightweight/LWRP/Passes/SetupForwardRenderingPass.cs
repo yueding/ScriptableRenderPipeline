@@ -2,10 +2,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
     public class SetupForwardRenderingPass : ScriptableRenderPass
     {
-        public SetupForwardRenderingPass(LightweightForwardRenderer renderer) : base(renderer)
-        {}
-
-        public override void Execute(ref ScriptableRenderContext context, ref CullResults cullResults, ref RenderingData renderingData)
+        public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
             // SetupCameraProperties does the following:
             // Setup Camera RenderTarget and Viewport

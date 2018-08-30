@@ -307,7 +307,8 @@ float3 PreEvaluatePunctualLightTransmission(LightLoopContext lightLoopContext, P
 
             // Our subsurface scattering models use the semi-infinite planar slab assumption.
             // Therefore, we need to find the thickness along the normal.
-            float thicknessInUnits = (distFrontFaceToLight - distBackFaceToLight) * -NdotL;
+            // Warning: based on the artist's input, dependence on the NdotL has been disabled.
+            float thicknessInUnits = (distFrontFaceToLight - distBackFaceToLight) /* * -NdotL */;
             float thicknessInMeters = thicknessInUnits * _WorldScales[bsdfData.diffusionProfile].x;
             float thicknessInMillimeters = thicknessInMeters * MILLIMETERS_PER_METER;
 
@@ -345,6 +346,8 @@ float3 PreEvaluatePunctualLightTransmission(LightLoopContext lightLoopContext, P
             // Note: we do not modify the distance to the light, or the light angle for the back face.
             // This is a performance-saving optimization which makes sense as long as the thickness is small.
         }
+        
+        transmittance = lerp( bsdfData.transmittance, transmittance, lightData.shadowDimmer);
     }
 
     return transmittance;
