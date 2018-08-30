@@ -66,34 +66,35 @@ real ComputeCubemapTexelSolidAngle(real2 uv)
 
 // Non physically based hack to limit light influence to attenuationRadius.
 // SmoothInfluenceAttenuation must be use, InfluenceAttenuation is just for optimization with SmoothQuadraticDistanceAttenuation
-real InfluenceAttenuation(real distSquare, real invSqrAttenuationRadius)
+real InfluenceAttenuation(real distSquare, real rangeAttenuationScale, real rangeAttenuationBias)
 {
-    real factor = distSquare * invSqrAttenuationRadius;
-    return saturate(1.0 - factor * factor);
+    // Apply the saturate here as we can have negative number
+    real factor = saturate(distSquare * rangeAttenuationScale + rangeAttenuationBias);
+    return 1.0 - factor * factor;
 }
 
-real SmoothInfluenceAttenuation(real distSquare, real invSqrAttenuationRadius)
+real SmoothInfluenceAttenuation(real distSquare, real rangeAttenuationScale, real rangeAttenuationBias)
 {
-    real smoothFactor = InfluenceAttenuation(distSquare, invSqrAttenuationRadius);
+    real smoothFactor = InfluenceAttenuation(distSquare, rangeAttenuationScale, rangeAttenuationBias);
     return Sq(smoothFactor);
 }
 
 #define PUNCTUAL_LIGHT_THRESHOLD 0.01 // 1cm (in Unity 1 is 1m)
 
 // Return physically based quadratic attenuation + influence limit to reach 0 at attenuationRadius
-real SmoothQuadraticDistanceAttenuation(real distSquare, real distRcp, real invSqrAttenuationRadius)
+real SmoothQuadraticDistanceAttenuation(real distSquare, real distRcp, real rangeAttenuationScale, real rangeAttenuationBias)
 {
     // Becomes quadratic after the call to Sq().
     real attenuation  = min(distRcp, 1.0 / PUNCTUAL_LIGHT_THRESHOLD);
-    attenuation *= InfluenceAttenuation(distSquare, invSqrAttenuationRadius);
+    attenuation *= InfluenceAttenuation(distSquare, rangeAttenuationScale, rangeAttenuationBias);
     return Sq(attenuation);
 }
 
-real SmoothQuadraticDistanceAttenuation(real3 unL, real invSqrAttenuationRadius)
+real SmoothQuadraticDistanceAttenuation(real3 unL, real rangeAttenuationScale, real rangeAttenuationBias)
 {
     real distSquare = dot(unL, unL);
     real distRcp = rsqrt(distSquare);
-    return SmoothQuadraticDistanceAttenuation(distSquare, distRcp, invSqrAttenuationRadius);
+    return SmoothQuadraticDistanceAttenuation(distSquare, distRcp, rangeAttenuationScale, rangeAttenuationBias);
 }
 
 real AngleAttenuation(real cosFwd, real lightAngleScale, real lightAngleOffset)
@@ -115,7 +116,7 @@ real SmoothAngleAttenuation(real3 L, real3 lightFwdDir, real lightAngleScale, re
 
 // Combines SmoothQuadraticDistanceAttenuation() and SmoothAngleAttenuation() in an efficient manner.
 // distances = {d, d^2, 1/d, d_proj}, where d_proj = dot(lightToSample, lightData.forward).
-real SmoothPunctualLightAttenuation(real4 distances, real invSqrAttenuationRadius,
+real SmoothPunctualLightAttenuation(real4 distances, real rangeAttenuationScale, real rangeAttenuationBias,
                                      real lightAngleScale, real lightAngleOffset)
 {
     real distSq   = distances.y;
@@ -124,8 +125,8 @@ real SmoothPunctualLightAttenuation(real4 distances, real invSqrAttenuationRadiu
     real cosFwd   = distProj * distRcp;
 
     real attenuation  = min(distRcp, 1.0 / PUNCTUAL_LIGHT_THRESHOLD);
-         attenuation *= InfluenceAttenuation(distSq, invSqrAttenuationRadius);
-         attenuation *= AngleAttenuation(cosFwd, lightAngleScale, lightAngleOffset);
+    attenuation *= InfluenceAttenuation(distSq, rangeAttenuationScale, rangeAttenuationBias);
+    attenuation *= AngleAttenuation(cosFwd, lightAngleScale, lightAngleOffset);
 
     return Sq(attenuation);
 }
@@ -135,7 +136,7 @@ real SmoothPunctualLightAttenuation(real4 distances, real invSqrAttenuationRadiu
 // The transformation is performed along the major axis of the ellipsoid (corresponding to 'r1').
 // Both the ellipsoid (e.i. 'axis') and 'unL' should be in the same coordinate system.
 // 'unL' should be computed from the center of the ellipsoid.
-real EllipsoidalDistanceAttenuation(real3 unL,  real invSqRadius,
+real EllipsoidalDistanceAttenuation(real3 unL, real rangeAttenuationScale, real rangeAttenuationBias,
                                     real3 axis, real invAspectRatio)
 {
     // Project the unnormalized light vector onto the axis.
@@ -146,7 +147,7 @@ real EllipsoidalDistanceAttenuation(real3 unL,  real invSqRadius,
     unL -= diff * axis;
 
     real sqDist = dot(unL, unL);
-    return SmoothInfluenceAttenuation(sqDist, invSqRadius);
+    return SmoothInfluenceAttenuation(sqDist, rangeAttenuationScale, rangeAttenuationBias);
 }
 
 // Applies SmoothInfluenceAttenuation() using the axis-aligned ellipsoid of the given dimensions.
@@ -159,7 +160,7 @@ real EllipsoidalDistanceAttenuation(real3 unL, real3 invHalfDim)
     unL *= invHalfDim;
 
     real sqDist = dot(unL, unL);
-    return SmoothInfluenceAttenuation(sqDist, 1.0);
+    return SmoothInfluenceAttenuation(sqDist, 1.0, 0.0);
 }
 
 // Applies SmoothInfluenceAttenuation() after mapping the axis-aligned box to a sphere.
@@ -176,7 +177,7 @@ real BoxDistanceAttenuation(real3 unL, real3 invHalfDim)
     if (Max3(abs(unL.x), abs(unL.y), abs(unL.z)) > 1.0) return 0.0;
 
     real sqDist = ComputeCubeToSphereMapSqMagnitude(unL);
-    return SmoothInfluenceAttenuation(sqDist, 1.0);
+    return SmoothInfluenceAttenuation(sqDist, 1.0, 0.0);
 }
 
 //-----------------------------------------------------------------------------
@@ -261,6 +262,20 @@ real SphericalCapIntersectionSolidArea(real cosC1, real cosC2, real cosB)
     return area;
 }
 
+// ref: Practical Realtime Strategies for Accurate Indirect Occlusion
+// http://blog.selfshadow.com/publications/s2016-shading-course/#course_content
+// Original Cone-Cone method with cosine weighted assumption (p129 s2016_pbs_activision_occlusion)
+real GetSpecularOcclusionFromBentAO(real3 V, real3 bentNormalWS, real3 normalWS, real ambientOcclusion, real roughness)
+{
+    // Retrieve cone angle
+    // Ambient occlusion is cosine weighted, thus use following equation. See slide 129
+    real cosAv = sqrt(1.0 - ambientOcclusion);
+    roughness = max(roughness, 0.01); // Clamp to 0.01 to avoid edge cases
+    real cosAs = exp2((-log(10.0) / log(2.0)) * Sq(roughness));
+    real cosB = dot(bentNormalWS, reflect(-V, normalWS));
+    return SphericalCapIntersectionSolidArea(cosAv, cosAs, cosB) / (TWO_PI * (1.0 - cosAs));
+}
+
 // Ref: Steve McAuley - Energy-Conserving Wrapped Diffuse
 real ComputeWrappedDiffuseLighting(real NdotL, real w)
 {
@@ -275,6 +290,17 @@ real ComputeWrappedDiffuseLighting(real NdotL, real w)
 float ClampNdotV(float NdotV)
 {
     return max(NdotV, 0.0001);
+}
+
+// return usual BSDF angle
+void GetBSDFAngle(float3 V, float3 L, float NdotL, float unclampNdotV, out float LdotV, out float NdotH, out float LdotH, out float clampNdotV, out float invLenLV)
+{
+    // Optimized math. Ref: PBR Diffuse Lighting for GGX + Smith Microsurfaces (slide 114).
+    LdotV = dot(L, V);
+    invLenLV = rsqrt(max(2.0 * LdotV + 2.0, FLT_EPS));    // invLenLV = rcp(length(L + V)), clamp to avoid rsqrt(0) = NaN
+    NdotH = saturate((NdotL + unclampNdotV) * invLenLV);        // Do not clamp NdotV here
+    LdotH = saturate(invLenLV * LdotV + invLenLV);
+    clampNdotV = ClampNdotV(unclampNdotV);
 }
 
 // Inputs:    normalized normal and view vectors.
@@ -345,6 +371,26 @@ real3x3 GetLocalFrame(real3 localZ, real3 localX)
     real3 localY = cross(localZ, localX);
 
     return real3x3(localX, localY, localZ);
+}
+
+// Construct a right-handed view-dependent orthogonal basis around the normal:
+// b0-b2 is the view-normal aka reflection plane.
+real3x3 GetOrthoBasisViewNormal(real3 V, real3 N, real unclampedNdotV, bool testSingularity = false)
+{
+    real3x3 orthoBasisViewNormal;
+    if (testSingularity && (abs(1.0 - unclampedNdotV) <= FLT_EPS))
+    {
+        // In this case N == V, and azimuth orientation around N shouldn't matter for the caller,
+        // we can use any quaternion-based method, like Frisvad or Reynold's (Pixar): 
+        orthoBasisViewNormal = GetLocalFrame(N);
+    }
+    else
+    {
+        orthoBasisViewNormal[0] = normalize(V - N * unclampedNdotV);
+        orthoBasisViewNormal[2] = N;
+        orthoBasisViewNormal[1] = cross(orthoBasisViewNormal[2], orthoBasisViewNormal[0]);
+    }
+    return orthoBasisViewNormal;
 }
 
 #endif // UNITY_COMMON_LIGHTING_INCLUDED

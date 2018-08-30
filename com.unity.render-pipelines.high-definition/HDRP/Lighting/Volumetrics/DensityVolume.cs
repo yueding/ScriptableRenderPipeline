@@ -37,6 +37,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 float animationTime = animate ? time : 0.0f;
                 volumeScrollingAmount = (textureScrollingSpeed * animationTime);
+                // Switch from right-handed to left-handed coordinate system.
+                volumeScrollingAmount.x = -volumeScrollingAmount.x;
+                volumeScrollingAmount.y = -volumeScrollingAmount.y;
             }
         }
 
@@ -73,7 +76,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     [AddComponentMenu("Rendering/Density Volume", 1100)]
     public class DensityVolume : MonoBehaviour
     {
-        public DensityVolumeParameters parameters = new DensityVolumeParameters(Color.grey, 10.0f, 0.0f);
+        public DensityVolumeParameters parameters = new DensityVolumeParameters(Color.white, 10.0f, 0.0f);
 
         private Texture3D previousVolumeMask = null;
 

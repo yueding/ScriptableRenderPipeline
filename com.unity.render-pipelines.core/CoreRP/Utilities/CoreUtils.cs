@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.PostProcessing;
 
 namespace UnityEngine.Experimental.Rendering
 {
@@ -20,6 +19,9 @@ namespace UnityEngine.Experimental.Rendering
 
     public static class CoreUtils
     {
+        // Keep a reference to default values for Reset purpose
+        static public AdditionalShadowData s_DefaultAdditionalShadowData { get { return ComponentSingleton<AdditionalShadowData>.instance; } }
+
         // Data useful for various cubemap processes.
         // Ref: https://msdn.microsoft.com/en-us/library/windows/desktop/bb204881(v=vs.85).aspx
         static public readonly Vector3[] lookAtList =
@@ -303,20 +305,6 @@ namespace UnityEngine.Experimental.Rendering
             DrawFullScreen(commandBuffer, material, colorBuffers, colorBuffers[0], properties, shaderPassId);
         }
 
-        // Post-processing misc
-        public static bool IsPostProcessingActive(PostProcessLayer layer)
-        {
-            return layer != null
-                && layer.enabled;
-        }
-
-        public static bool IsTemporalAntialiasingActive(PostProcessLayer layer)
-        {
-            return IsPostProcessingActive(layer)
-                && layer.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing
-                && layer.temporalAntialiasing.IsSupported();
-        }
-
         // Color space utilities
         public static Color ConvertSRGBToActiveColorSpace(Color color)
         {
@@ -452,45 +440,10 @@ namespace UnityEngine.Experimental.Rendering
                 buffer.Release();
         }
 
-        // Just a sort function that doesn't allocate memory
-        // Note: Shoud be repalc by a radix sort for positive integer
-        public static int Partition(uint[] numbers, int left, int right)
+        public static unsafe void QuickSort(uint[] arr, int left, int right)
         {
-            uint pivot = numbers[left];
-            while (true)
-            {
-                while (numbers[left] < pivot)
-                    left++;
-
-                while (numbers[right] > pivot)
-                    right--;
-
-                if (left < right)
-                {
-                    uint temp = numbers[right];
-                    numbers[right] = numbers[left];
-                    numbers[left] = temp;
-                }
-                else
-                {
-                    return right;
-                }
-            }
-        }
-
-        public static void QuickSort(uint[] arr, int left, int right)
-        {
-            // For Recursion
-            if (left < right)
-            {
-                int pivot = Partition(arr, left, right);
-
-                if (pivot > 1)
-                    QuickSort(arr, left, pivot - 1);
-
-                if (pivot + 1 < right)
-                    QuickSort(arr, pivot + 1, right);
-            }
+            fixed (uint* ptr = arr)
+                CoreUnsafeUtils.QuickSort<uint>(ptr, left, right);
         }
 
         public static Mesh CreateCubeMesh(Vector3 min, Vector3 max)
@@ -541,7 +494,14 @@ namespace UnityEngine.Experimental.Rendering
 
         public static void DisplayUnsupportedAPIMessage()
         {
-            string msg = "Platform " + SystemInfo.operatingSystem + " with device " + SystemInfo.graphicsDeviceType.ToString() + " is not supported, no rendering will occur";
+            // If we are in the editor they are many possible targets that does not matches the current OS so we use the active build target instead
+#if UNITY_EDITOR
+            string currentPlatform = UnityEditor.EditorUserBuildSettings.activeBuildTarget.ToString();
+#else
+            string currentPlatform = SystemInfo.operatingSystem;
+#endif
+
+            string msg = "Platform " + currentPlatform + " with device " + SystemInfo.graphicsDeviceType.ToString() + " is not supported, no rendering will occur";
             DisplayUnsupportedMessage(msg);
         }
 

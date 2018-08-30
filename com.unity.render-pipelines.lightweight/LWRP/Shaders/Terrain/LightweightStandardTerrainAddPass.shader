@@ -42,7 +42,7 @@ Shader "Hidden/LightweightPipeline/Terrain/Standard Terrain Add Pass"
             #pragma target 3.0
 
             #pragma vertex SplatmapVert
-            #pragma fragment SpatmapFragment
+            #pragma fragment SplatmapFragment
 
             // -------------------------------------
             // Lightweight Pipeline keywords
@@ -52,14 +52,17 @@ Shader "Hidden/LightweightPipeline/Terrain/Standard Terrain Add Pass"
             #pragma multi_compile _ _SHADOWS_ENABLED
             #pragma multi_compile _ _LOCAL_SHADOWS_ENABLED
             #pragma multi_compile _ _SHADOWS_SOFT
+            #pragma multi_compile _ _SHADOWS_CASCADE
 
             // -------------------------------------
             // Unity defined keywords
             #pragma multi_compile _ DIRLIGHTMAP_COMBINED
             #pragma multi_compile _ LIGHTMAP_ON
             #pragma multi_compile_fog
+            #pragma multi_compile_instancing
+            #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 
-            #pragma multi_compile __ _TERRAIN_NORMAL_MAP
+            #pragma shader_feature _NORMALMAP
             #define TERRAIN_SPLAT_ADDPASS 1
 
             #include "LWRP/ShaderLibrary/Terrain/InputSurfaceTerrain.hlsl"

@@ -9,9 +9,17 @@ namespace UnityEngine.Experimental.Rendering
     public class ShadowInitParameters
     {
         public const int kDefaultShadowAtlasSize = 4096;
+        public const int kDefaultMaxPointLightShadows = 6;
+        public const int kDefaultMaxSpotLightShadows = 12;
+        public const int kDefaultMaxDirectionalLightShadows = 1;
 
         public int      shadowAtlasWidth = kDefaultShadowAtlasSize;
         public int      shadowAtlasHeight = kDefaultShadowAtlasSize;
+        public bool		shadowMap16Bit;
+
+        public int      maxPointLightShadows = kDefaultMaxPointLightShadows;
+        public int      maxSpotLightShadows = kDefaultMaxSpotLightShadows;
+        public int      maxDirectionalLightShadows = kDefaultMaxDirectionalLightShadows;
     }
 
     // Class used to pass parameters to the shadow system on a per frame basis.
@@ -44,6 +52,7 @@ namespace UnityEngine.Experimental.Rendering
         VSM,
         EVSM,
         MSM,
+        PCSS,
         Custom = 32
     };
 
@@ -78,6 +87,7 @@ namespace UnityEngine.Experimental.Rendering
         EVSM_4          = ShadowAlgorithm.EVSM      << 3 | ShadowVariant.V1,
         MSM_Ham         = ShadowAlgorithm.MSM       << 3 | ShadowVariant.V0,
         MSM_Haus        = ShadowAlgorithm.MSM       << 3 | ShadowVariant.V1,
+        PCSS            = ShadowAlgorithm.PCSS      << 3 | ShadowVariant.V0,
         Custom          = ShadowAlgorithm.Custom    << 3
     }
 

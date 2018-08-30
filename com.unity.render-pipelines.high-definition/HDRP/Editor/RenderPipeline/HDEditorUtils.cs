@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 
 namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
@@ -16,22 +17,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             { "HDRenderPipeline/Lit", LitGUI.SetupMaterialKeywordsAndPass },
             { "HDRenderPipeline/LitTessellation", LitGUI.SetupMaterialKeywordsAndPass },
             { "HDRenderPipeline/Unlit", UnlitGUI.SetupMaterialKeywordsAndPass },
-            { "HDRenderPipeline/Decal", DecalUI.SetupMaterialKeywordsAndPass }
+            { "HDRenderPipeline/Fabric",  FabricGUI.SetupMaterialKeywordsAndPass },
+            { "HDRenderPipeline/Decal", DecalUI.SetupMaterialKeywordsAndPass },
+            { "HDRenderPipeline/TerrainLit", TerrainLitGUI.SetupMaterialKeywordsAndPass }
         };
 
-        public static string GetHDRenderPipelinePath()
+        public static T LoadAsset<T>(string relativePath) where T : UnityEngine.Object
         {
-            return "Packages/com.unity.render-pipelines.high-definition/HDRP/";
-        }
-
-        public static string GetPostProcessingPath()
-        {
-            return "Packages/com.unity.postprocessing/";
-        }
-
-        public static string GetCorePath()
-        {
-            return "Packages/com.unity.render-pipelines.core/CoreRP/";
+            return AssetDatabase.LoadAssetAtPath<T>(HDUtils.GetHDRenderPipelinePath() + relativePath);
         }
 
         public static bool ResetMaterialKeywords(Material material)

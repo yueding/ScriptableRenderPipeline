@@ -13,7 +13,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             public static GUIContent baseColorText = new GUIContent("Base Color + Opacity", "Albedo (RGB) and Opacity (A)");
 
-            public static GUIContent smoothnessMapChannelText = new GUIContent("Smoothness Source", "Smoothness texture and channel");
             public static GUIContent metallicText = new GUIContent("Metallic", "Metallic scale factor");
             public static GUIContent smoothnessText = new GUIContent("Smoothness", "Smoothness scale factor");
             public static GUIContent smoothnessRemappingText = new GUIContent("Smoothness Remapping", "Smoothness remapping");
@@ -803,8 +802,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     && !isPrepass)
                 {
                     m_MaterialEditor.ShaderProperty(refractionModel, Styles.refractionModelText);
-                    var mode = (Lit.RefractionModel)refractionModel.floatValue;
-                    if (mode != Lit.RefractionModel.None)
+                    var mode = (ScreenSpaceLighting.RefractionModel)refractionModel.floatValue;
+                    if (mode != ScreenSpaceLighting.RefractionModel.None)
                     {
                         m_MaterialEditor.ShaderProperty(ssrefractionProjectionModel, Styles.refractionProjectionModelText);
                         m_MaterialEditor.ShaderProperty(ior, Styles.refractionIorText);
@@ -968,15 +967,15 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             CoreUtils.SetKeyword(material, "_MATERIAL_FEATURE_IRIDESCENCE", materialId == BaseLitGUI.MaterialId.LitIridescence);
             CoreUtils.SetKeyword(material, "_MATERIAL_FEATURE_SPECULAR_COLOR", materialId == BaseLitGUI.MaterialId.LitSpecular);
 
-            var refractionModelValue = (Lit.RefractionModel)material.GetFloat(kRefractionModel);
-            var refractionProjectionModelValue = (Lit.ProjectionModel)material.GetFloat(kSSRefractionProjectionModel);
+            var refractionModelValue = (ScreenSpaceLighting.RefractionModel)material.GetFloat(kRefractionModel);
+            var refractionProjectionModelValue = (ScreenSpaceLighting.ProjectionModel)material.GetFloat(kSSRefractionProjectionModel);
             // We can't have refraction in pre-refraction queue
             var canHaveRefraction = !material.HasProperty(kPreRefractionPass) || material.GetFloat(kPreRefractionPass) <= 0.0;
-            CoreUtils.SetKeyword(material, "_REFRACTION_PLANE", (refractionModelValue == Lit.RefractionModel.Plane) && canHaveRefraction);
-            CoreUtils.SetKeyword(material, "_REFRACTION_SPHERE", (refractionModelValue == Lit.RefractionModel.Sphere) && canHaveRefraction);
+            CoreUtils.SetKeyword(material, "_REFRACTION_PLANE", (refractionModelValue == ScreenSpaceLighting.RefractionModel.Plane) && canHaveRefraction);
+            CoreUtils.SetKeyword(material, "_REFRACTION_SPHERE", (refractionModelValue == ScreenSpaceLighting.RefractionModel.Sphere) && canHaveRefraction);
             CoreUtils.SetKeyword(material, "_TRANSMITTANCECOLORMAP", material.GetTexture(kTransmittanceColorMap) && canHaveRefraction);
-            CoreUtils.SetKeyword(material, "_REFRACTION_SSRAY_PROXY", (refractionProjectionModelValue == Lit.ProjectionModel.Proxy) && canHaveRefraction);
-            CoreUtils.SetKeyword(material, "_REFRACTION_SSRAY_HIZ", (refractionProjectionModelValue == Lit.ProjectionModel.HiZ) && canHaveRefraction);
+            CoreUtils.SetKeyword(material, "_REFRACTION_SSRAY_PROXY", (refractionProjectionModelValue == ScreenSpaceLighting.ProjectionModel.Proxy) && canHaveRefraction);
+            CoreUtils.SetKeyword(material, "_REFRACTION_SSRAY_HIZ", (refractionProjectionModelValue == ScreenSpaceLighting.ProjectionModel.HiZ) && canHaveRefraction);
         }
     }
 } // namespace UnityEditor
