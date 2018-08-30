@@ -58,3 +58,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Normal Create` node has been renamed to `Normal From Texture`.
 - The preview of nodes now updates correctly.
 - Your system locale can no longer cause incorrect commands due to full stops being converted to commas.
+- Fixed an issue where Show Generated Code could throw "Argument cannot be null" error.
