@@ -4,16 +4,15 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
     public class CopyColorPass : ScriptableRenderPass
     {
-        Material m_SamplingMaterial;
+        const string k_CopyColorTag = "Copy Color";
         float[] m_OpaqueScalerValues = {1.0f, 0.5f, 0.25f, 0.25f};
         int m_SampleOffsetShaderHandle;
 
         private RenderTargetHandle source { get; set; }
         private RenderTargetHandle destination { get; set; }
 
-        public CopyColorPass(LightweightForwardRenderer renderer) : base(renderer)
+        public CopyColorPass()
         {
-            m_SamplingMaterial = renderer.GetMaterial(MaterialHandles.Sampling);
             m_SampleOffsetShaderHandle = Shader.PropertyToID("_SampleOffset");
         }
 
@@ -23,14 +22,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             this.destination = destination;
         }
 
-        public override void Execute(ref ScriptableRenderContext context, ref CullResults cullResults, ref RenderingData renderingData)
+        public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            
-            CommandBuffer cmd = CommandBufferPool.Get("Copy Color");
+            CommandBuffer cmd = CommandBufferPool.Get(k_CopyColorTag);
             Downsampling downsampling = renderingData.cameraData.opaqueTextureDownsampling;
             float opaqueScaler = m_OpaqueScalerValues[(int)downsampling];
 
-            RenderTextureDescriptor opaqueDesc = renderer.CreateRTDesc(ref renderingData.cameraData, opaqueScaler);
+            RenderTextureDescriptor opaqueDesc = ScriptableRenderer.CreateRenderTextureDescriptor(ref renderingData.cameraData, opaqueScaler);
             RenderTargetIdentifier colorRT = source.Identifier();
             RenderTargetIdentifier opaqueColorRT = destination.Identifier();
 
@@ -44,8 +42,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     cmd.Blit(colorRT, opaqueColorRT);
                     break;
                 case Downsampling._4xBox:
-                    m_SamplingMaterial.SetFloat(m_SampleOffsetShaderHandle, 2);
-                    cmd.Blit(colorRT, opaqueColorRT, m_SamplingMaterial, 0);
+                    Material samplingMaterial = renderer.GetMaterial(MaterialHandles.Sampling);
+                    samplingMaterial.SetFloat(m_SampleOffsetShaderHandle, 2);
+                    cmd.Blit(colorRT, opaqueColorRT, samplingMaterial, 0);
                     break;
                 case Downsampling._4xBilinear:
                     cmd.Blit(colorRT, opaqueColorRT);
@@ -55,9 +54,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
-        
-        
-        public override void Dispose(CommandBuffer cmd)
+
+        public override void FrameCleanup(CommandBuffer cmd)
         {
             if (destination != RenderTargetHandle.CameraTarget)
             {
@@ -65,6 +63,5 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 destination = RenderTargetHandle.CameraTarget;
             }
         }
-        
     }
 }
