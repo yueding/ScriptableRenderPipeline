@@ -2,9 +2,9 @@
 // There are two variants provided, one takes the texture and sampler explicitly so they can be statically passed in.
 // The variant without resource parameters dynamically accesses the texture when sampling.
 
-float4 EvalShadow_WorldToShadow(real4x4 viewProjection, real3 positionWS)
+real4 EvalShadow_WorldToShadow(real4x4 viewProjection, real3 positionWS)
 {
-    return mul(viewProjection, float4(positionWS, 1));
+    return mul(viewProjection, real4(positionWS, 1));
 }
 
 // function called by spot, point and directional eval routines to calculate shadow coordinates
@@ -46,7 +46,7 @@ uint2 EvalShadow_GetIntTexcoordsAtlas(real4x4 viewProjection, real4 scaleOffset,
 //
 
 // helper function to get the world texel size
-real EvalShadow_WorldTexelSize(real4 viewBias, float L_dist, bool perspProj)
+real EvalShadow_WorldTexelSize(real4 viewBias, real L_dist, bool perspProj)
 {
     return perspProj ? (viewBias.w * L_dist) : viewBias.w;
 }
@@ -78,33 +78,33 @@ real EvalShadow_ReceiverBiasWeight(real4x4 viewProjection, real4 scaleOffset, re
 }
 
 // receiver bias either using the normal to weight normal and view biases, or just light view biasing
-float3 EvalShadow_ReceiverBias(real4 viewBias, real4 normalBias, float3 positionWS, float3 normalWS, float3 L, float L_dist, float lightviewBiasWeight, bool perspProj)
+real3 EvalShadow_ReceiverBias(real4 viewBias, real4 normalBias, real3 positionWS, real3 normalWS, real3 L, real L_dist, real lightviewBiasWeight, bool perspProj)
 {
 #if SHADOW_USE_ONLY_VIEW_BASED_BIASING != 0 // only light vector based biasing
-    float viewBiasScale = viewBias.z;
+    real viewBiasScale = viewBias.z;
     return positionWS + L * viewBiasScale * lightviewBiasWeight * EvalShadow_WorldTexelSize(viewBias, L_dist, perspProj);
 #else // biasing based on the angle between the normal and the light vector
-    float viewBiasMin   = viewBias.x;
-    float viewBiasMax   = viewBias.y;
-    float viewBiasScale = viewBias.z;
-    float normalBiasMin   = normalBias.x;
-    float normalBiasMax   = normalBias.y;
-    float normalBiasScale = normalBias.z;
+    real viewBiasMin   = viewBias.x;
+    real viewBiasMax   = viewBias.y;
+    real viewBiasScale = viewBias.z;
+    real normalBiasMin   = normalBias.x;
+    real normalBiasMax   = normalBias.y;
+    real normalBiasScale = normalBias.z;
 
-    float  NdotL       = dot(normalWS, L);
-    float  sine        = sqrt(saturate(1.0 - NdotL * NdotL));
-    float  tangent     = abs(NdotL) > 0.0 ? (sine / NdotL) : 0.0;
+    real  NdotL       = dot(normalWS, L);
+    real  sine        = sqrt(saturate(1.0 - NdotL * NdotL));
+    real  tangent     = abs(NdotL) > 0.0 ? (sine / NdotL) : 0.0;
            sine        = clamp(sine    * normalBiasScale, normalBiasMin, normalBiasMax);
            tangent     = clamp(tangent * viewBiasScale * lightviewBiasWeight, viewBiasMin, viewBiasMax);
-    float3 view_bias   = L        * tangent;
-    float3 normal_bias = normalWS * sine;
+    real3 view_bias   = L        * tangent;
+    real3 normal_bias = normalWS * sine;
     return positionWS + (normal_bias + view_bias) * EvalShadow_WorldTexelSize(viewBias, L_dist, perspProj);
 #endif
 }
 
 // sample bias used by wide PCF filters to offset individual taps
-float2 EvalShadow_SampleBias_Persp(float3 positionWS, float3 normalWS, float3 tcs) { return 0.0.xx; }
-float2 EvalShadow_SampleBias_Ortho(float3 normalWS)                                { return 0.0.xx; }
+real2 EvalShadow_SampleBias_Persp(real3 positionWS, real3 normalWS, real3 tcs) { return 0.0.xx; }
+real2 EvalShadow_SampleBias_Ortho(real3 normalWS)                                { return 0.0.xx; }
 
 
 //
@@ -141,9 +141,9 @@ int EvalShadow_GetSplitIndex(HDShadowContext shadowContext, int index, real3 pos
     // find the current cascade
     for (; i < kMaxShadowCascades; i++)
     {
-        float4  sphere  = dsd.sphereCascades[i];
+        real4  sphere  = dsd.sphereCascades[i];
                 wposDir = -sphere.xyz + positionWS;
-        float   distSq  = dot(wposDir, wposDir);
+        real   distSq  = dot(wposDir, wposDir);
         relDistance = distSq / sphere.w;
         if (relDistance > 0.0 && relDistance <= 1.0)
         {

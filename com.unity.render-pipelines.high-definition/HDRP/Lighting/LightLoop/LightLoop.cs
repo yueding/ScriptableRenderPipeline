@@ -2940,7 +2940,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             shadowRequestCount = m_SelectedLightShadowCount;
                         }
 #endif
-                        Debug.Log("display: " + startShadowIndex + " : " + shadowRequestCount);
 
                         for (int shadowIndex = startShadowIndex; shadowIndex < startShadowIndex + shadowRequestCount; shadowIndex++)
                         {
