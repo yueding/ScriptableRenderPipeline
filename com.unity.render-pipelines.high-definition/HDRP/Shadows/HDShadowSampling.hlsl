@@ -209,7 +209,7 @@ real SampleShadow_MSM_1tap(real3 tcs, real lightLeakBias, real momentBias, real 
         return (z[1] < 0.0 || z[2] > 1.0) ? ShadowMoments_SolveDelta4MSM(z, b, lightLeakBias) : ShadowMoments_SolveDelta3MSM(z, b.xy, lightLeakBias);
 }
 
-// #include "CoreRP/ShaderLibrary/Shadow/PCSS.hlsl"
+#include "HDRP/Shadows/HDPCSS.hlsl"
 
 //
 //                  PCSS sampling
@@ -225,11 +225,11 @@ real SampleShadow_PCSS(real3 tcs, real4 scaleOffset, real2 sampleBias, real shad
     // //1) Blocker Search
     // real averageBlockerDepth = 0.0;
     // real numBlockers         = 0.0;
-    // if (!BlockerSearch(averageBlockerDepth, numBlockers, shadowSoftnesss + 0.000001, tcs, sampleJitter, sampleBias, tex, samp, sampleCount)) 
+    // if (!BlockerSearch(averageBlockerDepth, numBlockers, shadowSoftness + 0.000001, tcs, sampleJitter, sampleBias, tex, samp, sampleCount)) 
     //     return 1.0;
 
     // //2) Penumbra Estimation
-    // real filterSize = shadowSoftnesss * PenumbraSize(tcs.z, averageBlockerDepth);
+    // real filterSize = shadowSoftness * PenumbraSize(tcs.z, averageBlockerDepth);
     // filterSize = max(filterSize, 0.000001);
 
     // //3) Filter

@@ -63,16 +63,16 @@ namespace UnityEngine.Experimental.Rendering
 
     public enum PunctualShadowAlgorithm
     {
-        PCF_Tent_5x5,
-        PCF_Tent_7x7,
-        PCSS,
+        PCF_Tent_5x5 = 0,
+        PCF_Tent_7x7 = 1,
+        PCSS = 2,
     }
 
     public enum DirectionalShadowAlgorithm
     {
-        PCF_Tent_5x5,
-        PCF_Tent_7x7,
-        PCSS,
+        PCF_Tent_5x5 = 0,
+        PCF_Tent_7x7 = 1,
+        PCSS = 2,
     }
 
     public enum ShadowVariant // 3 bits

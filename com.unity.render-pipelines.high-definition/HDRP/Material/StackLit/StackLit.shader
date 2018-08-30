@@ -329,6 +329,10 @@ Shader "HDRenderPipeline/StackLit"
     // TODO: remove this once new shadow system works
     // Only for dev/test purpose, allow to switch dynamically between HD and Core shadow system
     #pragma multi_compile _ USE_HD_SHADOW_SYSTEM
+    
+    // Supported shadow modes per light type
+    #pragma multi_compile PUNCTUAL_SHADOW_PCF_5X5 PUNCTUAL_SHADOW_PCF_7X7 PUNCTUAL_SHADOW_PCSS
+    #pragma multi_compile DIRECTIONAL_SHADOW_PCF_5X5 DIRECTIONAL_SHADOW_PCF_7X7 DIRECTIONAL_SHADOW_PCSS
 
     //enable GPU instancing support
     #pragma multi_compile_instancing

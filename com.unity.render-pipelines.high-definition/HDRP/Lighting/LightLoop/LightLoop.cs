@@ -723,6 +723,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_DefaultTextureCube = new Cubemap(16, TextureFormat.ARGB32, false);
             m_DefaultTextureCube.Apply();
 
+            // Setup shadow algorithms
+            var shadowParams = hdAsset.renderPipelineSettings.shadowInitParams;
+            var punctualShadowKeywords = new[]{"PUNCTUAL_SHADOW_PCF_5X5", "PUNCTUAL_SHADOW_PCF_7X7", "PUNCTUAL_SHADOW_PCSS"};
+            var directionalShadowKeywords = new[]{"DIRECTIONAL_SHADOW_PCF_5X5", "DIRECTIONAL_SHADOW_PCF_7X7", "DIRECTIONAL_SHADOW_PCSS"};
+            foreach (var p in punctualShadowKeywords)
+                Shader.DisableKeyword(p);
+            foreach (var p in directionalShadowKeywords)
+                Shader.DisableKeyword(p);
+            Shader.EnableKeyword(punctualShadowKeywords[(int)shadowParams.punctualShadowAlgorithm]);
+            Shader.EnableKeyword(directionalShadowKeywords[(int)shadowParams.directionalShadowAlgorithm]);
+
             InitShadowSystem(hdAsset, shadowSettings);
         }
 

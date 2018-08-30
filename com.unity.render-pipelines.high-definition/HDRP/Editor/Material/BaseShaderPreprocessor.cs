@@ -4,6 +4,7 @@ using UnityEditor.Build;
 using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 
 namespace UnityEditor.Experimental.Rendering.HDPipeline
@@ -23,6 +24,15 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         protected ShaderKeyword m_Decals3RT;
         protected ShaderKeyword m_Decals4RT;
         protected ShaderKeyword m_LightLayers;
+        protected ShaderKeyword m_PunctualPCF_5x5;
+        protected ShaderKeyword m_PunctualPCF_7x7;
+        protected ShaderKeyword m_PunctualPCSS;
+        protected ShaderKeyword m_DirectionalPCF_5x5;
+        protected ShaderKeyword m_DirectionalPCF_7x7;
+        protected ShaderKeyword m_DirectionalPCSS;
+        
+        Dictionary<PunctualShadowAlgorithm, ShaderKeyword> m_PunctualShadowVariants;
+        Dictionary<DirectionalShadowAlgorithm, ShaderKeyword> m_DirectionalShadowVariants;
 
         public BaseShaderPreprocessor()
         {
@@ -35,6 +45,25 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             m_Decals3RT = new ShaderKeyword("DECALS_3RT");
             m_Decals4RT = new ShaderKeyword("DECALS_4RT");
             m_LightLayers = new ShaderKeyword("LIGHT_LAYERS");
+            m_PunctualPCF_5x5 = new ShaderKeyword("PUNCTUAL_SHADOW_PCF_5X5");
+            m_PunctualPCF_7x7 = new ShaderKeyword("PUNCTUAL_SHADOW_PCF_7X7");
+            m_PunctualPCSS = new ShaderKeyword("PUNCTUAL_SHADOW_PCSS");
+            m_DirectionalPCF_5x5 = new ShaderKeyword("DIRECTIONAL_SHADOW_PCF_5X5");
+            m_DirectionalPCF_7x7 = new ShaderKeyword("DIRECTIONAL_SHADOW_PCF_7X7");
+            m_DirectionalPCSS = new ShaderKeyword("DIRECTIONAL_SHADOW_PCSS");
+            
+            m_PunctualShadowVariants = new Dictionary<PunctualShadowAlgorithm, ShaderKeyword>
+            {
+                {PunctualShadowAlgorithm.PCF_Tent_5x5, m_PunctualPCF_5x5},
+                {PunctualShadowAlgorithm.PCF_Tent_7x7, m_PunctualPCF_7x7},
+                {PunctualShadowAlgorithm.PCSS, m_PunctualPCSS},
+            };
+            m_DirectionalShadowVariants = new Dictionary<DirectionalShadowAlgorithm, ShaderKeyword>
+            {
+                {DirectionalShadowAlgorithm.PCF_Tent_5x5, m_DirectionalPCF_5x5},
+                {DirectionalShadowAlgorithm.PCF_Tent_7x7, m_DirectionalPCF_7x7},
+                {DirectionalShadowAlgorithm.PCSS, m_DirectionalPCSS},
+            };
         }
 
         public virtual void AddStripperFuncs(Dictionary<string, VariantStrippingFunc> stripperFuncs) {}
@@ -53,6 +82,22 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         // -
         protected bool CommonShaderStripper(HDRenderPipelineAsset hdrpAsset, Shader shader, ShaderSnippetData snippet, ShaderCompilerData inputData)
         {
+            // Strip every useless shadow configs
+            // TODO: test if it actually works
+            var shadowInitParams = hdrpAsset.renderPipelineSettings.shadowInitParams;
+            foreach (var punctualShadowVariant in m_PunctualShadowVariants)
+            {
+                if (punctualShadowVariant.Key != shadowInitParams.punctualShadowAlgorithm)
+                    if (inputData.shaderKeywordSet.IsEnabled(punctualShadowVariant.Value))
+                        return true;
+            }
+            foreach (var directionalShadowVariant in m_DirectionalShadowVariants)
+            {
+                if (directionalShadowVariant.Key != shadowInitParams.directionalShadowAlgorithm)
+                    if (inputData.shaderKeywordSet.IsEnabled(directionalShadowVariant.Value))
+                        return true;
+            }
+
             bool isSceneSelectionPass = snippet.passName == "SceneSelectionPass";
             if (isSceneSelectionPass)
                 return true;
