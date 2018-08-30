@@ -4,6 +4,13 @@
 
 #ifndef HDSHADOWMANAGER_CS_HLSL
 #define HDSHADOWMANAGER_CS_HLSL
+//
+// UnityEngine.Experimental.Rendering.HDPipeline.HDShadowFlag:  static fields
+//
+#define HDSHADOWFLAG_SAMPLE_BIAS_SCALE (1)
+#define HDSHADOWFLAG_EDGE_LEAK_FIXUP (2)
+#define HDSHADOWFLAG_EDGE_TOLERANCE_NORMAL (4)
+
 // Generated from UnityEngine.Experimental.Rendering.HDPipeline.HDShadowData
 // PackingRules = Exact
 struct HDShadowData
@@ -12,7 +19,7 @@ struct HDShadowData
     float4x4 shadowToWorld;
     float4 scaleOffset;
     float4 textureSize;
-    float4 texelSizeRcp;
+    float4 textureSizeRcp;
     float4 viewBias;
     float4 normalBias;
     int flags;
@@ -53,9 +60,9 @@ float4 GetTextureSize(HDShadowData value)
 {
     return value.textureSize;
 }
-float4 GetTexelSizeRcp(HDShadowData value)
+float4 GetTextureSizeRcp(HDShadowData value)
 {
-    return value.texelSizeRcp;
+    return value.textureSizeRcp;
 }
 float4 GetViewBias(HDShadowData value)
 {

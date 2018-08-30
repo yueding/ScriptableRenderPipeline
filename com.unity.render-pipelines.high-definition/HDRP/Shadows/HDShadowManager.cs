@@ -15,9 +15,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // These fields are only for test purpose for HDShadowAlgorithm.hlsl
         // and should be renamed/removed when we have a stable version
         public Vector4      textureSize;
-        public Vector4      texelSizeRcp;
+        public Vector4      textureSizeRcp;
 
-        // TODO: refactor the bias/filter params, they're currently based on the Core shadow system
         public Vector4      viewBias;
         public Vector4      normalBias;
         public int          flags;
@@ -29,6 +28,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     [GenerateHLSL]
     public struct HDDirectionalShadowData
     {
+        // TODO: refactor this when arrays will be supported with GenerateHLSL
         public Vector4      sphereCascade1;
         public Vector4      sphereCascade2;
         public Vector4      sphereCascade3;
@@ -40,6 +40,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public float        cascadeBorder2;
         public float        cascadeBorder3;
         public float        cascadeBorder4;
+    }
+
+    [GenerateHLSL]
+    public enum HDShadowFlag
+    {
+        SampleBiasScale     = (1 << 0),
+        EdgeLeakFixup       = (1 << 1),
+        EdgeToleranceNormal = (1 << 2),
     }
 
     public class HDShadowRequest
@@ -167,7 +175,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.scaleOffset = Vector4.Scale(new Vector4(rWidth, rHeight, rWidth, rHeight), atlasViewport);
 
             data.textureSize = new Vector4(m_Width, m_Height, shadowRequest.atlasViewport.width, shadowRequest.atlasViewport.height);
-            data.texelSizeRcp = new Vector4(rWidth, rHeight, 1.0f / shadowRequest.atlasViewport.width, 1.0f / shadowRequest.atlasViewport.height);
+            data.textureSizeRcp = new Vector4(rWidth, rHeight, 1.0f / shadowRequest.atlasViewport.width, 1.0f / shadowRequest.atlasViewport.height);
 
             data.viewBias = shadowRequest.viewBias;
             data.normalBias = shadowRequest.normalBias;

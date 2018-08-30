@@ -283,9 +283,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             shadowRequest.viewBias = new Vector4(m_ShadowData.viewBiasMin, m_ShadowData.viewBiasMax, m_ShadowData.viewBiasScale, 2.0f / shadowRequest.projection.m00 / m_ShadowData.shadowResolution * 1.4142135623730950488016887242097f);
             shadowRequest.normalBias = new Vector4(m_ShadowData.normalBiasMin, m_ShadowData.normalBiasMax, m_ShadowData.normalBiasScale, 0);
             shadowRequest.flags = 0;
-            shadowRequest.flags |= m_ShadowData.sampleBiasScale     ? (1 << 0) : 0;
-            shadowRequest.flags |= m_ShadowData.edgeLeakFixup       ? (1 << 1) : 0;
-            shadowRequest.flags |= m_ShadowData.edgeToleranceNormal ? (1 << 2) : 0;
+            shadowRequest.flags |= m_ShadowData.sampleBiasScale     ? (int)HDShadowFlag.SampleBiasScale : 0;
+            shadowRequest.flags |= m_ShadowData.edgeLeakFixup       ? (int)HDShadowFlag.EdgeLeakFixup : 0;
+            shadowRequest.flags |= m_ShadowData.edgeToleranceNormal ? (int)HDShadowFlag.EdgeToleranceNormal : 0;
             shadowRequest.edgeTolerance = m_ShadowData.edgeTolerance;
 
             // Make light position camera relative:
