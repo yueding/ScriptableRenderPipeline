@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `ScriptableRenderPass::Execute` no longer takes `CullResults` as input. Instead, use `RenderingData`as input, since that references `CullResults`.
 - `IRendererSetup_Setup` no longer takes `ScriptableRenderContext` and `CullResults` as input.
 ### Fixed
+- If you have more than 16 lights in a scene, LWRP no longer causes random glitches while rendering lights.
 - The Unlit shader now samples Global Illumination correctly.
 - The Inspector window for the Unlit shader now displays correctly.
 - Reduced GC pressure by removing several per-frame memory allocations.
