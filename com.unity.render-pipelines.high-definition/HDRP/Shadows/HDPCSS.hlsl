@@ -73,7 +73,7 @@ real PenumbraSize(real Reciever, real Blocker)
     return abs((Reciever - Blocker) / Blocker);
 }
 
-bool BlockerSearch(inout real averageBlockerDepth, inout real numBlockers, real lightArea, real3 coord, float slice, real2 sampleJitter, real2 sampleBias, Texture2D shadowMap, SamplerState PointSampler, int sampleCount)
+bool BlockerSearch(inout real averageBlockerDepth, inout real numBlockers, real lightArea, real3 coord, real2 sampleJitter, real2 sampleBias, Texture2D shadowMap, SamplerState pointSampler, int sampleCount)
 {
     real blockerSum = 0.0;
     for (int i = 0; i < sampleCount; ++i)
@@ -81,7 +81,7 @@ bool BlockerSearch(inout real averageBlockerDepth, inout real numBlockers, real 
         real2 offset = real2(poissonDisk64[i].x *  sampleJitter.y + poissonDisk64[i].y * sampleJitter.x,
                              poissonDisk64[i].x * -sampleJitter.x + poissonDisk64[i].y * sampleJitter.y) * lightArea;
 
-        real shadowMapDepth = SAMPLE_TEXTURE2D_LOD(shadowMap, PointSampler, coord.xy + offset, 0.0).x;
+        real shadowMapDepth = SAMPLE_TEXTURE2D_LOD(shadowMap, pointSampler, coord.xy + offset, 0.0).x;
 
         if (COMPARE_DEVICE_DEPTH_CLOSER(shadowMapDepth, coord.z + dot(sampleBias, offset)))
         {
@@ -94,7 +94,7 @@ bool BlockerSearch(inout real averageBlockerDepth, inout real numBlockers, real 
     return numBlockers >= 1;
 }
 
-real PCSS(real3 coord, real filterRadius, real4 scaleOffset, float slice, real2 sampleBias, real2 sampleJitter, Texture2D shadowMap, SamplerComparisonState compSampler, int sampleCount)
+real PCSS(real3 coord, real filterRadius, real4 scaleOffset, real2 sampleBias, real2 sampleJitter, Texture2D shadowMap, SamplerComparisonState compSampler, int sampleCount)
 {
     real UMin = scaleOffset.z;
     real UMax = scaleOffset.z + scaleOffset.x;

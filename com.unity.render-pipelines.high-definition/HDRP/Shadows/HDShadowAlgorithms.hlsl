@@ -2,6 +2,22 @@
 // There are two variants provided, one takes the texture and sampler explicitly so they can be statically passed in.
 // The variant without resource parameters dynamically accesses the texture when sampling.
 
+#ifdef PUNCTUAL_SHADOW_PCF_5X5
+#define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
+#elif PUNCTUAL_SHADOW_PCF_7X7
+#define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
+#else // PUNCTUAL_SHADOW_PCSS
+#define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowSoftness, sd.blockerSampleCount, sd.filterSampleCount, tex, samp, s_point_clamp_sampler)
+#endif
+
+#ifdef DIRECTIONAL_SHADOW_PCF_5X5
+#define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
+#elif DIRECTIONAL_SHADOW_PCF_7X7
+#define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
+#else // DIRECTIONAL_SHADOW_PCSS
+#define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowSoftness, sd.blockerSampleCount, sd.filterSampleCount, tex, samp, s_point_clamp_sampler)
+#endif
+
 real4 EvalShadow_WorldToShadow(real4x4 viewProjection, real3 positionWS)
 {
     return mul(viewProjection, real4(positionWS, 1));
@@ -120,7 +136,7 @@ real EvalShadow_PunctualDepth(HDShadowData sd, Texture2D tex, SamplerComparisonS
     /* get the per sample bias */
     real2 sampleBias = EvalShadow_SampleBias_Persp(positionWS, normalWS, posTC);
     /* sample the texture */
-    return SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp);
+    return PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp);
 }
 
 //
@@ -184,7 +200,7 @@ real EvalShadow_CascadedDepth_Blend(HDShadowContext shadowContext, Texture2D tex
     real3 posTC = EvalShadow_GetTexcoordsAtlas(sd.viewProjection, sd.scaleOffset, positionWS, false);
     /* evalute the first cascade */
     real2 sampleBias = EvalShadow_SampleBias_Ortho(normalWS);
-    real  shadow     = SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp);
+    real  shadow     = DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp);
     real  shadow1    = 1.0;
 
     shadowSplitIndex++;
@@ -203,7 +219,7 @@ real EvalShadow_CascadedDepth_Blend(HDShadowContext shadowContext, Texture2D tex
 
             UNITY_BRANCH
             if (all(abs(posNDC.xy) <= (1.0 - sd.textureSizeRcp.zw * 0.5)))
-                shadow1 = SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp);
+                shadow1 = DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp);
         }
     }
     shadow = lerp(shadow, shadow1, alpha);
@@ -217,7 +233,6 @@ real EvalShadow_hash12(real2 pos)
     return frac((p3.x + p3.y) * p3.z);
 }
 
-// TODO: we may want to remove this function so we dont have to extract the shadow type (which we don't have anymore)
 real EvalShadow_SampleClosestDistance_Punctual(HDShadowData sd, Texture2D tex, SamplerState sampl, real3 positionWS, real3 L, real3 lightPositionWS)
 {
     real4 closestNDC = { 0,0,0,1 };

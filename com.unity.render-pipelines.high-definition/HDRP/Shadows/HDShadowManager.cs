@@ -21,6 +21,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4      normalBias;
         public int          flags;
         public float        edgeTolerance;
+
+        public float        shadowSoftness;
+        public int          blockerSampleCount;
+        public int          filterSampleCount;
     }
 
     // We use a different structure for directional light because these is a lot of data there
@@ -74,10 +78,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ShadowSplitData      splitData;
         // end
 
-        public Vector4      viewBias;
-        public Vector4      normalBias;
-        public float        edgeTolerance;
-        public int          flags;
+        public Vector4              viewBias;
+        public Vector4              normalBias;
+        public float                edgeTolerance;
+        public int                  flags;
+
+        // PCSS parameters
+        public float                shadowSoftness;
+        public int                  blockerSampleCount;
+        public int                  filterSampleCount;
     }
 
     public class HDShadowManager : IDisposable
@@ -181,6 +190,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.normalBias = shadowRequest.normalBias;
             data.edgeTolerance = shadowRequest.edgeTolerance;
             data.flags = shadowRequest.flags;
+
+            data.shadowSoftness = shadowRequest.shadowSoftness;
+            data.blockerSampleCount = shadowRequest.blockerSampleCount;
+            data.filterSampleCount = shadowRequest.filterSampleCount;
 
             return data;
         }

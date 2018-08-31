@@ -214,24 +214,21 @@ real SampleShadow_MSM_1tap(real3 tcs, real lightLeakBias, real momentBias, real 
 //
 //                  PCSS sampling
 //
-real SampleShadow_PCSS(real3 tcs, real4 scaleOffset, real2 sampleBias, real shadowSoftness, int sampleCount, Texture2D tex, SamplerComparisonState compSamp, SamplerState samp)
+real SampleShadow_PCSS(real3 tcs, real4 scaleOffset, real2 sampleBias, real shadowSoftness, int blockerSampleCount, int filterSampleCount, Texture2D tex, SamplerComparisonState compSamp, SamplerState samp)
 {
-    // Can't enable PCSS currently because the sampling is done inside BlockerSeaarch() and PCSS() using TextureArrays
-    return 0;
+    real2 sampleJitter = real2(sin(GenerateHashedRandomFloat(tcs.x)),
+                               cos(GenerateHashedRandomFloat(tcs.y)));
 
-    // real2 sampleJitter = real2(sin(GenerateHashedRandomFloat(tcs.x)),
-    //                            cos(GenerateHashedRandomFloat(tcs.y)));
+    //1) Blocker Search
+    real averageBlockerDepth = 0.0;
+    real numBlockers         = 0.0;
+    if (!BlockerSearch(averageBlockerDepth, numBlockers, shadowSoftness + 0.000001, tcs, sampleJitter, sampleBias, tex, samp, blockerSampleCount)) 
+        return 1.0;
 
-    // //1) Blocker Search
-    // real averageBlockerDepth = 0.0;
-    // real numBlockers         = 0.0;
-    // if (!BlockerSearch(averageBlockerDepth, numBlockers, shadowSoftness + 0.000001, tcs, sampleJitter, sampleBias, tex, samp, sampleCount)) 
-    //     return 1.0;
+    //2) Penumbra Estimation
+    real filterSize = shadowSoftness * PenumbraSize(tcs.z, averageBlockerDepth);
+    filterSize = max(filterSize, 0.000001);
 
-    // //2) Penumbra Estimation
-    // real filterSize = shadowSoftness * PenumbraSize(tcs.z, averageBlockerDepth);
-    // filterSize = max(filterSize, 0.000001);
-
-    // //3) Filter
-    // return PCSS(tcs, filterSize, scaleOffset, sampleBias, sampleJitter, tex, compSamp, sampleCount);
+    //3) Filter
+    return PCSS(tcs, filterSize, scaleOffset, sampleBias, sampleJitter, tex, compSamp, filterSampleCount);
 }

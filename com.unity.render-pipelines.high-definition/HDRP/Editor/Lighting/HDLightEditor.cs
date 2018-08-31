@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 
@@ -69,6 +71,9 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public SerializedProperty lightUnit;
             public SerializedProperty displayAreaLightEmissiveMesh;
             public SerializedProperty lightLayers;
+            public SerializedProperty shadowSoftness;
+            public SerializedProperty blockerSampleCount;
+            public SerializedProperty filterSampleCount;
 
             // Editor stuff
             public SerializedProperty useOldInspector;
@@ -143,6 +148,9 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         bool m_UpdateAreaLightEmissiveMeshComponents = false;
 
+        ShadowInitParameters                    m_ShadowInitParameters;
+        Dictionary<HDShadowAlgorithm, Action>   m_ShadowAlgorithmUIs;
+
         protected override void OnEnable()
         {
             base.OnEnable();
@@ -176,6 +184,9 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     shapeRadius = o.Find(x => x.shapeRadius),
                     maxSmoothness = o.Find(x => x.maxSmoothness),
                     applyRangeAttenuation = o.Find(x => x.applyRangeAttenuation),
+                    shadowSoftness = o.Find(x => x.shadowSoftness),
+                    blockerSampleCount = o.Find(x => x.blockerSampleCount),
+                    filterSampleCount = o.Find(x => x.filterSampleCount),
 
                     // Editor stuff
                     useOldInspector = o.Find(x => x.useOldInspector),
@@ -215,6 +226,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             // If the light is disabled in the editor we force the light upgrade from his inspector
             foreach (var additionalLightData in m_AdditionalLightDatas)
                 additionalLightData.UpgradeLight();
+            
+            m_ShadowInitParameters = (GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset).renderPipelineSettings.shadowInitParams;
+            m_ShadowAlgorithmUIs = new Dictionary<HDShadowAlgorithm, Action>
+            {
+                {HDShadowAlgorithm.PCF_Tent_5x5, DrawPCFShadowSettings},
+                {HDShadowAlgorithm.PCF_Tent_7x7, DrawPCFShadowSettings},
+                {HDShadowAlgorithm.PCSS, DrawPCSSShadowSettings}
+            };
         }
 
         public override void OnInspectorGUI()
@@ -630,6 +649,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             if (settings.isBakedOrMixed)
                 DrawBakedShadowParameters();
+            
+            // Draw shadow settings using the current shadow algorithm
+            HDShadowAlgorithm currentAlgorithm;
+            if (settings.lightType.enumValueIndex == (int)LightType.Directional)
+                currentAlgorithm = (HDShadowAlgorithm)m_ShadowInitParameters.directionalShadowAlgorithm;
+            else
+                currentAlgorithm = (HDShadowAlgorithm)m_ShadowInitParameters.punctualShadowAlgorithm;
+            m_ShadowAlgorithmUIs[currentAlgorithm]();
 
             // There is currently no additional settings for shadow on directional light
             if (m_AdditionalLightData.showAdditionalSettings.boolValue)
@@ -667,6 +694,24 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     EditorGUI.indentLevel--;
                 }
                 EditorGUI.indentLevel--;
+            }
+        }
+
+        void DrawPCFShadowSettings()
+        {
+            // Currently there is nothing to display here
+        }
+
+        void DrawPCSSShadowSettings()
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("PCSS settings", EditorStyles.boldLabel);
+
+            using (new EditorGUI.IndentLevelScope())
+            {
+                EditorGUILayout.PropertyField(m_AdditionalLightData.shadowSoftness, s_Styles.shadowSoftness);
+                EditorGUILayout.PropertyField(m_AdditionalLightData.blockerSampleCount, s_Styles.blockerSampleCount);
+                EditorGUILayout.PropertyField(m_AdditionalLightData.filterSampleCount, s_Styles.filterSampleCount);
             }
         }
 

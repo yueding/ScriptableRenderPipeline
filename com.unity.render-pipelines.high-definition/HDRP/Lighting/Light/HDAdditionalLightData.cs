@@ -171,6 +171,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return value < 0 ? (uint)LightLayerEnum.Everything : (uint)value;
         }
 
+        // TODO: see where to put these settings
+        // PCSS settings
+        [Range(0, 1.0f)]
+        public float    shadowSoftness = .5f;
+        [Range(1, 64)]
+        public int      blockerSampleCount = 24;
+        [Range(1, 64)]
+        public int      filterSampleCount = 32;
+
         public bool useDynamicViewportResize = false;
         HDShadowRequest[] shadowRequests;
 
@@ -304,6 +313,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             shadowRequest.lightIndex = lightIndex;
             // We don't allow shadow resize for directional cascade shadow
             shadowRequest.allowResize = m_Light.type != LightType.Directional;
+
+            // Shadow algorithm parameters
+            shadowRequest.shadowSoftness = shadowSoftness / 100f;
+            shadowRequest.blockerSampleCount = blockerSampleCount;
+            shadowRequest.filterSampleCount = filterSampleCount;
         }
 
 #if UNITY_EDITOR

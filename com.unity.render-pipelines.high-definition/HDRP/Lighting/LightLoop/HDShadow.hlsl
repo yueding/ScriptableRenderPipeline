@@ -40,7 +40,7 @@ float GetPointShadowAttenuation(HDShadowContext shadowContext, float3 positionWS
 float GetPunctualShadowClosestDistance(HDShadowContext shadowContext, SamplerState sampl, real3 positionWS, int shadowDataIndex, float3 L, float3 lightPositionWS)
 {
     // Note: Here we assume that all the shadow map cube faces have been added contiguously in the buffer to retreive the shadow information
-    // TODO: if on the light type to retreivce the good shadow data
+    // TODO: if on the light type to retrieve the good shadow data
     HDShadowData sd = shadowContext.shadowDatas[shadowDataIndex + CubeMapFaceID(-L)];
     return EvalShadow_SampleClosestDistance_Punctual(sd, _ShadowmapAtlas, s_linear_clamp_sampler, positionWS, L, lightPositionWS);
 }

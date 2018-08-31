@@ -39,6 +39,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             
             EditorGUILayout.Space();
 
+            EditorGUILayout.LabelField(_.GetContent("Shadow Algorithms"), EditorStyles.boldLabel);
             ++EditorGUI.indentLevel;
             EditorGUILayout.PropertyField(d.punctualShadowAlgorithm, _.GetContent("Punctual Shadow Algorithm"));
             EditorGUILayout.PropertyField(d.directionalShadowAlgorithm, _.GetContent("Directional Shadow Algorithm"));
