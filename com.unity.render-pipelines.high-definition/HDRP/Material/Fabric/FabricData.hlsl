@@ -126,7 +126,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 // If a detail map was provided, modify the matching ao
 #ifdef _DETAIL_MAP
     float aoDetailSpeed = saturate(abs(detailAO) * _DetailAOScale);
-    float aoOverlay = lerp(surfaceData.ambientOcclusion, (aoDetailSpeed < 0.0) ? 0.0 : 1.0, aoDetailSpeed);
+    float aoOverlay = lerp(surfaceData.ambientOcclusion, (aoDetailSpeed < 0.0) ? 0.0 : 0.5, aoDetailSpeed);
     surfaceData.ambientOcclusion = lerp(surfaceData.ambientOcclusion, saturate(aoOverlay), maskValue.z);
 #endif
 
@@ -134,7 +134,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
     surfaceData.fuzzTint = _FuzzTint.xyz;
 
 #ifdef _FUZZDETAIL_MAP
-    surfaceData.fuzzTint *= SAMPLE_TEXTURE2D(_FuzzDetailMap, sampler_FuzzDetailMap, uvDetails).rgb;
+    surfaceData.baseColor *= SAMPLE_TEXTURE2D(_FuzzDetailMap, sampler_FuzzDetailMap, uvDetails).rgb;
 #endif
 
 #if defined(_MATERIAL_FEATURE_SUBSURFACE_SCATTERING) || defined(_MATERIAL_FEATURE_TRANSMISSION)
