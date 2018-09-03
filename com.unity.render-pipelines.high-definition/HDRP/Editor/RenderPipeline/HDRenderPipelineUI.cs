@@ -21,10 +21,24 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     CED.Action(Drawer_TitleDefaultFrameSettings),
                     CED.Select(
                         (s, d, o) => s.defaultFrameSettings,
-                        (s, d, o) => d.defaultFrameSettings,
+                        (s, d, o) => GetEditedFrameSettings(d),
                         FrameSettingsUI.Inspector
                         )
                     );
+        }
+
+        static SerializedFrameSettings GetEditedFrameSettings(SerializedHDRenderPipelineAsset d)
+        {
+            switch(d.currentlyEdited)
+            {
+                default:
+                case SerializedHDRenderPipelineAsset.FrameSettings.Camera:
+                    return d.defaultFrameSettings;
+                case SerializedHDRenderPipelineAsset.FrameSettings.CubeReflection:
+                    return d.defaultCubeReflectionSettings;
+                case SerializedHDRenderPipelineAsset.FrameSettings.PlanarReflection:
+                    return d.defaultPlanarReflectionSettings;
+            }
         }
 
         public static readonly CED.IDrawer Inspector;
@@ -43,6 +57,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         {
             renderPipelineSettings.Reset(data.renderPipelineSettings, repaint);
             defaultFrameSettings.Reset(data.defaultFrameSettings, repaint);
+            //defaultCubeReflectionSettings.Reset(data.defaultCubeReflectionSettings, repaint);
+            //defaultPlanarReflectionSettings.Reset(data.defaultPlanarReflectionSettings, repaint);
             base.Reset(data, repaint);
         }
 
@@ -55,7 +71,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         static void Drawer_TitleDefaultFrameSettings(HDRenderPipelineUI s, SerializedHDRenderPipelineAsset d, Editor o)
         {
-            EditorGUILayout.LabelField(_.GetContent("Default Frame Settings"), EditorStyles.boldLabel);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(_.GetContent("Default Frame Settings"), EditorStyles.boldLabel);
+                d.currentlyEdited = (SerializedHDRenderPipelineAsset.FrameSettings)EditorGUILayout.EnumPopup(d.currentlyEdited);
+            }
         }
 
         static void Drawer_SectionPrimarySettings(HDRenderPipelineUI s, SerializedHDRenderPipelineAsset d, Editor o)

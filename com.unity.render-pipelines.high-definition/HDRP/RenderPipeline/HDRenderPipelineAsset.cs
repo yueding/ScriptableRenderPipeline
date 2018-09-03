@@ -39,6 +39,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Not serialized, not visible, the settings effectively used
         FrameSettings m_FrameSettingsRuntime = new FrameSettings();
 
+        [SerializeField]
+        CaptureSettings m_CubeReflectionSettings = new CaptureSettings(); // This are the default settings for all the cube probe, public to be visible in the inspector
+        [SerializeField]
+        CaptureSettings m_PlanarReflectionSettings = new CaptureSettings(); // This are the default settings for all the planar probe, public to be visible in the inspector
+        
         bool m_frameSettingsIsDirty = true;
         public bool frameSettingsIsDirty
         {
