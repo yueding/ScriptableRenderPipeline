@@ -188,7 +188,7 @@ float4 ComputeShadowCoord(float4 clipPos)
     return ComputeScreenPos(clipPos);
 }
 
-half MainLightRealtimeShadowAttenuation(float4 shadowCoord)
+half DirectionalLightRealtimeShadow(float4 shadowCoord)
 {
 #if !defined(_DIRECTIONAL_SHADOWS) || defined(_RECEIVE_SHADOWS_OFF)
     return 1.0h;
@@ -203,7 +203,7 @@ half MainLightRealtimeShadowAttenuation(float4 shadowCoord)
 #endif
 }
 
-half LocalLightRealtimeShadowAttenuation(int lightIndex, float3 positionWS)
+half PuntualLightRealtimeShadow(int lightIndex, float3 positionWS)
 {
 #if !defined(_LOCAL_SHADOWS_ENABLED) || defined(_RECEIVE_SHADOWS_OFF)
     return 1.0h;
