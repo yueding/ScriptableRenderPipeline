@@ -43,9 +43,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             [SurfaceDataAttributes("Ambient Occlusion")]
             public float ambientOcclusion;
 
-            // Fuzz Tint
-            [SurfaceDataAttributes("Fuzz Tint", false, true)]
-            public Vector3 fuzzTint;
+            // Specular Tint
+            [SurfaceDataAttributes("Specular Tint", false, true)]
+            public Vector3 specularTint;
 
             // MaterialFeature dependent attribute
 
@@ -83,7 +83,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public float ambientOcclusion;
             public float specularOcclusion;
 
-            public Vector3 fuzzTint;
+            public Vector3 specularTint;
 
             [SurfaceDataAttributes(new string[] { "Normal WS", "Normal View Space" }, true)]
             public Vector3 normalWS;

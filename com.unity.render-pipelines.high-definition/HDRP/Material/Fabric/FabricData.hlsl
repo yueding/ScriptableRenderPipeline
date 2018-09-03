@@ -62,7 +62,7 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 // We need to start by reading the detail (if any available to override the initial values)
 #ifdef _DETAIL_MAP
     float4 detailSample = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uvDetails);
-    float detailAO = detailSample.x * 2.0 - 1.0;
+    float detailAO = detailSample.x;
     float detailSmoothness = detailSample.z * 2.0 - 1.0;
 
     // Handle the normal detail
@@ -125,13 +125,12 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
     
 // If a detail map was provided, modify the matching ao
 #ifdef _DETAIL_MAP
-    float aoDetailSpeed = saturate(abs(detailAO) * _DetailAOScale);
-    float aoOverlay = lerp(surfaceData.ambientOcclusion, (aoDetailSpeed < 0.0) ? 0.0 : 0.5, aoDetailSpeed);
+    float aoOverlay = lerp(surfaceData.ambientOcclusion, detailAO * surfaceData.ambientOcclusion, _DetailAOScale);
     surfaceData.ambientOcclusion = lerp(surfaceData.ambientOcclusion, saturate(aoOverlay), maskValue.z);
 #endif
 
     // Propagate the fuzz tint
-    surfaceData.fuzzTint = _FuzzTint.xyz;
+    surfaceData.specularTint = _SpecularTint.xyz;
 
 #ifdef _FUZZDETAIL_MAP
     surfaceData.baseColor *= SAMPLE_TEXTURE2D(_FuzzDetailMap, sampler_FuzzDetailMap, uvDetails).rgb;

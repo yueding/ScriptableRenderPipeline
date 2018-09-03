@@ -39,15 +39,15 @@ Shader "HDRenderPipeline/Fabric"
         // TODO
         //_BentNormalMap("_BentNormalMap", 2D) = "bump" {}
 
-        // Fuzz Tint
-        _FuzzTint("FuzzTint", Color) = (1.0, 1.0, 1.0)
+        // Specular Tint
+        _SpecularTint("SpecularTint", Color) = (1.0, 1.0, 1.0)
 
         // Detail Data
         [Enum(UV0, 0, UV1, 1, UV2, 2, UV3, 3)] _UVDetail("UV Set for detail", Float) = 0
         [HideInInspector] _UVMappingMaskDetail("_UVMappingMaskDetail", Color) = (1, 0, 0, 0)
         _DetailMap("DetailMap", 2D) = "black" {}
         _FuzzDetailMap("FuzzDetailMap", 2D) = "white" {}
-        _DetailAOScale("_DetailAOScale", Range(0.0, 2.0)) = 1
+        _DetailAOScale("_DetailAOScale", Range(0.0, 1.0)) = 0.5
         _DetailNormalScale("_DetailNormalScale", Range(0.0, 2.0)) = 1
         _DetailSmoothnessScale("_DetailSmoothnessScale", Range(0.0, 2.0)) = 1
         [ToggleUI] _LinkDetailsWithBase("LinkDetailsWithBase", Float) = 1.0

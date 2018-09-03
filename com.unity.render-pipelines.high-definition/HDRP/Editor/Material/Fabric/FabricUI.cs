@@ -20,8 +20,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             // Base Color
             public static GUIContent baseColorText = new GUIContent("Base Color + Opacity", "Albedo (RGB) and Opacity (A)");
 
-            // Fuzz Tint
-            public static GUIContent fuzzTintText = new GUIContent("Fuzz Tint", "");
+            // Specular Tint
+            public static GUIContent specularTintText = new GUIContent("Specular Tint", "");
 
             // Smoothness
             public static GUIContent smoothnessMapChannelText = new GUIContent("Smoothness Source", "Smoothness texture and channel");
@@ -50,7 +50,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public static string detailText = "Detail Inputs";
             public static GUIContent UVDetailMappingText = new GUIContent("Detail UV mapping", "");
             public static GUIContent detailMapNormalText = new GUIContent("Detail Map AO(R) Ny(G) S(B) Nx(A)", "Detail Map");
-            public static GUIContent FuzzDetailText = new GUIContent("Fuzz Detail", "Fuzz Detail factor");
+            public static GUIContent FuzzDetailText = new GUIContent("Fuzz Detail", "Fuzz Detail factor, it affects the base color of the fabric.");
             public static GUIContent detailAOScaleText = new GUIContent("Detail AO", "Detail AO Scale factor");
             public static GUIContent detailNormalScaleText = new GUIContent("Detail NormalScale", "Normal Scale factor");
             public static GUIContent detailSmoothnessScaleText = new GUIContent("Detail SmoothnessScale", "Smoothness Scale factor");
@@ -132,9 +132,9 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         protected MaterialProperty tangentMap = null;
         protected const string kTangentMap = "_TangentMap";
 
-        // Fuzz Tint
-        protected MaterialProperty fuzzTint = null;
-        protected const string kFuzzTint = "_FuzzTint";
+        // Specular Tint
+        protected MaterialProperty specularTint = null;
+        protected const string kSpecularTint = "_SpecularTint";
 
         // Diffusion profile
         protected MaterialProperty diffusionProfileID = null;
@@ -241,7 +241,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             tangentMap = FindProperty(kTangentMap, props);
 
             // Fuzz tint
-            fuzzTint = FindProperty(kFuzzTint, props);
+            specularTint = FindProperty(kSpecularTint, props);
 
             // Diffusion profile
             diffusionProfileID = FindProperty(kDiffusionProfileID, props);
@@ -263,7 +263,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             UVDetail = FindProperty(kUVDetail, props);
             UVMappingMaskDetail = FindProperty(kUVMappingMaskDetail, props);
             
-            // Detail map and rmapping
+            // Detail map and remapping
             detailMap = FindProperty(kDetailMap, props);
             fuzzDetailMap = FindProperty(kFuzzDetailMap, props);
             detailAOScale = FindProperty(kDetailAOScale, props);
@@ -378,8 +378,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             // The primal normal map field
             m_MaterialEditor.TexturePropertySingleLine(Styles.normalMapText, normalMap, normalScale);
 
-            // The fuzz tint value (that affects the color of the specular lighting term)
-            m_MaterialEditor.ShaderProperty(fuzzTint, Styles.fuzzTintText);
+            // The specular tint value (that affects the color of the specular lighting term)
+            m_MaterialEditor.ShaderProperty(specularTint, Styles.specularTintText);
 
             // m_MaterialEditor.TexturePropertySingleLine(Styles.bentNormalMapText, bentNormalMap);
 

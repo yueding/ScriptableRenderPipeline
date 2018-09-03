@@ -119,7 +119,7 @@ BSDFData ConvertSurfaceDataToBSDFData(uint2 positionSS, SurfaceData surfaceData)
     bsdfData.perceptualRoughness = PerceptualSmoothnessToPerceptualRoughness(surfaceData.perceptualSmoothness);
 
     bsdfData.ambientOcclusion = surfaceData.ambientOcclusion;
-    bsdfData.fuzzTint = surfaceData.fuzzTint;
+    bsdfData.specularTint = surfaceData.specularTint;
     bsdfData.fresnel0 = DEFAULT_SPECULAR_VALUE;
 
     // Note: we have ZERO_INITIALIZE the struct so bsdfData.anisotropy == 0.0
@@ -349,7 +349,7 @@ void BSDF(  float3 V, float3 L, float NdotL, float3 positionWS, PreLightData pre
         diffuseLighting = DisneyDiffuse(NdotV, NdotL, LdotV, bsdfData.perceptualRoughness);
     }
 
-    specularLighting *= bsdfData.fuzzTint;
+    specularLighting *= bsdfData.specularTint;
 }
 
 //-----------------------------------------------------------------------------

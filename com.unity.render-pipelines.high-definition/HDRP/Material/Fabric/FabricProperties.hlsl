@@ -47,7 +47,7 @@ float4 _BaseColorMap_ST;
 float4 _BaseColorMap_TexelSize;
 float4 _BaseColorMap_MipInfo;
 
-float4 _FuzzTint;
+float4 _SpecularTint;
 
 float _AlphaCutoff;
 
