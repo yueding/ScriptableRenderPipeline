@@ -2,8 +2,32 @@ using System;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
+    [Flags]
+    public enum CaptureSettingsOverrides
+    {
+        CubeResolution = 1 << 0,
+        PlanarResolution = 1 << 1,
+        ClearColorMode = 1 << 2,
+        BackgroundColorHDR = 1 << 3,
+        ClearDepth = 1 << 4,
+        RenderingPath = 1 << 5,
+        VolumeLayerMask = 1 << 6,
+        VolumeAnchorOverride = 1 << 7,
+        Aperture = 1 << 8,
+        ShutterSpeed = 1 << 9,
+        Iso = 1 << 10,
+        NearClip = 1 << 11,
+        FarClip = 1 << 12,
+        FieldOfview = 1 << 13,
+        CullingMask = 1 << 14,
+        UseOcclusionCulling = 1 << 15,
+        ShadowDistance = 1 << 16,
+    }
+
     public class CaptureSettings
     {
+        public CaptureSettingsOverrides overrides;
+
         public HDAdditionalCameraData.ClearColorMode clearColorMode = HDAdditionalCameraData.ClearColorMode.Sky;
         public Color backgroundColorHDR = new Color(0.025f, 0.07f, 0.19f, 0.0f);
         public bool clearDepth = true;
