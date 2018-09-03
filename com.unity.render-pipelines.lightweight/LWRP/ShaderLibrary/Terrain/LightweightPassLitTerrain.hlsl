@@ -71,7 +71,7 @@ void InitializeInputData(VertexOutput IN, half3 normalTS, out InputData input)
 #endif
 
     input.viewDirectionWS = FragmentViewDirWS(viewDir);
-#ifdef _SHADOWS_ENABLED
+#ifdef _DIRECTIONAL_SHADOWS
     input.shadowCoord = IN.shadowCoord;
 #else
     input.shadowCoord = float4(0, 0, 0, 0);
@@ -198,7 +198,7 @@ VertexOutput SplatmapVert(VertexInput v)
     o.positionWS = positionWS;
     o.clipPos = clipPos;
 
-#ifdef _SHADOWS_ENABLED
+#ifdef _DIRECTIONAL_SHADOWS
     #if SHADOWS_SCREEN
         o.shadowCoord = ComputeShadowCoord(o.clipPos);
     #else

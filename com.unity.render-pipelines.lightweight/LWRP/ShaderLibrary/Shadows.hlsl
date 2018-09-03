@@ -8,7 +8,7 @@
 #define MAX_SHADOW_CASCADES 4
 
 #ifndef SHADOWS_SCREEN
-#if defined(_SHADOWS_ENABLED) && defined(_SHADOWS_CASCADE) && !defined(SHADER_API_GLES)
+#if defined(_DIRECTIONAL_SHADOWS) && defined(_DIRECTIONAL_SHADOWS_CASCADE) && !defined(SHADER_API_GLES)
 #define SHADOWS_SCREEN 1
 #else
 #define SHADOWS_SCREEN 0
@@ -174,7 +174,7 @@ half ComputeCascadeIndex(float3 positionWS)
 
 float4 TransformWorldToShadowCoord(float3 positionWS)
 {
-#ifdef _SHADOWS_CASCADE
+#ifdef _DIRECTIONAL_SHADOWS_CASCADE
     half cascadeIndex = ComputeCascadeIndex(positionWS);
     return mul(_WorldToShadow[cascadeIndex], float4(positionWS, 1.0));
 #else
@@ -190,7 +190,7 @@ float4 ComputeShadowCoord(float4 clipPos)
 
 half MainLightRealtimeShadowAttenuation(float4 shadowCoord)
 {
-#if !defined(_SHADOWS_ENABLED) || defined(_RECEIVE_SHADOWS_OFF)
+#if !defined(_DIRECTIONAL_SHADOWS) || defined(_RECEIVE_SHADOWS_OFF)
     return 1.0h;
 #endif
 

@@ -31,7 +31,7 @@ struct LightweightVertexOutput
 
     half4 fogFactorAndVertexLight   : TEXCOORD6; // x: fogFactor, yzw: vertex light
 
-#ifdef _SHADOWS_ENABLED
+#ifdef _DIRECTIONAL_SHADOWS
     float4 shadowCoord              : TEXCOORD7;
 #endif
 
@@ -53,7 +53,7 @@ void InitializeInputData(LightweightVertexOutput IN, half3 normalTS, out InputDa
 #endif
 
     inputData.viewDirectionWS = FragmentViewDirWS(viewDir);
-#if defined(_SHADOWS_ENABLED) && !defined(_RECEIVE_SHADOWS_OFF)
+#if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
     inputData.shadowCoord = IN.shadowCoord;
 #else
     inputData.shadowCoord = float4(0, 0, 0, 0);
@@ -106,7 +106,7 @@ LightweightVertexOutput LitPassVertexSimple(LightweightVertexInput v)
     half fogFactor = ComputeFogFactor(o.clipPos.z);
     o.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
 
-#if defined(_SHADOWS_ENABLED) && !defined(_RECEIVE_SHADOWS_OFF)
+#if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
 #if SHADOWS_SCREEN
     o.shadowCoord = ComputeShadowCoord(o.clipPos);
 #else

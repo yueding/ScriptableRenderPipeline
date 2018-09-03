@@ -26,7 +26,7 @@ struct GrassVertexOutput
 
     half4 fogFactorAndVertexLight   : TEXCOORD5; // x: fogFactor, yzw: vertex light
 
-#ifdef _SHADOWS_ENABLED
+#ifdef _DIRECTIONAL_SHADOWS
     float4 shadowCoord              : TEXCOORD6;
 #endif
     half4 color                     : TEXCOORD7;
@@ -44,7 +44,7 @@ void InitializeInputData(GrassVertexOutput IN, out InputData inputData)
     inputData.normalWS = FragmentNormalWS(IN.normal);
 
     inputData.viewDirectionWS = FragmentViewDirWS(viewDir);
-#ifdef _SHADOWS_ENABLED
+#ifdef _DIRECTIONAL_SHADOWS
     inputData.shadowCoord = IN.shadowCoord;
 #else
     inputData.shadowCoord = float4(0, 0, 0, 0);
@@ -78,7 +78,7 @@ void InitializeVertData(GrassVertexInput IN, inout GrassVertexOutput vertData)
     half fogFactor = ComputeFogFactor(vertData.clipPos.z);
     vertData.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
 
-#ifdef _SHADOWS_ENABLED
+#ifdef _DIRECTIONAL_SHADOWS
 #if SHADOWS_SCREEN
     vertData.shadowCoord = ComputeShadowCoord(vertData.clipPos);
 #else

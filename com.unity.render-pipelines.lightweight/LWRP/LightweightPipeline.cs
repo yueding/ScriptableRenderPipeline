@@ -59,6 +59,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public bool supportsDynamicBatching { get; private set; }
             public int maxPixelLights { get; private set; }
             public bool supportsDirectionalShadows { get; private set; }
+            public RealtimeLightSupport punctualLightSupport { get; private set; }
             public bool supportsSoftParticles { get; private set; }
             public bool supportsLocalShadows { get; private set; }
             public float shadowDistance { get; private set; }
@@ -69,6 +70,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public bool supportsVertexLight { get; private set; }
             public int localShadowAtlasResolution { get; private set; }
             public bool supportsSoftShadows { get; private set; }
+            public bool mixedLightingSupported { get; private set; }
 
             public static PipelineSettings Create(LightweightPipelineAsset asset)
             {
@@ -83,6 +85,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 cache.supportsDynamicBatching = asset.supportsDynamicBatching;
                 cache.maxPixelLights = asset.maxPixelLights;
                 cache.supportsDirectionalShadows = asset.supportsDirectionalShadows;
+                cache.punctualLightSupport = asset.punctualLightsSupport;
                 cache.supportsSoftParticles = asset.supportsSoftParticles;
                 cache.supportsLocalShadows = asset.supportsLocalShadows;
                 cache.shadowDistance = asset.shadowDistance;
@@ -90,9 +93,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 cache.directionalShadowAtlasResolution = asset.directionalShadowAtlasResolution;
                 cache.cascade2Split = asset.cascade2Split;
                 cache.cascade4Split = asset.cascade4Split;
-                cache.supportsVertexLight = asset.supportsVertexLight;
                 cache.localShadowAtlasResolution = asset.localShadowAtlasResolution;
                 cache.supportsSoftShadows = asset.supportsSoftShadows;
+                cache.mixedLightingSupported = asset.mixedLightingSupported;
 
                 cache.savedXRGraphicsConfig.renderScale = cache.renderScale;
                 cache.savedXRGraphicsConfig.viewportScale = 1.0f; // Placeholder until viewportScale is all hooked up
@@ -197,8 +200,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 CullResults.Cull(ref cullingParameters, context, ref cullResults);
 
                 RenderingData renderingData;
-                InitializeRenderingData(settings, ref cameraData, ref cullResults,
-                    renderer.maxSupportedLocalLightsPerPass, renderer.maxSupportedVertexLights, out renderingData);
+                InitializeRenderingData(settings, ref cameraData, ref cullResults, renderer.maxSupportedPunctualLights, out renderingData);
 
                 var setupToUse = setup;
                 if (setupToUse == null)
@@ -304,8 +306,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         }
 
         static void InitializeRenderingData(PipelineSettings settings, ref CameraData cameraData, ref CullResults cullResults,
-            int maxSupportedLocalLightsPerPass, int maxSupportedVertexLights,
-            out RenderingData renderingData)
+            int maxSupportedPunctualLights, out RenderingData renderingData)
         {
             List<VisibleLight> visibleLights = cullResults.visibleLights;
             List<int> localLightIndices = new List<int>();
@@ -323,7 +324,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     {
                         hasDirectionalShadowCastingLight |= castShadows;
                     }
-                    else
+                    else if (localLightIndices.Count < maxSupportedPunctualLights)
                     {
                         hasLocalShadowCastingLight |= castShadows;
                         localLightIndices.Add(i);
@@ -333,8 +334,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             renderingData.cullResults = cullResults;
             renderingData.cameraData = cameraData;
-            InitializeLightData(settings, visibleLights, maxSupportedLocalLightsPerPass, maxSupportedVertexLights, localLightIndices, out renderingData.lightData);
-            InitializeShadowData(settings, hasDirectionalShadowCastingLight, hasLocalShadowCastingLight, out renderingData.shadowData);
+            InitializeLightData(settings, visibleLights, localLightIndices, out renderingData.lightData);
+            InitializeShadowData(settings, hasDirectionalShadowCastingLight, hasLocalShadowCastingLight && !renderingData.lightData.shadePunctualLightsPerVertex, out renderingData.shadowData);
             renderingData.supportsDynamicBatching = settings.supportsDynamicBatching;
         }
 
@@ -373,21 +374,14 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         }
 
         static void InitializeLightData(PipelineSettings settings, List<VisibleLight> visibleLights,
-            int maxSupportedLocalLightsPerPass, int maxSupportedVertexLights, List<int> localLightIndices, out LightData lightData)
+            List<int> localLightIndices, out LightData lightData)
         {
-            int visibleLightsCount = Math.Min(visibleLights.Count, settings.maxPixelLights);
             lightData.mainLightIndex = GetMainLight(settings, visibleLights);
-
-            // If we have a main light we don't shade it in the per-object light loop. We also remove it from the per-object cull list
-            int mainLightPresent = (lightData.mainLightIndex >= 0) ? 1 : 0;
-            int additionalPixelLightsCount = Math.Min(visibleLightsCount - mainLightPresent, maxSupportedLocalLightsPerPass);
-            int vertexLightCount = (settings.supportsVertexLight) ? Math.Min(visibleLights.Count, maxSupportedLocalLightsPerPass) - additionalPixelLightsCount : 0;
-            vertexLightCount = Math.Min(vertexLightCount, maxSupportedVertexLights);
-
-            lightData.pixelAdditionalLightsCount = additionalPixelLightsCount;
-            lightData.totalAdditionalLightsCount = additionalPixelLightsCount + vertexLightCount;
+            lightData.punctualLightsCount = localLightIndices.Count;
+            lightData.shadePunctualLightsPerVertex = settings.punctualLightSupport == RealtimeLightSupport.PerVertex;
             lightData.visibleLights = visibleLights;
             lightData.visibleLocalLightIndices = localLightIndices;
+            lightData.supportsMixedLighting = settings.mixedLightingSupported;
         }
 
         // Main Light is always a directional light

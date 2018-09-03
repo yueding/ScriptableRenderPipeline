@@ -11,13 +11,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static int _MainLightPosition;
             public static int _MainLightColor;
 
-            public static int _AdditionalLightCount;
-            public static int _AdditionalLightPosition;
-            public static int _AdditionalLightColor;
-            public static int _AdditionalLightAttenuation;
-            public static int _AdditionalLightSpotDir;
+            public static int _PunctualLightsCount;
+            public static int _PunctualLightsPosition;
+            public static int _PunctualLightsColor;
+            public static int _PunctualLightsAttenuation;
+            public static int _PunctualLightsSpotDir;
 
-            public static int _LightIndexBuffer;
+            public static int _PunctualLightsBuffer;
         }
 
         const string k_SetupLightConstants = "Setup Light Constants";
@@ -40,12 +40,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             LightConstantBuffer._MainLightPosition = Shader.PropertyToID("_MainLightPosition");
             LightConstantBuffer._MainLightColor = Shader.PropertyToID("_MainLightColor");
-            LightConstantBuffer._AdditionalLightCount = Shader.PropertyToID("_AdditionalLightCount");
-            LightConstantBuffer._AdditionalLightPosition = Shader.PropertyToID("_AdditionalLightPosition");
-            LightConstantBuffer._AdditionalLightColor = Shader.PropertyToID("_AdditionalLightColor");
-            LightConstantBuffer._AdditionalLightAttenuation = Shader.PropertyToID("_AdditionalLightAttenuation");
-            LightConstantBuffer._AdditionalLightSpotDir = Shader.PropertyToID("_AdditionalLightSpotDir");
-            LightConstantBuffer._LightIndexBuffer = Shader.PropertyToID("_LightIndexBuffer");
+            LightConstantBuffer._PunctualLightsCount = Shader.PropertyToID("_PunctualLightsCount");
+            LightConstantBuffer._PunctualLightsPosition = Shader.PropertyToID("_PunctualLightsPosition");
+            LightConstantBuffer._PunctualLightsColor = Shader.PropertyToID("_PunctualLightsColor");
+            LightConstantBuffer._PunctualLightsAttenuation = Shader.PropertyToID("_PunctualLightsAttenuation");
+            LightConstantBuffer._PunctualLightsSpotDir = Shader.PropertyToID("_PunctualLightsSpotDir");
+            LightConstantBuffer._PunctualLightsBuffer = Shader.PropertyToID("_PunctualLightsBuffer");
 
             m_LightPositions = new Vector4[0];
             m_LightColors = new Vector4[0];
@@ -200,7 +200,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         void SetupAdditionalLightConstants(CommandBuffer cmd, ref LightData lightData)
         {
             List<VisibleLight> lights = lightData.visibleLights;
-            if (lightData.totalAdditionalLightsCount > 0)
+            if (lightData.punctualLightsCount > 0)
             {
                 int localLightsCount = 0;
                 for (int i = 0; i < lights.Count && localLightsCount < maxVisibleLocalLights; ++i)
@@ -216,32 +216,31 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     }
                 }
 
-                cmd.SetGlobalVector(LightConstantBuffer._AdditionalLightCount, new Vector4(lightData.pixelAdditionalLightsCount,
-                    lightData.totalAdditionalLightsCount, 0.0f, 0.0f));
+                cmd.SetGlobalVector(LightConstantBuffer._PunctualLightsCount, new Vector4(lightData.punctualLightsCount,
+                    0.0f, 0.0f, 0.0f));
 
                 // if not using a compute buffer, engine will set indices in 2 vec4 constants
                 // unity_4LightIndices0 and unity_4LightIndices1
                 if (perObjectLightIndices != null)
-                    cmd.SetGlobalBuffer(LightConstantBuffer._LightIndexBuffer, perObjectLightIndices);
+                    cmd.SetGlobalBuffer(LightConstantBuffer._PunctualLightsBuffer, perObjectLightIndices);
             }
             else
             {
-                cmd.SetGlobalVector(LightConstantBuffer._AdditionalLightCount, Vector4.zero);
+                cmd.SetGlobalVector(LightConstantBuffer._PunctualLightsCount, Vector4.zero);
             }
 
-            cmd.SetGlobalVectorArray(LightConstantBuffer._AdditionalLightPosition, m_LightPositions);
-            cmd.SetGlobalVectorArray(LightConstantBuffer._AdditionalLightColor, m_LightColors);
-            cmd.SetGlobalVectorArray(LightConstantBuffer._AdditionalLightAttenuation, m_LightAttenuations);
-            cmd.SetGlobalVectorArray(LightConstantBuffer._AdditionalLightSpotDir, m_LightSpotDirections);
+            cmd.SetGlobalVectorArray(LightConstantBuffer._PunctualLightsPosition, m_LightPositions);
+            cmd.SetGlobalVectorArray(LightConstantBuffer._PunctualLightsColor, m_LightColors);
+            cmd.SetGlobalVectorArray(LightConstantBuffer._PunctualLightsAttenuation, m_LightAttenuations);
+            cmd.SetGlobalVectorArray(LightConstantBuffer._PunctualLightsSpotDir, m_LightSpotDirections);
         }
 
         void SetShaderKeywords(CommandBuffer cmd, ref CameraData cameraData, ref LightData lightData, ref ShadowData shadowData)
         {
-            int vertexLightsCount = lightData.totalAdditionalLightsCount - lightData.pixelAdditionalLightsCount;
-
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.AdditionalLights, lightData.totalAdditionalLightsCount > 0);
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.MixedLightingSubtractive, m_MixedLightingSetup == MixedLightingSetup.Subtractive);
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.VertexLights, vertexLightsCount > 0);
+            bool realtimePunctualLightsPerPixel = lightData.punctualLightsCount > 0 && !lightData.shadePunctualLightsPerVertex;
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RealtimePunctualLightsVertex, lightData.punctualLightsCount > 0 && lightData.shadePunctualLightsPerVertex);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RealtimePunctualLights, realtimePunctualLightsPerPixel);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.MixedLightingSubtractive, lightData.supportsMixedLighting && m_MixedLightingSetup == MixedLightingSetup.Subtractive);
 
             List<VisibleLight> visibleLights = lightData.visibleLights;
 
@@ -267,13 +266,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             // Currently shadow filtering keyword is shared between local and directional shadows.
             bool hasSoftShadows = softDirectionalShadows || softLocalShadows;
 
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.DirectionalShadows, shadowData.renderDirectionalShadows);
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.LocalShadows, shadowData.renderLocalShadows);
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.SoftShadows, hasSoftShadows);
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.CascadeShadows, shadowData.directionalLightCascadeCount > 1);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RealtimeDirectionalShadows, shadowData.renderDirectionalShadows);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RealtimePunctualLightShadows, shadowData.renderLocalShadows);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.SoftShadows, hasSoftShadows);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.CascadeShadows, shadowData.directionalLightCascadeCount > 1);
 
             // TODO: Remove this. legacy particles support will be removed from Unity in 2018.3. This should be a shader_feature instead with prop exposed in the Standard particles shader.
-            CoreUtils.SetKeyword(cmd, LightweightKeywordStrings.SoftParticles, cameraData.requiresSoftParticles);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.SoftParticles, cameraData.requiresSoftParticles);
         }
 
         public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)

@@ -8,7 +8,7 @@ Shader "Hidden/LightweightPipeline/ScreenSpaceShadows"
 
         // Note: Screenspace shadow resolve is only performed when shadow cascades are enabled
         // Shadow cascades require cascade index and shadowCoord to be computed on pixel.
-        #define _SHADOWS_CASCADE
+        #define _DIRECTIONAL_SHADOWS_CASCADE
 
         #pragma prefer_hlslcc gles
         #pragma exclude_renderers d3d11_9x

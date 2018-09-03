@@ -134,7 +134,7 @@ Light GetLight(half i, float3 positionWS)
     LightInput lightInput;
 
 #if USE_STRUCTURED_BUFFER_FOR_LIGHT_DATA
-    int lightIndex = _LightIndexBuffer[unity_LightIndicesOffsetAndCount.x + i];
+    int lightIndex = _PunctualLightsBuffer[unity_LightIndicesOffsetAndCount.x + i];
 #else
     // The following code is more optimal than indexing unity_4LightIndices0.
     // Conditional moves are branch free even on mali-400
@@ -147,11 +147,11 @@ Light GetLight(half i, float3 positionWS)
     // dynamic indexing. Ideally we need to configure light data at a cluster of
     // objects granularity level. We will only be able to do that when scriptable culling kicks in.
     // TODO: Use StructuredBuffer on PC/Console and profile access speed on mobile that support it.
-    float4 positionAndSubtractiveLightMode = _AdditionalLightPosition[lightIndex];
+    float4 positionAndSubtractiveLightMode = _PunctualLightsPosition[lightIndex];
     lightInput.position = float4(positionAndSubtractiveLightMode.xyz, 1.);
-    lightInput.color = _AdditionalLightColor[lightIndex].rgb;
-    lightInput.distanceAndSpotAttenuation = _AdditionalLightAttenuation[lightIndex];
-    lightInput.spotDirection = _AdditionalLightSpotDir[lightIndex];
+    lightInput.color = _PunctualLightsColor[lightIndex].rgb;
+    lightInput.distanceAndSpotAttenuation = _PunctualLightsAttenuation[lightIndex];
+    lightInput.spotDirection = _PunctualLightsSpotDir[lightIndex];
 
     half4 directionAndRealtimeAttenuation = GetLightDirectionAndAttenuation(lightInput, positionWS);
 
@@ -170,7 +170,7 @@ half GetPixelLightCount()
     // TODO: we need to expose in SRP api an ability for the pipeline cap the amount of lights
     // in the culling. This way we could do the loop branch with an uniform
     // This would be helpful to support baking exceeding lights in SH as well
-    return min(_AdditionalLightCount.x, unity_LightIndicesOffsetAndCount.y);
+    return min(_PunctualLightsCount.x, unity_LightIndicesOffsetAndCount.y);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -490,13 +490,11 @@ half3 VertexLighting(float3 positionWS, half3 normalWS)
 {
     half3 vertexLightColor = half3(0.0, 0.0, 0.0);
 
-#if defined(_VERTEX_LIGHTS)
-    int vertexLightStart = _AdditionalLightCount.x;
-    int vertexLightEnd = min(_AdditionalLightCount.y, unity_LightIndicesOffsetAndCount.y);
-    for (int lightIter = vertexLightStart; lightIter < vertexLightEnd; ++lightIter)
+#ifdef _PUNCTUAL_LIGHTS_VERTEX
+    int pixelLightCount = GetPixelLightCount();
+    for (int i = 0; i < pixelLightCount; ++i)
     {
         Light light = GetLight(lightIter, positionWS);
-
         half3 lightColor = light.color * light.attenuation;
         vertexLightColor += LightingLambert(lightColor, light.direction, normalWS);
     }
@@ -522,7 +520,7 @@ half4 LightweightFragmentPBR(InputData inputData, half3 albedo, half metallic, h
     half3 color = GlobalIllumination(brdfData, inputData.bakedGI, occlusion, inputData.normalWS, inputData.viewDirectionWS);
     color += LightingPhysicallyBased(brdfData, mainLight, inputData.normalWS, inputData.viewDirectionWS);
 
-#ifdef _ADDITIONAL_LIGHTS
+#ifdef _PUNCTUAL_LIGHTS
     int pixelLightCount = GetPixelLightCount();
     for (int i = 0; i < pixelLightCount; ++i)
     {
@@ -532,7 +530,10 @@ half4 LightweightFragmentPBR(InputData inputData, half3 albedo, half metallic, h
     }
 #endif
 
+#ifdef _PUNCTUAL_LIGHTS_VERTEX
     color += inputData.vertexLighting * brdfData.diffuse;
+#endif
+
     color += emission;
     return half4(color, alpha);
 }
@@ -547,7 +548,7 @@ half4 LightweightFragmentBlinnPhong(InputData inputData, half3 diffuse, half4 sp
     half3 diffuseColor = inputData.bakedGI + LightingLambert(attenuatedLightColor, mainLight.direction, inputData.normalWS);
     half3 specularColor = LightingSpecular(attenuatedLightColor, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, shininess);
 
-#ifdef _ADDITIONAL_LIGHTS
+#ifdef _PUNCTUAL_LIGHTS
     int pixelLightCount = GetPixelLightCount();
     for (int i = 0; i < pixelLightCount; ++i)
     {
@@ -559,8 +560,11 @@ half4 LightweightFragmentBlinnPhong(InputData inputData, half3 diffuse, half4 sp
     }
 #endif
 
-    half3 fullDiffuse = diffuseColor + inputData.vertexLighting;
-    half3 finalColor = fullDiffuse * diffuse + emission;
+#ifdef _PUNCTUAL_LIGHTS_VERTEX
+    diffuseColor += inputData.vertexLighting;
+#endif
+
+    half3 finalColor = diffuseColor * diffuse + emission;
 
 #if defined(_SPECGLOSSMAP) || defined(_SPECULAR_COLOR)
     finalColor += specularColor;

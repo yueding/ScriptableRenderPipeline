@@ -9,11 +9,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     [Flags]
     public enum ShaderFeatures
     {
-        AdditionalLights    = (1 << 0),
-        VertexLights        = (1 << 1),
-        DirectionalShadows  = (1 << 2),
-        LocalShadows        = (1 << 3),
-        SoftShadows         = (1 << 4),
+        RealtimeDirectionalLights       = (1 << 0),
+        RealtimeDirectionalLightShadows = (1 << 1),
+        RealtimePunctualLightsVertex     = (1 << 2),
+        RealtimePunctualLights           = (1 << 3),
+        RealtimePunctualLightShadows     = (1 << 4),
+        SoftShadows                     = (1 << 5),
+        MixedLighting                   = (1 << 6),
     }
     public enum MixedLightingSetup
     {
@@ -33,11 +35,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
     public struct LightData
     {
-        public int pixelAdditionalLightsCount;
-        public int totalAdditionalLightsCount;
+        public int punctualLightsCount;
+        public bool shadePunctualLightsPerVertex;
         public int mainLightIndex;
         public List<VisibleLight> visibleLights;
         public List<int> visibleLocalLightIndices;
+        public bool supportsMixedLighting;
     }
 
     public struct CameraData
@@ -78,15 +81,16 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public int bufferBitCount;
     }
 
-    public static class LightweightKeywordStrings
+    public static class ShaderKeywordStrings
     {
-        public static readonly string AdditionalLights = "_ADDITIONAL_LIGHTS";
-        public static readonly string VertexLights = "_VERTEX_LIGHTS";
-        public static readonly string MixedLightingSubtractive = "_MIXED_LIGHTING_SUBTRACTIVE";
-        public static readonly string DirectionalShadows = "_SHADOWS_ENABLED";
-        public static readonly string LocalShadows = "_LOCAL_SHADOWS_ENABLED";
+        public static readonly string RealtimeDirectionalShadows = "_DIRECTIONAL_SHADOWS";
+        public static readonly string RealtimePunctualLightsVertex = "_PUNCTUAL_LIGHTS_VERTEX";
+        public static readonly string RealtimePunctualLights = "_PUNCTUAL_LIGHTS";
+        public static readonly string RealtimePunctualLightShadows = "_PUNCTUAL_LIGHT_SHADOWS";
+        public static readonly string CascadeShadows = "_DIRECTIONAL_SHADOWS_CASCADE";
         public static readonly string SoftShadows = "_SHADOWS_SOFT";
-        public static readonly string CascadeShadows = "_SHADOWS_CASCADE";
+        public static readonly string MixedLightingSubtractive = "_MIXED_LIGHTING_SUBTRACTIVE";
+
         public static readonly string DepthNoMsaa = "_DEPTH_NO_MSAA";
         public static readonly string DepthMsaa2 = "_DEPTH_MSAA_2";
         public static readonly string DepthMsaa4 = "_DEPTH_MSAA_4";
@@ -109,24 +113,28 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         static void SetSupportedShaderFeatures(LightweightPipelineAsset pipelineAsset)
         {
-            s_ShaderFeatures = 0U;
-
-            // Strip variants based on selected pipeline features
-            if (pipelineAsset.maxPixelLights > 1 || pipelineAsset.supportsVertexLight)
-                s_ShaderFeatures |= ShaderFeatures.AdditionalLights;
-
-            if (pipelineAsset.supportsVertexLight)
-                s_ShaderFeatures |= ShaderFeatures.VertexLights;
+            s_ShaderFeatures = ShaderFeatures.RealtimeDirectionalLights;
 
             if (pipelineAsset.supportsDirectionalShadows)
-                s_ShaderFeatures |= ShaderFeatures.DirectionalShadows;
+                s_ShaderFeatures |= ShaderFeatures.RealtimeDirectionalLightShadows;
 
-            if (pipelineAsset.supportsLocalShadows)
-                s_ShaderFeatures |= ShaderFeatures.LocalShadows;
+            if (pipelineAsset.punctualLightsSupport == RealtimeLightSupport.PerVertex)
+            {
+                s_ShaderFeatures |= ShaderFeatures.RealtimePunctualLightsVertex;
+            }
+            else if (pipelineAsset.punctualLightsSupport == RealtimeLightSupport.PerPixel)
+            {
+                s_ShaderFeatures |= ShaderFeatures.RealtimeDirectionalLights;
+                if (pipelineAsset.supportsLocalShadows)
+                    s_ShaderFeatures |= ShaderFeatures.RealtimePunctualLightShadows;
+            }
 
             bool anyShadows = pipelineAsset.supportsDirectionalShadows || pipelineAsset.supportsLocalShadows;
             if (pipelineAsset.supportsSoftShadows && anyShadows)
                 s_ShaderFeatures |= ShaderFeatures.SoftShadows;
+
+            if (pipelineAsset.mixedLightingSupported)
+                s_ShaderFeatures |= ShaderFeatures.MixedLighting;
         }
         public static bool IsStereoEnabled(Camera camera)
         {

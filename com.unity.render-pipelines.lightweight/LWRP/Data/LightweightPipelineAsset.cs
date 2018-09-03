@@ -53,6 +53,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         UnityBuiltinDefault
     }
 
+    public enum RealtimeLightSupport
+    {
+        NotSupported,
+        PerVertex,
+        PerPixel,
+    }
+
     public class LightweightPipelineAsset : RenderPipelineAsset, ISerializationCallbackReceiver
     {
         public static readonly string s_SearchPathProject = "Assets";
@@ -60,10 +67,18 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         Shader m_DefaultShader;
 
+        
+
+        // Shader Features
+        [SerializeField] bool m_DirectionalShadowsSupported = true;
+        [SerializeField] RealtimeLightSupport m_PunctualLightsSupport = RealtimeLightSupport.PerPixel;
+        [SerializeField] bool m_LocalShadowsSupported = true;
+        [SerializeField] bool m_SoftShadowsSupported = false;
+        [SerializeField] bool m_MixedLightingSupported = true;
+
         // Default values set when a new LightweightPipeline asset is created
         [SerializeField] int k_AssetVersion = 3;
         [SerializeField] int m_MaxPixelLights = 4;
-        [SerializeField] bool m_SupportsVertexLight = false;
         [SerializeField] bool m_RequireDepthTexture = false;
         [SerializeField] bool m_RequireSoftParticles = false;
         [SerializeField] bool m_RequireOpaqueTexture = false;
@@ -73,16 +88,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         [SerializeField] float m_RenderScale = 1.0f;
         [SerializeField] bool m_SupportsDynamicBatching = true;
 
-        [SerializeField] bool m_DirectionalShadowsSupported = true;
         [SerializeField] ShadowResolution m_ShadowAtlasResolution = ShadowResolution._2048;
         [SerializeField] float m_ShadowDistance = 50.0f;
         [SerializeField] ShadowCascades m_ShadowCascades = ShadowCascades.FOUR_CASCADES;
         [SerializeField] float m_Cascade2Split = 0.25f;
         [SerializeField] Vector3 m_Cascade4Split = new Vector3(0.067f, 0.2f, 0.467f);
-        [SerializeField] bool m_LocalShadowsSupported = true;
         [SerializeField] ShadowResolution m_LocalShadowsAtlasResolution = ShadowResolution._512;
-        [SerializeField] bool m_SoftShadowsSupported = false;
-
         [SerializeField] LightweightPipelineResources m_ResourcesAsset;
         [SerializeField] XRGraphicsConfig m_SavedXRConfig = XRGraphicsConfig.s_DefaultXRConfig;
 
@@ -210,11 +221,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             get { return m_MaxPixelLights; }
         }
 
-        public bool supportsVertexLight
-        {
-            get { return m_SupportsVertexLight; }
-        }
-
         public bool supportsCameraDepthTexture
         {
             get { return m_RequireDepthTexture; }
@@ -260,6 +266,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public bool supportsDirectionalShadows
         {
             get { return m_DirectionalShadowsSupported; }
+        }
+
+        public RealtimeLightSupport punctualLightsSupport
+        {
+            get { return m_PunctualLightsSupport; }
         }
 
         public int directionalShadowAtlasResolution
@@ -311,6 +322,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public bool supportsSoftShadows
         {
             get { return m_SoftShadowsSupported; }
+        }
+
+        public bool mixedLightingSupported
+        {
+            get { return m_MixedLightingSupported; }
         }
 
         public override Material GetDefaultMaterial()

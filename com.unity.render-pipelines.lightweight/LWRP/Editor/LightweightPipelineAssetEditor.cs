@@ -24,9 +24,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent maxPixelLightsLabel = new GUIContent("Pixel Lights",
                     "Controls the amount of pixel lights that run in fragment light loop. Lights are sorted and culled per-object.");
 
-            public static GUIContent enableVertexLightLabel = new GUIContent("Vertex Lighting",
-                    "If enabled shades additional lights exceeding the maximum number of pixel lights per-vertex up to the maximum of 8 lights.");
-
             public static GUIContent requireDepthTexture = new GUIContent("Depth Texture", "If enabled the pipeline will generate camera's depth that can be bound in shaders as _CameraDepthTexture.");
 
             public static GUIContent requireSoftParticles = new GUIContent("Soft Particles", "If enabled the pipeline will enable SOFT_PARTICLES keyword.\nNeeds Depth Texture to be enabled.");
@@ -40,6 +37,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             public static GUIContent supportsSoftShadows = new GUIContent("Soft Shadows", "If enabled pipeline will perform shadow filtering. Otherwise all lights that cast shadows will fallback to perform a single shadow sample.\nNeeds either Directional or Local Shadows to be enabled in the Capabilities section.");
             public static GUIContent supportsDirectionalShadows = new GUIContent("Directional Shadows", "If enabled shadows will be supported for directional lights.\nNeeds Directional Shadows to be enabled in the Capabilities section.");
+
+            public static GUIContent punctualLightsSupportLabel = EditorGUIUtility.TrTextContent("Realtime Point and Spot Lights", "Support for realtime point and spot lights.");
+            public static GUIContent mixedLightingSupportLabel = EditorGUIUtility.TrTextContent("Mixed Lighting", "Support for mixed light mode.");
+            
 
             public static GUIContent shadowDistance = new GUIContent("Distance", "Max shadow rendering distance.");
 
@@ -57,6 +58,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent localShadowsAtlasResolution = new GUIContent("Atlas Resolution",
                     "All local lights are packed into a single atlas. This setting controls the atlas size.");
 
+            public static string[] punctualLightsOptions = {"Not Supported", "Per Vertex", "Per Pixel"};
             public static string[] shadowCascadeOptions = {"No Cascades", "Two Cascades", "Four Cascades"};
             public static string[] opaqueDownsamplingOptions = {"None", "2x (Bilinear)", "4x (Box)", "4x (Bilinear)"};
 
@@ -71,7 +73,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         float k_MaxRenderScale = 4.0f;
         SerializedProperty m_RenderScale;
         SerializedProperty m_MaxPixelLights;
-        SerializedProperty m_SupportsVertexLightProp;
         SerializedProperty m_RequireDepthTextureProp;
         SerializedProperty m_RequireSoftParticlesProp;
         SerializedProperty m_RequireOpaqueTextureProp;
@@ -82,6 +83,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         SerializedProperty m_SoftShadowsSupportedProp;
         SerializedProperty m_DirectionalShadowsSupportedProp;
+        SerializedProperty m_PunctualLightsSupportProp;
         SerializedProperty m_ShadowDistanceProp;
         SerializedProperty m_DirectionalShadowAtlasResolutionProp;
         SerializedProperty m_ShadowCascadesProp;
@@ -89,8 +91,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         SerializedProperty m_ShadowCascade4SplitProp;
         SerializedProperty m_LocalShadowSupportedProp;
         SerializedProperty m_LocalShadowsAtlasResolutionProp;
-
-        SerializedProperty m_CustomShaderVariantStripSettingsProp;
+        SerializedProperty m_MixedLightingSupportedProp;
 
         SerializedProperty m_XRConfig;
 
@@ -113,7 +114,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             m_RenderScale = serializedObject.FindProperty("m_RenderScale");
             m_MaxPixelLights = serializedObject.FindProperty("m_MaxPixelLights");
-            m_SupportsVertexLightProp = serializedObject.FindProperty("m_SupportsVertexLight");
             m_RequireDepthTextureProp = serializedObject.FindProperty("m_RequireDepthTexture");
             m_RequireSoftParticlesProp = serializedObject.FindProperty("m_RequireSoftParticles");
             m_RequireOpaqueTextureProp = serializedObject.FindProperty("m_RequireOpaqueTexture");
@@ -122,6 +122,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_MSAA = serializedObject.FindProperty("m_MSAA");
             m_SupportsDynamicBatching = serializedObject.FindProperty("m_SupportsDynamicBatching");
             m_DirectionalShadowsSupportedProp = serializedObject.FindProperty("m_DirectionalShadowsSupported");
+            m_PunctualLightsSupportProp = serializedObject.FindProperty("m_PunctualLightsSupport");
             m_ShadowDistanceProp = serializedObject.FindProperty("m_ShadowDistance");
             m_DirectionalShadowAtlasResolutionProp = serializedObject.FindProperty("m_ShadowAtlasResolution");
             m_ShadowCascadesProp = serializedObject.FindProperty("m_ShadowCascades");
@@ -130,6 +131,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_LocalShadowSupportedProp = serializedObject.FindProperty("m_LocalShadowsSupported");
             m_LocalShadowsAtlasResolutionProp = serializedObject.FindProperty("m_LocalShadowsAtlasResolution");
             m_SoftShadowsSupportedProp = serializedObject.FindProperty("m_SoftShadowsSupported");
+            m_MixedLightingSupportedProp = serializedObject.FindProperty("m_MixedLightingSupported");
 
             m_ShowSoftParticles.valueChanged.AddListener(Repaint);
             m_ShowSoftParticles.value = m_RequireSoftParticlesProp.boolValue;
@@ -154,12 +156,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             EditorGUILayout.LabelField(Styles.featuresLabel, EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
-            EditorGUILayout.PropertyField(m_SupportsVertexLightProp, Styles.enableVertexLightLabel);
             EditorGUILayout.PropertyField(m_DirectionalShadowsSupportedProp, Styles.supportsDirectionalShadows);
+            CoreEditorUtils.DrawPopup(Styles.punctualLightsSupportLabel, m_PunctualLightsSupportProp, Styles.punctualLightsOptions);
             EditorGUILayout.PropertyField(m_LocalShadowSupportedProp, Styles.supportsLocalShadows);
             EditorGUI.BeginDisabledGroup(!(m_DirectionalShadowsSupportedProp.boolValue || m_LocalShadowSupportedProp.boolValue));
                 EditorGUILayout.PropertyField(m_SoftShadowsSupportedProp, Styles.supportsSoftShadows);
             EditorGUI.EndDisabledGroup();
+            EditorGUILayout.PropertyField(m_MixedLightingSupportedProp, Styles.mixedLightingSupportLabel);
             EditorGUI.indentLevel--;
             EditorGUILayout.Space();
             EditorGUILayout.Space();

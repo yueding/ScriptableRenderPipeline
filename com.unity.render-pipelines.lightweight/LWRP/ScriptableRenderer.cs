@@ -17,8 +17,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         // MAX_VISIBLE_LIGHTS 16 in Input.hlsl
         const int k_MaxVisibleLocalLights = 16;
 
-        const int k_MaxVertexLights = 4;
-        public int maxSupportedLocalLightsPerPass
+        public int maxSupportedPunctualLights
         {
             get
             {
@@ -42,8 +41,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         }
 
         public int maxVisibleLocalLights { get { return k_MaxVisibleLocalLights; } }
-
-        public int maxSupportedVertexLights { get { return k_MaxVertexLights; } }
 
         public PostProcessRenderContext postProcessingContext { get; private set; }
 
@@ -157,7 +154,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         public void SetupPerObjectLightIndices(ref CullResults cullResults, ref LightData lightData)
         {
-            if (lightData.totalAdditionalLightsCount == 0)
+            if (lightData.punctualLightsCount == 0)
                 return;
 
             List<VisibleLight> visibleLights = lightData.visibleLights;
