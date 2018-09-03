@@ -967,6 +967,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public bool GetDirectionalLightData(CommandBuffer cmd, ShadowSettings shadowSettings, GPULightType gpuLightType, VisibleLight light, Light lightComponent, HDAdditionalLightData additionalData, AdditionalShadowData additionalShadowData, int lightIndex, int shadowIndex, DebugDisplaySettings debugDisplaySettings)
         {
+            // Clamp light list to the maximum allowed lights on screen to avoid ComputeBuffer overflow
+            if (m_lightList.directionalLights.Count >= k_MaxDirectionalLightsOnScreen)
+                return false;
+            
             var directionalLightData = new DirectionalLightData();
 
             float diffuseDimmer = m_FrameSettings.diffuseGlobalDimmer * additionalData.lightDimmer;
@@ -1072,6 +1076,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             VisibleLight light, Light lightComponent, HDAdditionalLightData additionalLightData, AdditionalShadowData additionalshadowData,
             int lightIndex, int shadowIndex, ref Vector3 lightDimensions, DebugDisplaySettings debugDisplaySettings)
         {
+            // Clamp light list to the maximum allowed lights on screen to avoid ComputeBuffer overflow
+            if (m_lightList.lights.Count >= k_MaxPunctualLightsOnScreen + k_MaxAreaLightsOnScreen)
+                return false;
+            
             var lightData = new LightData();
 
             lightData.lightLayers = additionalLightData.GetLightLayers();

@@ -10,26 +10,45 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     {
         static float GetFilterWidthInTexels(LightType lightType)
         {
-            // TODO: get current shadow algorithm in use for the lightType and return the filter textel size
+            var hdAsset = (GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset);
 
-            // Just return the PCF5x5 value by default
-            return 5f;
+            if (hdAsset == null)
+                return 1;
+
+            switch (hdAsset.renderPipelineSettings.shadowInitParams.punctualShadowAlgorithm)
+            {
+                case PunctualShadowAlgorithm.PCF_Tent_5x5:
+                    return 5;
+                case PunctualShadowAlgorithm.PCF_Tent_7x7:
+                    return 7;
+                default:
+                    return 1;
+            }
         }
 
-        public static void ExtractPunctualLightData(LightType lightType, VisibleLight visibleLight, Vector2 viewportSize, float normalBiasMax, uint faceIndex, out Matrix4x4 view, out Matrix4x4 invViewProjection, out Matrix4x4 projection, out Matrix4x4 deviceProjection, out ShadowSplitData splitData)
+        public static void ExtractPointLightData(LightType lightType, VisibleLight visibleLight, Vector2 viewportSize, float normalBiasMax, uint faceIndex, out Matrix4x4 view, out Matrix4x4 invViewProjection, out Matrix4x4 projection, out Matrix4x4 deviceProjection, out ShadowSplitData splitData)
         {
             Vector4 lightDir;
-            float guardAngle;
 
-            if (lightType == LightType.Spot)
+            float guardAngle = ShadowUtils.CalcGuardAnglePerspective(90.0f, viewportSize.x, GetFilterWidthInTexels(lightType), normalBiasMax, 79.0f);
+            ShadowUtils.ExtractPointLightMatrix(visibleLight, faceIndex, guardAngle, out view, out projection, out deviceProjection, out invViewProjection, out lightDir, out splitData);
+        }
+
+        // TODO: box spot and pyramid spots with non 1 aspect ratios shadow are incorrectly culled, see when scriptable culling will be here
+        public static void ExtractSpotLightData(LightType lightType, SpotLightShape shape, float aspectRatio, float shapeWidth, float shapeHeight, VisibleLight visibleLight, Vector2 viewportSize, float normalBiasMax, out Matrix4x4 view, out Matrix4x4 invViewProjection, out Matrix4x4 projection, out Matrix4x4 deviceProjection, out ShadowSplitData splitData)
+        {
+            Vector4 lightDir;
+
+            float guardAngle = ShadowUtils.CalcGuardAnglePerspective(visibleLight.light.spotAngle, viewportSize.x, GetFilterWidthInTexels(lightType), normalBiasMax, 180.0f - visibleLight.light.spotAngle);
+            ShadowUtils.ExtractSpotLightMatrix(visibleLight, guardAngle, aspectRatio, out view, out projection, out deviceProjection, out invViewProjection, out lightDir, out splitData);
+
+            if (shape == SpotLightShape.Box)
             {
-                guardAngle = ShadowUtils.CalcGuardAnglePerspective(visibleLight.light.spotAngle, viewportSize.x, GetFilterWidthInTexels(lightType), normalBiasMax, 180.0f - visibleLight.light.spotAngle);
-                ShadowUtils.ExtractSpotLightMatrix(visibleLight, guardAngle, out view, out projection, out deviceProjection, out invViewProjection, out lightDir, out splitData);
-            }
-            else
-            {
-                guardAngle = ShadowUtils.CalcGuardAnglePerspective(90.0f, viewportSize.x, GetFilterWidthInTexels(lightType), normalBiasMax, 79.0f);
-                ShadowUtils.ExtractPointLightMatrix(visibleLight, faceIndex, guardAngle, out view, out projection, out deviceProjection, out invViewProjection, out lightDir, out splitData);
+                float nearMin = 0.1f;
+                float nearZ = visibleLight.light.shadowNearPlane >= nearMin ? visibleLight.light.shadowNearPlane : nearMin;
+                projection = Matrix4x4.Ortho(-shapeWidth / 2, shapeWidth / 2, -shapeHeight / 2, shapeHeight / 2, nearZ, visibleLight.range);
+                deviceProjection = GL.GetGPUProjectionMatrix(projection, false);
+                ShadowUtils.InvertOrthographic(ref projection, ref view, out invViewProjection);
             }
         }
 

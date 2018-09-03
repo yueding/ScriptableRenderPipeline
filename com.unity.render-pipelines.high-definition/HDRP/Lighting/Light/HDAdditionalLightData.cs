@@ -1,6 +1,6 @@
 using System;
-#if UNITY_EDITOR
 using System.Linq;
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.Experimental.Rendering;
 using UnityEditor.Experimental.Rendering.HDPipeline;
@@ -241,8 +241,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 switch (m_Light.type)
                 {
                     case LightType.Point:
+                        HDShadowUtils.ExtractPointLightData(m_Light.type, visibleLight, viewportSize, m_ShadowData.normalBiasMax, (uint)faceIndex, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
+                        break;
                     case LightType.Spot:
-                        HDShadowUtils.ExtractPunctualLightData(m_Light.type, visibleLight, viewportSize, 0, (uint)faceIndex, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
+                        HDShadowUtils.ExtractSpotLightData(m_Light.type, spotLightShape, aspectRatio, shapeWidth, shapeHeight, visibleLight, viewportSize, m_ShadowData.normalBiasMax, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
                         break;
                     case LightType.Directional:
                         float[] cascadeRatios;
