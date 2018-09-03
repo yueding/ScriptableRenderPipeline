@@ -207,7 +207,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             shadowRequestCount = 0;
 
             // Create shadow requests array using the light type
-            if (shadowRequests == null)
+            if (shadowRequests == null || shadowRequests.Length != GetShadowRequestCount())
                 shadowRequests = Enumerable.Range(0, GetShadowRequestCount()).Select(i => new HDShadowRequest()).ToArray();
 
             // When creating a new light, at the first frame, there is no AdditionalShadowData so we can't really render shadows

@@ -329,10 +329,6 @@ Shader "HDRenderPipeline/StackLit"
     // TODO: remove this once new shadow system works
     // Only for dev/test purpose, allow to switch dynamically between HD and Core shadow system
     #pragma multi_compile _ USE_HD_SHADOW_SYSTEM
-    
-    // Supported shadow modes per light type
-    #pragma multi_compile PUNCTUAL_SHADOW_PCF_5X5 PUNCTUAL_SHADOW_PCF_7X7 PUNCTUAL_SHADOW_PCSS
-    #pragma multi_compile DIRECTIONAL_SHADOW_PCF_5X5 DIRECTIONAL_SHADOW_PCF_7X7 DIRECTIONAL_SHADOW_PCSS
 
     //enable GPU instancing support
     #pragma multi_compile_instancing
@@ -545,6 +541,10 @@ Shader "HDRenderPipeline/StackLit"
             #pragma multi_compile _ SHADOWS_SHADOWMASK
             // Setup DECALS_OFF so the shader stripper can remove variants
             #pragma multi_compile DECALS_OFF DECALS_3RT DECALS_4RT
+            
+            // Supported shadow modes per light type
+            #pragma multi_compile PUNCTUAL_SHADOW_PCF_5X5 PUNCTUAL_SHADOW_PCF_7X7 PUNCTUAL_SHADOW_PCSS
+            #pragma multi_compile DIRECTIONAL_SHADOW_PCF_5X5 DIRECTIONAL_SHADOW_PCF_7X7 DIRECTIONAL_SHADOW_PCSS
 
             // #include "../../Lighting/Forward.hlsl" : nothing left in there.
             //#pragma multi_compile LIGHTLOOP_SINGLE_PASS LIGHTLOOP_TILE_PASS

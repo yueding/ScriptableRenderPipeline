@@ -46,6 +46,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 Rect viewport = new Rect(Vector2.zero, shadowRequest.viewportSize);
                 curH = curH >= viewport.height ? curH : viewport.height;
 
+                if (curX + viewport.width > xMax && curY + curH >= yMax)
+                {
+                    if (allowResize)
+                        LayoutResize();
+                    else
+                        Debug.LogWarning("Shadow atlasing has failed.");
+                    return ;
+                }
                 if (curX + viewport.width > xMax)
                 {
                     curX = 0;
@@ -58,17 +66,76 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     curY = 0;
                     curH = viewport.height;
                 }
-                if (curX + viewport.width > xMax || curY + curH > yMax)
-                {
-                    Debug.LogWarning("Shadow atlasing has failed.");
-                    // TODO: resize if possible and needed
-                    return ;
-                }
                 viewport.x = curX;
                 viewport.y = curY;
                 shadowRequest.atlasViewport = viewport;
                 curX += viewport.width;
             }
+        }
+
+        void LayoutResize()
+        {
+            var sortedRequests = shadowRequests.OrderBy(s => s.atlasViewport.height).ThenBy(s => s.atlasViewport.width).ToList();
+            int index = 0;
+            float currentX = 0;
+            float currentY = 0;
+            float currentMaxY = 0;
+            float currentMaxX = 0;
+
+            // TODO: sort shadow requests by height and width in two separated lists
+            while (index < sortedRequests.Count)
+            {
+                float y = 0;
+                float currentMaxXCache = currentMaxX;
+                do
+                {
+                    Rect r = new Rect(Vector2.zero, sortedRequests[index].viewportSize);
+                    r.x = currentMaxX;
+                    r.y = y;
+                    y += r.height;
+                    currentY = Mathf.Max(currentY, y);
+                    currentMaxXCache = Mathf.Max(currentMaxX, currentMaxX + r.width);
+                    sortedRequests[index].atlasViewport = r;
+                    index++;
+                    // Debug.Log("rx: " + r + " | " + index);
+                } while (y < currentMaxY && index < sortedRequests.Count);
+                currentMaxY = Mathf.Max(currentMaxY, currentY);
+                currentMaxX = currentMaxXCache;
+                if (index >= sortedRequests.Count)
+                    continue;
+                float x = 0;
+                float currentMaxYCache = currentMaxY;
+                do
+                {
+                    Rect r = new Rect(Vector2.zero, sortedRequests[index].viewportSize);
+                    r.x = x;
+                    r.y = currentMaxY;
+                    x += r.width;
+                    currentX = Mathf.Max(currentX, x);
+                    currentMaxYCache = Mathf.Max(currentMaxY, currentMaxY + r.height);
+                    currentY += r.height;
+                    sortedRequests[index].atlasViewport = r;
+                    index++;
+                    // Debug.Log("ry: " + r + " | " + index);
+                } while (x < currentMaxX && index < sortedRequests.Count);
+                currentMaxX = Mathf.Max(currentMaxX, currentX);
+                currentMaxY = currentMaxYCache;
+            }
+
+            // Debug.Log("max: " + currentMaxX + "/" + currentMaxY);
+
+            Vector4 scale = new Vector4(m_Width / currentMaxX, m_Height / currentMaxY, m_Width / currentMaxX, m_Height / currentMaxY);
+
+            // Debug.Log("scale: " + scale);
+
+            foreach (var r in shadowRequests)
+            {
+                Vector4 s = new Vector4(r.atlasViewport.x, r.atlasViewport.y, r.atlasViewport.width, r.atlasViewport.height);
+                Vector4 reScaled = Vector4.Scale(s, scale);
+
+                r.atlasViewport = new Rect(reScaled.x, reScaled.y, reScaled.z, reScaled.w);
+            }
+            // TODO: layout and resize
         }
 
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, DrawShadowsSettings dss)
