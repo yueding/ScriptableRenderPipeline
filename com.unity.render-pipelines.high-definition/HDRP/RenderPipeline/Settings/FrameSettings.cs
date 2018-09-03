@@ -4,11 +4,51 @@ using UnityEngine.Serialization;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
+    [Flags]
+    public enum FrameSettingsOverrides
+    {
+        //lighting settings
+        Shadow = 1 << 0,
+        ContactShadow = 1 << 1,
+        ShadowMask = 1 << 2,
+        SSR = 1 << 3,
+        SSAO = 1 << 4,
+        SubsurfaceScattering = 1 << 5,
+        Transmission = 1 << 6,
+        AtmosphericScaterring = 1 << 7,
+        Volumetrics = 1 << 8,
+        LightLayers = 1 << 9,
+
+        //rendering pass
+        TransparentPrepass = 1 << 10,
+        TransparentPostpass = 1 << 11,
+        MotionVectors = 1 << 12,
+        ObjectMotionVectors = 1 << 13,
+        Decals = 1 << 14,
+        RoughRefraction = 1 << 15,
+        Distortion = 1 << 16,
+        Postprocess = 1 << 17,
+
+        //rendering settings
+        ForwardRenderingOnly = 1 << 18,
+        DepthPrepassWithDeferredRendering = 1 << 19,
+        AsyncCompute = 1 << 20,
+        OpaqueObjects = 1 << 21,
+        TransparentObjects = 1 << 22,
+
+        //other FrameSettings
+        Stereo = 1 << 23,
+        MSAA = 1 << 24,
+        MSAASampleCounte = 1 << 25,
+    }
+
     // The settings here are per frame settings.
     // Each camera must have its own per frame settings
     [Serializable]
     public class FrameSettings
     {
+        public FrameSettingsOverrides overrides;
+
         // Lighting
         // Setup by users
         public bool enableShadow = true;
