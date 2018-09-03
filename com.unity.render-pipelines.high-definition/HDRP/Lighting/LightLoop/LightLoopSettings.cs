@@ -3,9 +3,23 @@ using System.Collections.Generic;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
+    [Flags]
+    public enum LightLoopSettingsOverrides
+    {
+        FptlForForwardOpaque = 1 << 0,
+        BigTilePrepass = 1 << 1,
+        ComputeLightEvaluation = 1 << 2,
+        ComputeLightVariants = 1 << 3,
+        ComputeMaterialVariants = 1 << 4,
+        TileAndCluster = 1 << 5,
+        //Fptl = 1 << 6, //isFptlEnabled set up by system
+    }
+
     [Serializable]
     public class LightLoopSettings
     {
+        public LightLoopSettingsOverrides overrides;
+        
         // Setup by the users
         public bool enableTileAndCluster = true;
         public bool enableComputeLightEvaluation = true;
