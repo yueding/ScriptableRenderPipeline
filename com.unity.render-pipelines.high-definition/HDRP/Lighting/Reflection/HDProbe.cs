@@ -17,6 +17,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [SerializeField]
         FrameSettings m_FrameSettings = null;
 
+        [SerializeField]
+        CaptureSettings m_CaptureSettings = new CaptureSettings();
+
         [SerializeField, FormerlySerializedAsAttribute("dimmer"), FormerlySerializedAsAttribute("m_Dimmer"), FormerlySerializedAsAttribute("multiplier")]
         float m_Multiplier = 1.0f;
         [SerializeField, FormerlySerializedAsAttribute("weight")]
@@ -38,6 +41,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         /// <summary>Frame settings in use with this probe.</summary>
         public FrameSettings frameSettings { get { return m_FrameSettings; } }
+
+        public CaptureSettings captureSettings { get { return m_CaptureSettings; } }
 
         /// <summary>Multiplier factor of reflection (non PBR parameter).</summary>
         public float multiplier { get { return m_Multiplier; } set { m_Multiplier = value; } }
