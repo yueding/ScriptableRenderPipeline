@@ -5,8 +5,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     [Flags]
     public enum CaptureSettingsOverrides
     {
-        CubeResolution = 1 << 0,
-        PlanarResolution = 1 << 1,
+        //CubeResolution = 1 << 0,
+        //PlanarResolution = 1 << 1,
         ClearColorMode = 1 << 2,
         BackgroundColorHDR = 1 << 3,
         ClearDepth = 1 << 4,
