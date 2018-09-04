@@ -17,6 +17,22 @@
 #define BUMP_SCALE_NOT_SUPPORTED !SHADER_HINT_NICE_QUALITY
 #endif
 
+struct VertexPosition
+{
+    float3 worldSpace;
+    float3 viewSpace;
+    float4 hclipSpace;
+};
+
+VertexPosition GetVertexPosition(float3 positionOS)
+{
+    VertexPosition vertexPos;
+    vertexPos.worldSpace = TransformObjectToWorld(positionOS);
+    vertexPos.viewSpace = TransformWorldToView(vertexPos.worldSpace);
+    vertexPos.hclipSpace = TransformWorldToHClip(vertexPos.worldSpace);
+    return vertexPos;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef _NORMALMAP
     #define OUTPUT_NORMAL(IN, OUT) OutputTangentToWorld(IN.tangent, IN.normal, OUT.tangent.xyz, OUT.binormal.xyz, OUT.normal.xyz)

@@ -34,12 +34,12 @@ real GetOddNegativeScale()
 
 float3 TransformWorldToView(float3 positionWS)
 {
-    return mul(GetWorldToViewMatrix(), real4(positionWS, 1.0)).xyz;
+    return mul(GetWorldToViewMatrix(), float4(positionWS, 1.0)).xyz;
 }
 
 float3 TransformObjectToWorld(float3 positionOS)
 {
-    return mul(GetObjectToWorldMatrix(), real4(positionOS, 1.0)).xyz;
+    return mul(GetObjectToWorldMatrix(), float4(positionOS, 1.0)).xyz;
 }
 
 float3 TransformWorldToObject(float3 positionWS)

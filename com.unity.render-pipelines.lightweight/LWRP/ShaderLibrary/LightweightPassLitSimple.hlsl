@@ -35,7 +35,7 @@ struct LightweightVertexOutput
     float4 shadowCoord              : TEXCOORD7;
 #endif
 
-    float4 clipPos                  : SV_POSITION;
+    float4 positionCS               : SV_POSITION;
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -78,11 +78,12 @@ LightweightVertexOutput LitPassVertexSimple(LightweightVertexInput v)
 
     o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
 
-    o.posWSShininess.xyz = TransformObjectToWorld(v.vertex.xyz);
+    VertexPosition vertexPosition = GetVertexPosition(v.vertex.xyz);
+    o.posWSShininess.xyz = vertexPosition.worldSpace;
     o.posWSShininess.w = _Shininess * 128.0;
-    o.clipPos = TransformWorldToHClip(o.posWSShininess.xyz);
+    o.positionCS = vertexPosition.hclipSpace;
 
-    half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - o.posWSShininess.xyz);
+    half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - vertexPosition.worldSpace);
 
 #ifdef _NORMALMAP
     o.normal.w = viewDir.x;
@@ -102,16 +103,12 @@ LightweightVertexOutput LitPassVertexSimple(LightweightVertexInput v)
     OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
     OUTPUT_SH(o.normal.xyz, o.vertexSH);
 
-    half3 vertexLight = VertexLighting(o.posWSShininess.xyz, o.normal.xyz);
-    half fogFactor = ComputeFogFactor(o.clipPos.z);
+    half3 vertexLight = VertexLighting(vertexPosition.worldSpace, o.normal.xyz);
+    half fogFactor = ComputeFogFactor(vertexPosition.hclipSpace.z);
     o.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
 
 #if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
-#if SHADOWS_SCREEN
-    o.shadowCoord = ComputeShadowCoord(o.clipPos);
-#else
-    o.shadowCoord = TransformWorldToShadowCoord(o.posWSShininess.xyz);
-#endif
+    o.shadowCoord = GetShadowCoord(vertexPosition);
 #endif
 
     return o;

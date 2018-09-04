@@ -168,8 +168,7 @@ VertexOutput SplatmapVert(VertexInput v)
     UNITY_SETUP_INSTANCE_ID(v);
     TerrainInstancing(v.vertex, v.normal, v.texcoord);
 
-    float3 positionWS = TransformObjectToWorld(v.vertex.xyz);
-    float4 clipPos = TransformWorldToHClip(positionWS);
+    VertexPosition vertexPosition = GetVertexPosition(v.vertex.xyz);
 
     o.uvMainAndLM.xy = v.texcoord;
     o.uvMainAndLM.zw = v.texcoord * unity_LightmapST.xy + unity_LightmapST.zw;
@@ -180,7 +179,7 @@ VertexOutput SplatmapVert(VertexInput v)
     o.uvSplat23.zw = TRANSFORM_TEX(v.texcoord, _Splat3);
 #endif
 
-    half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - positionWS.xyz);
+    half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - vertexPosition.worldSpace);
 
 #if defined(_NORMALMAP) && !defined(ENABLE_TERRAIN_PERPIXEL_NORMAL)
     float4 vertexTangent = float4(cross(float3(0, 0, 1), v.normal), 1.0);
@@ -193,17 +192,13 @@ VertexOutput SplatmapVert(VertexInput v)
     o.normal = TransformObjectToWorldNormal(v.normal);
     o.viewDir = viewDir;
 #endif
-    o.fogFactorAndVertexLight.x = ComputeFogFactor(clipPos.z);
-    o.fogFactorAndVertexLight.yzw = VertexLighting(positionWS, o.normal);
-    o.positionWS = positionWS;
-    o.clipPos = clipPos;
+    o.fogFactorAndVertexLight.x = ComputeFogFactor(vertexPosition.hclipSpace.z);
+    o.fogFactorAndVertexLight.yzw = VertexLighting(vertexPosition.worldSpace, o.normal);
+    o.positionWS = vertexPosition.worldSpace;
+    o.clipPos = vertexPosition.hclipSpace;
 
 #ifdef _DIRECTIONAL_SHADOWS
-    #if SHADOWS_SCREEN
-        o.shadowCoord = ComputeShadowCoord(o.clipPos);
-    #else
-        o.shadowCoord = TransformWorldToShadowCoord(positionWS);
-    #endif
+    o.shadowCoord = GetShadowCoord(vertexPosition);
 #endif
 
     return o;

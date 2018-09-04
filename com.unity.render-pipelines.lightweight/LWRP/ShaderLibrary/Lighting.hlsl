@@ -483,7 +483,7 @@ half3 VertexLighting(float3 positionWS, half3 normalWS)
     int pixelLightCount = GetPunctualLightsCount();
     for (int i = 0; i < pixelLightCount; ++i)
     {
-        Light light = GetPunctualLight(lightIter, positionWS);
+        Light light = GetPunctualLight(i, positionWS);
         half3 lightColor = light.color * light.distanceAttenuation;
         vertexLightColor += LightingLambert(lightColor, light.direction, normalWS);
     }

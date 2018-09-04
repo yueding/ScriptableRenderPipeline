@@ -19,7 +19,7 @@ struct LightweightVertexOutput
     DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
 
 #ifdef _PUNCTUAL_LIGHTS
-    float3 posWS                    : TEXCOORD2;
+    float3 positionWS                    : TEXCOORD2;
 #endif
 
 #ifdef _NORMALMAP
@@ -37,7 +37,7 @@ struct LightweightVertexOutput
     float4 shadowCoord              : TEXCOORD7;
 #endif
 
-    float4 clipPos                  : SV_POSITION;
+    float4 positionCS               : SV_POSITION;
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -47,7 +47,7 @@ void InitializeInputData(LightweightVertexOutput IN, half3 normalTS, out InputDa
     inputData = (InputData)0;
 
 #ifdef _PUNCTUAL_LIGHTS
-    inputData.positionWS = IN.posWS;
+    inputData.positionWS = IN.positionWS;
 #endif
 
 #ifdef _NORMALMAP
@@ -84,10 +84,9 @@ LightweightVertexOutput LitPassVertex(LightweightVertexInput v)
 
     o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
 
-    float3 posWS = TransformObjectToWorld(v.vertex.xyz);
-    o.clipPos = TransformWorldToHClip(posWS);
+    VertexPosition vertexPosition = GetVertexPosition(v.vertex.xyz);
 
-    half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - posWS);
+    half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - vertexPosition.worldSpace);
 
 #ifdef _NORMALMAP
     o.normal.w = viewDir.x;
@@ -107,22 +106,19 @@ LightweightVertexOutput LitPassVertex(LightweightVertexInput v)
     OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
     OUTPUT_SH(o.normal.xyz, o.vertexSH);
 
-    half3 vertexLight = VertexLighting(posWS, o.normal.xyz);
-    half fogFactor = ComputeFogFactor(o.clipPos.z);
+    half3 vertexLight = VertexLighting(vertexPosition.worldSpace, o.normal.xyz);
+    half fogFactor = ComputeFogFactor(vertexPosition.hclipSpace.z);
     o.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
 
-#if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
-#if SHADOWS_SCREEN
-    o.shadowCoord = ComputeShadowCoord(o.clipPos);
-#else
-    o.shadowCoord = TransformWorldToShadowCoord(posWS);
-#endif
-#endif
-
 #ifdef _PUNCTUAL_LIGHTS
-    o.posWS = posWS;
+    o.positionWS = vertexPosition.worldSpace;
 #endif
 
+#if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
+    o.shadowCoord = GetShadowCoord(vertexPosition);
+#endif
+
+    o.positionCS = vertexPosition.hclipSpace;
     return o;
 }
 

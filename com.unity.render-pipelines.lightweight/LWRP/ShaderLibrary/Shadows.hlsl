@@ -215,4 +215,13 @@ half PuntualLightRealtimeShadow(int lightIndex, float3 positionWS)
 #endif
 }
 
+float4 GetShadowCoord(VertexPosition vertexPosition)
+{
+#if SHADOWS_SCREEN
+    return ComputeShadowCoord(vertexPosition.hclipSpace);
+#else
+    return TransformWorldToShadowCoord(vertexPosition.worldSpace);
+#endif
+}
+
 #endif

@@ -56,14 +56,14 @@ void InitializeInputData(GrassVertexOutput IN, out InputData inputData)
 
 void InitializeVertData(GrassVertexInput IN, inout GrassVertexOutput vertData)
 {
+    VertexPosition vertexPosition = GetVertexPosition(IN.vertex.xyz);
+
     vertData.uv = IN.texcoord;
-
-    vertData.posWSShininess.xyz = TransformObjectToWorld(IN.vertex.xyz);
+    vertData.posWSShininess.xyz = vertexPosition.worldSpace;
     vertData.posWSShininess.w = 32;
-    vertData.clipPos = TransformWorldToHClip(vertData.posWSShininess.xyz);
+    vertData.clipPos = vertexPosition.hclipSpace;
 
-    half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - vertData.posWSShininess.xyz);
-    vertData.viewDir = viewDir;
+    vertData.viewDir = VertexViewDirWS(GetCameraPositionWS() - vertexPosition.worldSpace);
     // initializes o.normal and if _NORMALMAP also o.tangent and o.binormal
     OUTPUT_NORMAL(IN, vertData);
 
@@ -74,16 +74,12 @@ void InitializeVertData(GrassVertexInput IN, inout GrassVertexOutput vertData)
     OUTPUT_LIGHTMAP_UV(IN.lightmapUV, unity_LightmapST, vertData.lightmapUV);
     OUTPUT_SH(vertData.normal.xyz, vertData.vertexSH);
 
-    half3 vertexLight = VertexLighting(vertData.posWSShininess.xyz, vertData.normal.xyz);
-    half fogFactor = ComputeFogFactor(vertData.clipPos.z);
+    half3 vertexLight = VertexLighting(vertexPosition.worldSpace, vertData.normal.xyz);
+    half fogFactor = ComputeFogFactor(vertexPosition.hclipSpace.z);
     vertData.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
 
 #ifdef _DIRECTIONAL_SHADOWS
-#if SHADOWS_SCREEN
-    vertData.shadowCoord = ComputeShadowCoord(vertData.clipPos);
-#else
-    vertData.shadowCoord = TransformWorldToShadowCoord(vertData.posWSShininess.xyz);
-#endif
+    vertData.shadowCoord = GetShadowCoord(vertexPosition);
 #endif
 }
 
