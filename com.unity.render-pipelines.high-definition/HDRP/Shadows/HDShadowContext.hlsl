@@ -7,18 +7,10 @@
 // Custom shadowmap sampling functions
 #include "HDRP/Shadows/HDShadowTexFetch.hlsl"
 
-// TODO: refactor this once we can generate arrays in hlsl structs
-struct HDDirectionalShadow
-{
-    float4      sphereCascades[4];
-    float4      cascadeDirection;
-    float       cascadeBorders[4];
-};
-
 struct HDShadowContext
 {
     StructuredBuffer<HDShadowData>  shadowDatas;
-    HDDirectionalShadow             directionalShadowData;
+    HDDirectionalShadowData         directionalShadowData;
 };
 
 // HD shadow sampling bindings
@@ -38,24 +30,9 @@ StructuredBuffer<HDDirectionalShadowData>   _HDDirectionalShadowData;
 HDShadowContext InitShadowContext()
 {
     HDShadowContext         sc;
-    HDDirectionalShadow     ds;
-    HDDirectionalShadowData dsd = _HDDirectionalShadowData[0];
-
-    // Repack these fields into array for convenience
-    ds.sphereCascades[0] = dsd.sphereCascade1;
-    ds.sphereCascades[1] = dsd.sphereCascade2;
-    ds.sphereCascades[2] = dsd.sphereCascade3;
-    ds.sphereCascades[3] = dsd.sphereCascade4;
-
-    ds.cascadeDirection = dsd.cascadeDirection;
-
-    ds.cascadeBorders[0] = dsd.cascadeBorder1;
-    ds.cascadeBorders[1] = dsd.cascadeBorder2;
-    ds.cascadeBorders[2] = dsd.cascadeBorder3;
-    ds.cascadeBorders[3] = dsd.cascadeBorder4;
 
     sc.shadowDatas = _HDShadowDatas;
-    sc.directionalShadowData = ds;
+    sc.directionalShadowData = _HDDirectionalShadowData[0];
 
     return sc;
 }

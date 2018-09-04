@@ -152,7 +152,7 @@ int EvalShadow_GetSplitIndex(HDShadowContext shadowContext, int index, real3 pos
     real3 wposDir, splitSphere;
 
     HDShadowData sd = shadowContext.shadowDatas[index];
-    HDDirectionalShadow dsd = shadowContext.directionalShadowData;
+    HDDirectionalShadowData dsd = shadowContext.directionalShadowData;
 
     // find the current cascade
     for (; i < kMaxShadowCascades; i++)

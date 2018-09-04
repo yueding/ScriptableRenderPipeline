@@ -24,24 +24,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public Vector4      shadowFilterParams1;
     }
-
+    
     // We use a different structure for directional light because these is a lot of data there
     // and it will add too much useless stuff for other lights
+    // Note: In order to support HLSL array generation, we need to use fixed arrays and so a unsafe context for this struct
     [GenerateHLSL]
-    public struct HDDirectionalShadowData
+    public unsafe struct HDDirectionalShadowData
     {
-        // TODO: refactor this when arrays will be supported with GenerateHLSL
-        public Vector4      sphereCascade1;
-        public Vector4      sphereCascade2;
-        public Vector4      sphereCascade3;
-        public Vector4      sphereCascade4;
+        // We can't use Vector4 here because the vector4[] makes this struct non blittable
+        [HLSLArray(4, typeof(Vector4))]
+        public fixed float      sphereCascades[4 * 4];
 
-        public Vector4      cascadeDirection;
+        public Vector4          cascadeDirection;
 
-        public float        cascadeBorder1;
-        public float        cascadeBorder2;
-        public float        cascadeBorder3;
-        public float        cascadeBorder4;
+        [HLSLArray(4, typeof(float))]
+        public fixed float      cascadeBorders[4];
     }
 
     [GenerateHLSL]
@@ -168,25 +165,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cullingSphere.w *= cullingSphere.w;
             }
 
-            // TODO: refactor this once we can generate arrays in hlsl structs
-            switch (cascadeIndex)
+            unsafe
             {
-                case 0:
-                    m_DirectionalShadowData.sphereCascade1 = cullingSphere;
-                    m_DirectionalShadowData.cascadeBorder1 = border;
-                    break ;
-                case 1:
-                    m_DirectionalShadowData.sphereCascade2 = cullingSphere;
-                    m_DirectionalShadowData.cascadeBorder2 = border;
-                    break ;
-                case 2:
-                    m_DirectionalShadowData.sphereCascade3 = cullingSphere;
-                    m_DirectionalShadowData.cascadeBorder3 = border;
-                    break ;
-                case 3:
-                    m_DirectionalShadowData.sphereCascade4 = cullingSphere;
-                    m_DirectionalShadowData.cascadeBorder4 = border;
-                    break ;
+                fixed (float * sphereCascadesBuffer = m_DirectionalShadowData.sphereCascades)
+                    ((Vector4 *)sphereCascadesBuffer)[cascadeIndex] = cullingSphere;
+                fixed (float * cascadeBorders = m_DirectionalShadowData.cascadeBorders)
+                    cascadeBorders[cascadeIndex] = border;
             }
         }
 
@@ -218,6 +202,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return data;
         }
 
+        unsafe Vector4 GetCascadeSphereAtIndex(int index)
+        {
+            fixed (float * sphereCascadesBuffer = m_DirectionalShadowData.sphereCascades)
+            {
+                return ((Vector4 *)sphereCascadesBuffer)[index];
+            }
+        }
+
         public void ProcessShadowRequests(CullResults cullResults, Camera camera)
         {
             int shadowIndex = 0;
@@ -239,7 +231,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
 
             // Update directional datas:
-            m_DirectionalShadowData.cascadeDirection = (m_DirectionalShadowData.sphereCascade2 - m_DirectionalShadowData.sphereCascade2).normalized;
+            m_DirectionalShadowData.cascadeDirection = (GetCascadeSphereAtIndex(1) - GetCascadeSphereAtIndex(0)).normalized;
         }
  
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults)

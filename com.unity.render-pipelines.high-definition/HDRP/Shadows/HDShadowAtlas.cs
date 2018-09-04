@@ -44,27 +44,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 // shadow atlas layouting
                 Rect viewport = new Rect(Vector2.zero, shadowRequest.viewportSize);
-                curH = curH >= viewport.height ? curH : viewport.height;
+                curH = Mathf.Max(curH, viewport.height);
 
-                if (curX + viewport.width > xMax && curY + curH >= yMax)
-                {
-                    if (allowResize)
-                        LayoutResize();
-                    else
-                        Debug.LogWarning("Shadow atlasing has failed.");
-                    return ;
-                }
                 if (curX + viewport.width > xMax)
                 {
                     curX = 0;
                     curY += curH;
                     curH = viewport.height;
                 }
-                if (curX + viewport.width > xMax || curY + curH > yMax)
+                if (curY + curH >= yMax)
                 {
-                    curX = 0;
-                    curY = 0;
-                    curH = viewport.height;
+                    if (allowResize)
+                        LayoutResize();
+                    else
+                        Debug.LogWarning("Shadow atlasing has failed.");
+                    return ;
                 }
                 viewport.x = curX;
                 viewport.y = curY;

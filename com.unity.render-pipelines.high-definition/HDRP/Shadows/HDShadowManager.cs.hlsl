@@ -31,15 +31,9 @@ struct HDShadowData
 // PackingRules = Exact
 struct HDDirectionalShadowData
 {
-    float4 sphereCascade1;
-    float4 sphereCascade2;
-    float4 sphereCascade3;
-    float4 sphereCascade4;
+    float4 sphereCascades[4];
     float4 cascadeDirection;
-    float cascadeBorder1;
-    float cascadeBorder2;
-    float cascadeBorder3;
-    float cascadeBorder4;
+    float cascadeBorders[4];
 };
 
 //
@@ -89,41 +83,17 @@ float4 GetShadowFilterParams1(HDShadowData value)
 //
 // Accessors for UnityEngine.Experimental.Rendering.HDPipeline.HDDirectionalShadowData
 //
-float4 GetSphereCascade1(HDDirectionalShadowData value)
+float4 GetSphereCascades(HDDirectionalShadowData value, int index)
 {
-    return value.sphereCascade1;
-}
-float4 GetSphereCascade2(HDDirectionalShadowData value)
-{
-    return value.sphereCascade2;
-}
-float4 GetSphereCascade3(HDDirectionalShadowData value)
-{
-    return value.sphereCascade3;
-}
-float4 GetSphereCascade4(HDDirectionalShadowData value)
-{
-    return value.sphereCascade4;
+    return value.sphereCascades[index];
 }
 float4 GetCascadeDirection(HDDirectionalShadowData value)
 {
     return value.cascadeDirection;
 }
-float GetCascadeBorder1(HDDirectionalShadowData value)
+float GetCascadeBorders(HDDirectionalShadowData value, int index)
 {
-    return value.cascadeBorder1;
-}
-float GetCascadeBorder2(HDDirectionalShadowData value)
-{
-    return value.cascadeBorder2;
-}
-float GetCascadeBorder3(HDDirectionalShadowData value)
-{
-    return value.cascadeBorder3;
-}
-float GetCascadeBorder4(HDDirectionalShadowData value)
-{
-    return value.cascadeBorder4;
+    return value.cascadeBorders[index];
 }
 
 
