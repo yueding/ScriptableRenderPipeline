@@ -12,16 +12,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         public SerializedRenderPipelineSettings renderPipelineSettings;
         public SerializedFrameSettings defaultFrameSettings;
-        public SerializedFrameSettings defaultCubeReflectionSettings;
-        public SerializedFrameSettings defaultPlanarReflectionSettings;
-
-        public enum FrameSettings
-        {
-            Camera,
-            CubeReflection,
-            PlanarReflection
-        }
-        public FrameSettings currentlyEdited = FrameSettings.Camera;
+        public SerializedFrameSettings defaultCubeReflectionFrameSettings;
+        public SerializedFrameSettings defaultPlanarReflectionFrameSettings;
 
         public SerializedHDRenderPipelineAsset(SerializedObject serializedObject)
         {
@@ -33,8 +25,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             renderPipelineSettings = new SerializedRenderPipelineSettings(serializedObject.Find((HDRenderPipelineAsset a) => a.renderPipelineSettings));
             defaultFrameSettings = new SerializedFrameSettings(serializedObject.FindProperty("m_FrameSettings"));
-            defaultCubeReflectionSettings = new SerializedFrameSettings(serializedObject.FindProperty("m_CubeReflectionSettings"));
-            defaultPlanarReflectionSettings = new SerializedFrameSettings(serializedObject.FindProperty("m_PlanarReflectionSettings"));
+            defaultCubeReflectionFrameSettings = new SerializedFrameSettings(serializedObject.FindProperty("m_CubeReflectionFrameSettings"));
+            defaultPlanarReflectionFrameSettings = new SerializedFrameSettings(serializedObject.FindProperty("m_PlanarReflectionFrameSettings"));
         }
 
         public void Update()

@@ -1,4 +1,5 @@
 using UnityEngine.Events;
+using UnityEditor.AnimatedValues;
 
 namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
@@ -19,37 +20,60 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                         ),
                     CED.space,
                     CED.Action(Drawer_TitleDefaultFrameSettings),
-                    CED.Select(
-                        (s, d, o) => s.defaultFrameSettings,
-                        (s, d, o) => GetEditedFrameSettings(d),
-                        FrameSettingsUI.Inspector
+                    CED.FoldoutGroup(
+                        "Camera",
+                        (s, p, o) => s.isSectionExpandedCamera,
+                        FoldoutOption.Indent,
+                        CED.Select(
+                            (s, d, o) => s.defaultFrameSettings,
+                            (s, d, o) => d.defaultFrameSettings,
+                            FrameSettingsUI.Inspector(withOverride: false)
+                            )
+                        ),
+                    CED.space,
+                    CED.FoldoutGroup(
+                        "Cube Reflection",
+                        (s, p, o) => s.isSectionExpandedCubeReflection,
+                        FoldoutOption.Indent,
+                        CED.Select(
+                            (s, d, o) => s.defaultCubeReflectionFrameSettings,
+                            (s, d, o) => d.defaultCubeReflectionFrameSettings,
+                            FrameSettingsUI.Inspector(withOverride: false)
+                            )
+                        ),
+                    CED.space,
+                    CED.FoldoutGroup(
+                        "Planar Reflection",
+                        (s, p, o) => s.isSectionExpandedPlanarReflection,
+                        FoldoutOption.Indent,
+                        CED.Select(
+                            (s, d, o) => s.defaultPlanarReflectionFrameSettings,
+                            (s, d, o) => d.defaultPlanarReflectionFrameSettings,
+                            FrameSettingsUI.Inspector(withOverride: false)
+                            )
                         )
+
                     );
         }
 
-        static SerializedFrameSettings GetEditedFrameSettings(SerializedHDRenderPipelineAsset d)
-        {
-            switch(d.currentlyEdited)
-            {
-                default:
-                case SerializedHDRenderPipelineAsset.FrameSettings.Camera:
-                    return d.defaultFrameSettings;
-                case SerializedHDRenderPipelineAsset.FrameSettings.CubeReflection:
-                    return d.defaultCubeReflectionSettings;
-                case SerializedHDRenderPipelineAsset.FrameSettings.PlanarReflection:
-                    return d.defaultPlanarReflectionSettings;
-            }
-        }
+
 
         public static readonly CED.IDrawer Inspector;
 
         public static readonly CED.IDrawer SectionPrimarySettings = CED.Action(Drawer_SectionPrimarySettings);
 
         public FrameSettingsUI defaultFrameSettings = new FrameSettingsUI();
+        public FrameSettingsUI defaultCubeReflectionFrameSettings = new FrameSettingsUI();
+        public FrameSettingsUI defaultPlanarReflectionFrameSettings = new FrameSettingsUI();
         public RenderPipelineSettingsUI renderPipelineSettings = new RenderPipelineSettingsUI();
 
+
+        public AnimBool isSectionExpandedCamera { get { return m_AnimBools[0]; } }
+        public AnimBool isSectionExpandedCubeReflection { get { return m_AnimBools[1]; } }
+        public AnimBool isSectionExpandedPlanarReflection { get { return m_AnimBools[2]; } }
+
         public HDRenderPipelineUI()
-            : base(0)
+            : base(3)
         {
         }
 
@@ -71,11 +95,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         static void Drawer_TitleDefaultFrameSettings(HDRenderPipelineUI s, SerializedHDRenderPipelineAsset d, Editor o)
         {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField(_.GetContent("Default Frame Settings"), EditorStyles.boldLabel);
-                d.currentlyEdited = (SerializedHDRenderPipelineAsset.FrameSettings)EditorGUILayout.EnumPopup(d.currentlyEdited);
-            }
+            EditorGUILayout.LabelField(_.GetContent("Default Frame Settings"), EditorStyles.boldLabel);
         }
 
         static void Drawer_SectionPrimarySettings(HDRenderPipelineUI s, SerializedHDRenderPipelineAsset d, Editor o)

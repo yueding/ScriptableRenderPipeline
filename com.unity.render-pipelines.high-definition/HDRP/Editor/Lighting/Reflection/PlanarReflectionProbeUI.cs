@@ -36,7 +36,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                   CED.Select(
                       (s, d, o) => s.frameSettings,
                       (s, d, o) => d.frameSettings,
-                      FrameSettingsUI.Inspector
+                      FrameSettingsUI.Inspector(withXR: false)
                       ),
                   CED.space,
                   CED.Action(Drawer_SectionBakeButton)
