@@ -36,6 +36,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                         (s, p, o) => s.isSectionExpandedCubeReflection,
                         FoldoutOption.Indent,
                         CED.Select(
+                            (s, d, o) => s.defaultCubeReflectionCaptureSettings,
+                            (s, d, o) => d.defaultCubeReflectionCaptureSettings,
+                            CaptureSettingsUI.SectionCaptureSettings(withOverride: false)
+                            ),
+                        CED.Select(
                             (s, d, o) => s.defaultCubeReflectionFrameSettings,
                             (s, d, o) => d.defaultCubeReflectionFrameSettings,
                             FrameSettingsUI.Inspector(withOverride: false)
@@ -46,6 +51,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                         "Planar Reflection",
                         (s, p, o) => s.isSectionExpandedPlanarReflection,
                         FoldoutOption.Indent,
+                        CED.Select(
+                            (s, d, o) => s.defaultPlanarReflectionCaptureSettings,
+                            (s, d, o) => d.defaultPlanarReflectionCaptureSettings,
+                            CaptureSettingsUI.SectionCaptureSettings(withOverride: false)
+                            ),
                         CED.Select(
                             (s, d, o) => s.defaultPlanarReflectionFrameSettings,
                             (s, d, o) => d.defaultPlanarReflectionFrameSettings,
@@ -65,6 +75,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         public FrameSettingsUI defaultFrameSettings = new FrameSettingsUI();
         public FrameSettingsUI defaultCubeReflectionFrameSettings = new FrameSettingsUI();
         public FrameSettingsUI defaultPlanarReflectionFrameSettings = new FrameSettingsUI();
+        public CaptureSettingsUI defaultCubeReflectionCaptureSettings = new CaptureSettingsUI();
+        public CaptureSettingsUI defaultPlanarReflectionCaptureSettings = new CaptureSettingsUI();
         public RenderPipelineSettingsUI renderPipelineSettings = new RenderPipelineSettingsUI();
 
 

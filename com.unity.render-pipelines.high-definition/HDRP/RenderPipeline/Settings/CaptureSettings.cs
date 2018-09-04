@@ -24,6 +24,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         ShadowDistance = 1 << 16,
     }
 
+    [Serializable]
     public class CaptureSettings
     {
         public CaptureSettingsOverrides overrides;
