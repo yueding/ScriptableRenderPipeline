@@ -31,8 +31,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         protected ShaderKeyword m_DirectionalPCF_7x7;
         protected ShaderKeyword m_DirectionalPCSS;
         
-        Dictionary<PunctualShadowAlgorithm, ShaderKeyword> m_PunctualShadowVariants;
-        Dictionary<DirectionalShadowAlgorithm, ShaderKeyword> m_DirectionalShadowVariants;
+        Dictionary<HDShadowQuality, ShaderKeyword> m_PunctualShadowVariants;
+        Dictionary<HDShadowQuality, ShaderKeyword> m_DirectionalShadowVariants;
 
         public BaseShaderPreprocessor()
         {
@@ -45,24 +45,24 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             m_Decals3RT = new ShaderKeyword("DECALS_3RT");
             m_Decals4RT = new ShaderKeyword("DECALS_4RT");
             m_LightLayers = new ShaderKeyword("LIGHT_LAYERS");
-            m_PunctualPCF_5x5 = new ShaderKeyword("PUNCTUAL_SHADOW_PCF_5X5");
-            m_PunctualPCF_7x7 = new ShaderKeyword("PUNCTUAL_SHADOW_PCF_7X7");
-            m_PunctualPCSS = new ShaderKeyword("PUNCTUAL_SHADOW_PCSS");
-            m_DirectionalPCF_5x5 = new ShaderKeyword("DIRECTIONAL_SHADOW_PCF_5X5");
-            m_DirectionalPCF_7x7 = new ShaderKeyword("DIRECTIONAL_SHADOW_PCF_7X7");
-            m_DirectionalPCSS = new ShaderKeyword("DIRECTIONAL_SHADOW_PCSS");
+            m_PunctualPCF_5x5 = new ShaderKeyword("PUNCTUAL_SHADOW_LOW");
+            m_PunctualPCF_7x7 = new ShaderKeyword("PUNCTUAL_SHADOW_MEDIUM");
+            m_PunctualPCSS = new ShaderKeyword("PUNCTUAL_SHADOW_HIGH");
+            m_DirectionalPCF_5x5 = new ShaderKeyword("DIRECTIONAL_SHADOW_LOW");
+            m_DirectionalPCF_7x7 = new ShaderKeyword("DIRECTIONAL_SHADOW_MEDIUM");
+            m_DirectionalPCSS = new ShaderKeyword("DIRECTIONAL_SHADOW_HIGH");
             
-            m_PunctualShadowVariants = new Dictionary<PunctualShadowAlgorithm, ShaderKeyword>
+            m_PunctualShadowVariants = new Dictionary<HDShadowQuality, ShaderKeyword>
             {
-                {PunctualShadowAlgorithm.PCF_Tent_5x5, m_PunctualPCF_5x5},
-                {PunctualShadowAlgorithm.PCF_Tent_7x7, m_PunctualPCF_7x7},
-                {PunctualShadowAlgorithm.PCSS, m_PunctualPCSS},
+                {HDShadowQuality.Low, m_PunctualPCF_5x5},
+                {HDShadowQuality.Medium, m_PunctualPCF_7x7},
+                {HDShadowQuality.High, m_PunctualPCSS},
             };
-            m_DirectionalShadowVariants = new Dictionary<DirectionalShadowAlgorithm, ShaderKeyword>
+            m_DirectionalShadowVariants = new Dictionary<HDShadowQuality, ShaderKeyword>
             {
-                {DirectionalShadowAlgorithm.PCF_Tent_5x5, m_DirectionalPCF_5x5},
-                {DirectionalShadowAlgorithm.PCF_Tent_7x7, m_DirectionalPCF_7x7},
-                {DirectionalShadowAlgorithm.PCSS, m_DirectionalPCSS},
+                {HDShadowQuality.Low, m_DirectionalPCF_5x5},
+                {HDShadowQuality.Medium, m_DirectionalPCF_7x7},
+                {HDShadowQuality.High, m_DirectionalPCSS},
             };
         }
 
@@ -84,16 +84,16 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         {
             // Strip every useless shadow configs
             // TODO: test if it actually works
-            var shadowInitParams = hdrpAsset.renderPipelineSettings.shadowInitParams;
+            var shadowInitParams = hdrpAsset.renderPipelineSettings.hdShadowInitParams;
             foreach (var punctualShadowVariant in m_PunctualShadowVariants)
             {
-                if (punctualShadowVariant.Key != shadowInitParams.punctualShadowAlgorithm)
+                if (punctualShadowVariant.Key != shadowInitParams.punctualShadowQuality)
                     if (inputData.shaderKeywordSet.IsEnabled(punctualShadowVariant.Value))
                         return true;
             }
             foreach (var directionalShadowVariant in m_DirectionalShadowVariants)
             {
-                if (directionalShadowVariant.Key != shadowInitParams.directionalShadowAlgorithm)
+                if (directionalShadowVariant.Key != shadowInitParams.directionalShadowQuality)
                     if (inputData.shaderKeywordSet.IsEnabled(directionalShadowVariant.Value))
                         return true;
             }

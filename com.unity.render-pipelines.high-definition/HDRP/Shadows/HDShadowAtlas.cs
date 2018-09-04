@@ -82,7 +82,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             float currentMaxY = 0;
             float currentMaxX = 0;
 
-            // TODO: sort shadow requests by height and width in two separated lists
+            // Place shadows in a square shape
             while (index < sortedRequests.Count)
             {
                 float y = 0;
@@ -97,7 +97,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     currentMaxXCache = Mathf.Max(currentMaxX, currentMaxX + r.width);
                     sortedRequests[index].atlasViewport = r;
                     index++;
-                    // Debug.Log("rx: " + r + " | " + index);
                 } while (y < currentMaxY && index < sortedRequests.Count);
                 currentMaxY = Mathf.Max(currentMaxY, currentY);
                 currentMaxX = currentMaxXCache;
@@ -113,21 +112,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     x += r.width;
                     currentX = Mathf.Max(currentX, x);
                     currentMaxYCache = Mathf.Max(currentMaxY, currentMaxY + r.height);
-                    currentY += r.height;
                     sortedRequests[index].atlasViewport = r;
                     index++;
-                    // Debug.Log("ry: " + r + " | " + index);
                 } while (x < currentMaxX && index < sortedRequests.Count);
                 currentMaxX = Mathf.Max(currentMaxX, currentX);
                 currentMaxY = currentMaxYCache;
             }
 
-            // Debug.Log("max: " + currentMaxX + "/" + currentMaxY);
-
             Vector4 scale = new Vector4(m_Width / currentMaxX, m_Height / currentMaxY, m_Width / currentMaxX, m_Height / currentMaxY);
 
-            // Debug.Log("scale: " + scale);
-
+            // Scale down every shadow rects to fit with the current atlas size
             foreach (var r in shadowRequests)
             {
                 Vector4 s = new Vector4(r.atlasViewport.x, r.atlasViewport.y, r.atlasViewport.width, r.atlasViewport.height);
@@ -135,13 +129,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 r.atlasViewport = new Rect(reScaled.x, reScaled.y, reScaled.z, reScaled.w);
             }
-            // TODO: layout and resize
         }
 
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, DrawShadowsSettings dss)
         {
             cmd.SetRenderTarget(identifier);
-            CoreUtils.DrawFullScreen(cmd, m_ClearMaterial, null, 0);
 
             foreach (var shadowRequest in shadowRequests)
             {
@@ -149,6 +141,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetViewProjectionMatrices(shadowRequest.view, shadowRequest.projection);
                 
                 cmd.SetGlobalFloat(HDShaderIDs._ZClip, shadowRequest.zClip ? 1.0f : 0.0f);
+                CoreUtils.DrawFullScreen(cmd, m_ClearMaterial, null, 0);
 
                 dss.lightIndex = shadowRequest.lightIndex;
                 dss.splitData = shadowRequest.splitData;

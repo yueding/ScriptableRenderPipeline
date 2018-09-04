@@ -2,20 +2,20 @@
 // There are two variants provided, one takes the texture and sampler explicitly so they can be statically passed in.
 // The variant without resource parameters dynamically accesses the texture when sampling.
 
-#ifdef PUNCTUAL_SHADOW_PCF_5X5
+#ifdef PUNCTUAL_SHADOW_LOW
 #define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#elif PUNCTUAL_SHADOW_PCF_7X7
+#elif PUNCTUAL_SHADOW_MEDIUM
 #define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#else // PUNCTUAL_SHADOW_PCSS
-#define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowSoftness, sd.blockerSampleCount, sd.filterSampleCount, tex, samp, s_point_clamp_sampler)
+#else // PUNCTUAL_SHADOW_HIGH
+#define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowFilterParams1.x, asint(sd.shadowFilterParams1.y), asint(sd.shadowFilterParams1.z), tex, samp, s_point_clamp_sampler)
 #endif
 
-#ifdef DIRECTIONAL_SHADOW_PCF_5X5
+#ifdef DIRECTIONAL_SHADOW_LOW
 #define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#elif DIRECTIONAL_SHADOW_PCF_7X7
+#elif DIRECTIONAL_SHADOW_MEDIUM
 #define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#else // DIRECTIONAL_SHADOW_PCSS
-#define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowSoftness, sd.blockerSampleCount, sd.filterSampleCount, tex, samp, s_point_clamp_sampler)
+#else // DIRECTIONAL_SHADOW_HIGH
+#define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowFilterParams1.x, asint(sd.shadowFilterParams1.y), asint(sd.shadowFilterParams1.z), tex, samp, s_point_clamp_sampler)
 #endif
 
 real4 EvalShadow_WorldToShadow(real4x4 viewProjection, real3 positionWS)

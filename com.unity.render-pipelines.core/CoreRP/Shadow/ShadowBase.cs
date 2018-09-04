@@ -20,11 +20,6 @@ namespace UnityEngine.Experimental.Rendering
         public int      maxPointLightShadows = kDefaultMaxPointLightShadows;
         public int      maxSpotLightShadows = kDefaultMaxSpotLightShadows;
         public int      maxDirectionalLightShadows = kDefaultMaxDirectionalLightShadows;
-
-        public int      maxShadowRequests = 128;
-
-        public PunctualShadowAlgorithm punctualShadowAlgorithm;
-        public DirectionalShadowAlgorithm directionalShadowAlgorithm;
     }
 
     // Class used to pass parameters to the shadow system on a per frame basis.
@@ -60,27 +55,6 @@ namespace UnityEngine.Experimental.Rendering
         PCSS,
         Custom = 32
     };
-
-    public enum HDShadowAlgorithm
-    {
-        PCF_Tent_5x5    = 0,
-        PCF_Tent_7x7    = 1,
-        PCSS            = 2
-    }
-
-    public enum PunctualShadowAlgorithm
-    {
-        PCF_Tent_5x5 = HDShadowAlgorithm.PCF_Tent_5x5,
-        PCF_Tent_7x7 = HDShadowAlgorithm.PCF_Tent_7x7,
-        PCSS = HDShadowAlgorithm.PCSS,
-    }
-
-    public enum DirectionalShadowAlgorithm
-    {
-        PCF_Tent_5x5 = HDShadowAlgorithm.PCF_Tent_5x5,
-        PCF_Tent_7x7 = HDShadowAlgorithm.PCF_Tent_7x7,
-        PCSS = HDShadowAlgorithm.PCSS,
-    }
 
     public enum ShadowVariant // 3 bits
     {

@@ -148,8 +148,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         bool m_UpdateAreaLightEmissiveMeshComponents = false;
 
-        ShadowInitParameters                    m_ShadowInitParameters;
-        Dictionary<HDShadowAlgorithm, Action>   m_ShadowAlgorithmUIs;
+        HDShadowInitParameters                m_HDShadowInitParameters;
+        Dictionary<HDShadowQuality, Action>   m_ShadowAlgorithmUIs;
 
         protected override void OnEnable()
         {
@@ -227,12 +227,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             foreach (var additionalLightData in m_AdditionalLightDatas)
                 additionalLightData.UpgradeLight();
             
-            m_ShadowInitParameters = (GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset).renderPipelineSettings.shadowInitParams;
-            m_ShadowAlgorithmUIs = new Dictionary<HDShadowAlgorithm, Action>
+            m_HDShadowInitParameters = (GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset).renderPipelineSettings.hdShadowInitParams;
+            m_ShadowAlgorithmUIs = new Dictionary<HDShadowQuality, Action>
             {
-                {HDShadowAlgorithm.PCF_Tent_5x5, DrawPCFShadowSettings},
-                {HDShadowAlgorithm.PCF_Tent_7x7, DrawPCFShadowSettings},
-                {HDShadowAlgorithm.PCSS, DrawPCSSShadowSettings}
+                {HDShadowQuality.Low, DrawLowShadowSettings},
+                {HDShadowQuality.Medium, DrawMediumShadowSettings},
+                {HDShadowQuality.High, DrawHighShadowSettings}
             };
         }
 
@@ -651,11 +651,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 DrawBakedShadowParameters();
             
             // Draw shadow settings using the current shadow algorithm
-            HDShadowAlgorithm currentAlgorithm;
+            HDShadowQuality currentAlgorithm;
             if (settings.lightType.enumValueIndex == (int)LightType.Directional)
-                currentAlgorithm = (HDShadowAlgorithm)m_ShadowInitParameters.directionalShadowAlgorithm;
+                currentAlgorithm = (HDShadowQuality)m_HDShadowInitParameters.directionalShadowQuality;
             else
-                currentAlgorithm = (HDShadowAlgorithm)m_ShadowInitParameters.punctualShadowAlgorithm;
+                currentAlgorithm = (HDShadowQuality)m_HDShadowInitParameters.punctualShadowQuality;
             m_ShadowAlgorithmUIs[currentAlgorithm]();
 
             // There is currently no additional settings for shadow on directional light
@@ -697,15 +697,20 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             }
         }
 
-        void DrawPCFShadowSettings()
+        void DrawLowShadowSettings()
         {
             // Currently there is nothing to display here
         }
 
-        void DrawPCSSShadowSettings()
+        void DrawMediumShadowSettings()
+        {
+
+        }
+
+        void DrawHighShadowSettings()
         {
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("PCSS settings", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Hight Quality Settings", EditorStyles.boldLabel);
 
             using (new EditorGUI.IndentLevelScope())
             {

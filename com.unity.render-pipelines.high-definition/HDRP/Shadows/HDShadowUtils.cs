@@ -15,14 +15,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (hdAsset == null)
                 return 1;
 
-            switch (hdAsset.renderPipelineSettings.shadowInitParams.punctualShadowAlgorithm)
+            switch (hdAsset.renderPipelineSettings.hdShadowInitParams.punctualShadowQuality)
             {
-                case PunctualShadowAlgorithm.PCF_Tent_5x5:
-                    return 5;
-                case PunctualShadowAlgorithm.PCF_Tent_7x7:
-                    return 7;
+                // Warning: these values have to match the algorithms used for shadow filtering (in HDShadowAlgorithm.hlsl)
+                case HDShadowQuality.Low:
+                    return 5; // PCF 5x5
+                case HDShadowQuality.Medium:
+                    return 7; // PCF 7x7
                 default:
-                    return 1;
+                    return 1; // Any non PCF algorithms
             }
         }
 

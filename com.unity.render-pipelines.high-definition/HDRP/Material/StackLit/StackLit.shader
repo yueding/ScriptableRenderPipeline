@@ -543,8 +543,8 @@ Shader "HDRenderPipeline/StackLit"
             #pragma multi_compile DECALS_OFF DECALS_3RT DECALS_4RT
             
             // Supported shadow modes per light type
-            #pragma multi_compile PUNCTUAL_SHADOW_PCF_5X5 PUNCTUAL_SHADOW_PCF_7X7 PUNCTUAL_SHADOW_PCSS
-            #pragma multi_compile DIRECTIONAL_SHADOW_PCF_5X5 DIRECTIONAL_SHADOW_PCF_7X7 DIRECTIONAL_SHADOW_PCSS
+            #pragma multi_compile PUNCTUAL_SHADOW_LOW PUNCTUAL_SHADOW_MEDIUM PUNCTUAL_SHADOW_HIGH
+            #pragma multi_compile DIRECTIONAL_SHADOW_LOW DIRECTIONAL_SHADOW_MEDIUM DIRECTIONAL_SHADOW_HIGH
 
             // #include "../../Lighting/Forward.hlsl" : nothing left in there.
             //#pragma multi_compile LIGHTLOOP_SINGLE_PASS LIGHTLOOP_TILE_PASS

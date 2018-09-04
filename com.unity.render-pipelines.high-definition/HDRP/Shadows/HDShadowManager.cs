@@ -22,9 +22,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public int          flags;
         public float        edgeTolerance;
 
-        public float        shadowSoftness;
-        public int          blockerSampleCount;
-        public int          filterSampleCount;
+        public Vector4      shadowFilterParams1;
     }
 
     // We use a different structure for directional light because these is a lot of data there
@@ -88,6 +86,30 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public int                  blockerSampleCount;
         public int                  filterSampleCount;
     }
+    
+    public enum HDShadowQuality
+    {
+        Low = 0,
+        Medium = 1,
+        High = 2,
+    }
+
+    [Serializable]
+    public class HDShadowInitParameters
+    {
+        public const int        k_DefaultShadowAtlasSize = 4096;
+        public const int        k_DefaultMaxShadowRequests = 128;
+        // TODO: 32 bit shadowmap are not supported by RThandle currently, when they will, change Depth24 to Depth32
+        public const DepthBits  k_DefaultShadowMapDepthBits = DepthBits.Depth24;
+        
+        public int              shadowAtlasWidth = k_DefaultShadowAtlasSize;
+        public int              shadowAtlasHeight = k_DefaultShadowAtlasSize;
+        public int              maxShadowRequests = k_DefaultMaxShadowRequests;
+        public DepthBits        shadowMapsDepthBits = k_DefaultShadowMapDepthBits;
+
+        public HDShadowQuality  punctualShadowQuality;
+        public HDShadowQuality  directionalShadowQuality;
+    }
 
     public class HDShadowManager : IDisposable
     {
@@ -109,13 +131,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         int                         m_Height;
         int                         m_maxShadowRequests;
 
-        public HDShadowManager(int width, int height, int maxShadowRequests, bool shadowMap16Bt, Shader clearShader)
+        public HDShadowManager(int width, int height, int maxShadowRequests, DepthBits shadowMapDepthBits, Shader clearShader)
         {
             Material clearMaterial = CoreUtils.CreateEngineMaterial(clearShader);
-            // TODO: 32 bit shadowmap are not supported by RThandle currently, when it will be change Depth24 to Depth32
-            DepthBits depthBits = (shadowMap16Bt) ? DepthBits.Depth16 : DepthBits.Depth24;
-            m_CascadeAtlas = new HDShadowAtlas(width, height, clearMaterial, depthBufferBits: depthBits, name: "Cascade Shadow Map Atlas");
-            m_Atlas = new HDShadowAtlas(width, height, clearMaterial, depthBufferBits: depthBits, name: "Shadow Map Atlas");
+            m_CascadeAtlas = new HDShadowAtlas(width, height, clearMaterial, depthBufferBits: shadowMapDepthBits, name: "Cascade Shadow Map Atlas");
+            m_Atlas = new HDShadowAtlas(width, height, clearMaterial, depthBufferBits: shadowMapDepthBits, name: "Shadow Map Atlas");
 
             m_ShadowDataBuffer = new ComputeBuffer(maxShadowRequests, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDShadowData)));
             m_DirectionalShadowDataBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(HDDirectionalShadowData)));
@@ -191,9 +211,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.edgeTolerance = shadowRequest.edgeTolerance;
             data.flags = shadowRequest.flags;
 
-            data.shadowSoftness = shadowRequest.shadowSoftness;
-            data.blockerSampleCount = shadowRequest.blockerSampleCount;
-            data.filterSampleCount = shadowRequest.filterSampleCount;
+            data.shadowFilterParams1.x = shadowRequest.shadowSoftness;
+            data.shadowFilterParams1.y = ShadowUtils.Asfloat(shadowRequest.blockerSampleCount);
+            data.shadowFilterParams1.z = ShadowUtils.Asfloat(shadowRequest.filterSampleCount);
 
             return data;
         }
