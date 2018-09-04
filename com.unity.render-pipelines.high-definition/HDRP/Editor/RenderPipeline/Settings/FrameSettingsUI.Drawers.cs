@@ -130,24 +130,28 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             DrawProperty(p.enableLightLayers, lightLayerContent, withOverride, a => p.overridesLightLayers = a, () => p.overridesLightLayers);
         }
 
-        static void DrawProperty(SerializedProperty p, GUIContent c, bool withOverride, Action<bool> setter, Func<bool> getter)
+        internal static void DrawProperty(SerializedProperty p, GUIContent c, bool withOverride, Action<bool> setter, Func<bool> getter)
         {
             if(withOverride)
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    --EditorGUI.indentLevel;
                     bool originalValue = getter();
-                    bool modifiedValue = EditorGUILayout.ToggleLeft(GUIContent.none, originalValue, GUILayout.MaxWidth(30f));
+                    bool modifiedValue = originalValue;
+
+                    var overrideRect = GUILayoutUtility.GetRect(17f, 17f, GUILayout.ExpandWidth(false));
+                    overrideRect.yMin += 4f;
+                    modifiedValue = GUI.Toggle(overrideRect, originalValue, CoreEditorUtils.GetContent("|Override this setting component."), CoreEditorStyles.smallTickbox);
+
                     if(originalValue ^ modifiedValue)
                     {
                         setter(modifiedValue);
                     }
+
                     using (new EditorGUI.DisabledScope(!modifiedValue))
                     {
                         EditorGUILayout.PropertyField(p, c);
                     }
-                    ++EditorGUI.indentLevel;
                 }
             }
             else
