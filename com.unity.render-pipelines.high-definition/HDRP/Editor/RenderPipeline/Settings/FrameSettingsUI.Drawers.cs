@@ -23,7 +23,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     CED.Select(
                         (s, d, o) => s.lightLoopSettings,
                         (s, d, o) => d.lightLoopSettings,
-                        LightLoopSettingsUI.SectionLightLoopSettings
+                        LightLoopSettingsUI.SectionLightLoopSettings(withOverride)
                         )
                     );
         }
