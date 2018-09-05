@@ -190,6 +190,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 RTHandles.Release(m_CameraDepthStencilMSAABuffer);
                 RTHandles.Release(m_CameraDepthValuesBuffer);
             }
+
+            // Do not forget to release the materials
+            if (m_MSAASupported)
+            {
+                CoreUtils.Destroy(m_DepthResolveMaterial);
+                CoreUtils.Destroy(m_ColorResolveMaterial);
+            }
         }
 
         public static int SampleCountToPassIndex(MSAASamples samples)

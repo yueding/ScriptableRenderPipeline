@@ -112,6 +112,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // AO resolve property block
         MaterialPropertyBlock m_AOPropertyBlock = new MaterialPropertyBlock();
+        Material m_AOResolveMaterial = null;
 
 
         // The pass "SRPDefaultUnlit" is a fall back to legacy unlit rendering and is required to support unity 2d + unity UI that render in the scene.
@@ -282,6 +283,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             MousePositionDebug.instance.Build();
 
             InitializeRenderStateBlocks();
+
+            // Init the MSAA AO resolve material
+            m_AOResolveMaterial = CoreUtils.CreateEngineMaterial(m_Asset.renderPipelineResources.aoResolve);
         }
 
         void UpgradeResourcesIfNeeded()
@@ -534,6 +538,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             m_MaterialList.ForEach(material => material.Cleanup());
 
+            CoreUtils.Destroy(m_AOResolveMaterial);
             CoreUtils.Destroy(m_CopyStencilForNoLighting);
             CoreUtils.Destroy(m_CameraMotionVectorsMaterial);
             CoreUtils.Destroy(m_DecalNormalBufferMaterial);
@@ -1588,8 +1593,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             HDUtils.SetRenderTarget(cmd, hdCamera, m_AmbientOcclusionBuffer);
                             m_AOPropertyBlock.SetTexture("_DepthValuesTexture", m_SharedRTManager.GetDepthValuesTexture());
                             m_AOPropertyBlock.SetTexture("_MultiAOTexture", m_MultiAmbientOcclusionBuffer);
-                            Material aoResolve = CoreUtils.CreateEngineMaterial(m_Asset.renderPipelineResources.aoResolve);
-                            cmd.DrawProcedural(Matrix4x4.identity, aoResolve, 0, MeshTopology.Triangles, 3, 1, m_AOPropertyBlock);
+                            cmd.DrawProcedural(Matrix4x4.identity, m_AOResolveMaterial, 0, MeshTopology.Triangles, 3, 1, m_AOPropertyBlock);
                         }
                     }
                     return;
