@@ -42,14 +42,19 @@ Shader "HDRenderPipeline/Fabric"
         // Specular Tint
         _SpecularTint("SpecularTint", Color) = (1.0, 1.0, 1.0)
 
-        // Detail Data
-        [Enum(UV0, 0, UV1, 1, UV2, 2, UV3, 3)] _UVDetail("UV Set for detail", Float) = 0
-        [HideInInspector] _UVMappingMaskDetail("_UVMappingMaskDetail", Color) = (1, 0, 0, 0)
-        _DetailMap("DetailMap", 2D) = "black" {}
+        // Thread Data
+        [Enum(UV0, 0, UV1, 1, UV2, 2, UV3, 3)] _UVThread("UV Set for thread", Float) = 0
+        [HideInInspector] _UVMappingMaskThread("UVMappingMaskThread", Color) = (1, 0, 0, 0)
+        _ThreadMap("ThreadMap", 2D) = "black" {}
+        _ThreadAOScale("ThreadAOScale", Range(0.0, 1.0)) = 0.5
+        _ThreadNormalScale("ThreadNormalScale", Range(0.0, 2.0)) = 1
+        _ThreadSmoothnessScale("ThreadSmoothnessScale", Range(0.0, 2.0)) = 1
+
+        // Fuzz Detail
         _FuzzDetailMap("FuzzDetailMap", 2D) = "white" {}
-        _DetailAOScale("_DetailAOScale", Range(0.0, 1.0)) = 0.5
-        _DetailNormalScale("_DetailNormalScale", Range(0.0, 2.0)) = 1
-        _DetailSmoothnessScale("_DetailSmoothnessScale", Range(0.0, 2.0)) = 1
+        _FuzzDetailScale("_FuzzDetailScale", Range(0.0, 1.0)) = 0.0
+        _FuzzDetailUVScale("_FuzzDetailUVScale", Range(0.01, 1.0)) = 0.25
+
         [ToggleUI] _LinkDetailsWithBase("LinkDetailsWithBase", Float) = 1.0
 
         // Emissive Data
@@ -137,7 +142,7 @@ Shader "HDRenderPipeline/Fabric"
     #pragma shader_feature _ENABLESPECULAROCCLUSION
     #pragma shader_feature _TANGENTMAP
     #pragma shader_feature _ANISOTROPYMAP
-    #pragma shader_feature _DETAIL_MAP
+    #pragma shader_feature _THREAD_MAP
     #pragma shader_feature _FUZZDETAIL_MAP
     #pragma shader_feature _SUBSURFACE_MASK_MAP
     #pragma shader_feature _THICKNESSMAP
