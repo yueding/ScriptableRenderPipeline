@@ -39,6 +39,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 CED.LabelWidth(300,
                     CED.Action(Drawer_FieldForwardRenderingOnly),
                     CED.Action(Drawer_FieldEnableMSAA),
+                    CED.Action(Drawer_FieldMSAASamples),
                     CED.FadeGroup(
                         (s, d, o, i) => s.isSectionExpandedUseForwardOnly,
                         FadeOption.None,
@@ -110,6 +111,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         static void Drawer_FieldEnableMSAA(FrameSettingsUI s, SerializedFrameSettings p, Editor owner)
         {
             EditorGUILayout.PropertyField(p.enableMSAA, _.GetContent("Enable MSAA"));
+        }
+
+        static void Drawer_FieldMSAASamples(FrameSettingsUI s, SerializedFrameSettings p, Editor owner)
+        {
+            EditorGUILayout.PropertyField(p.msaaSampleCount, _.GetContent("MSAA Sample"));
         }
 
         static void Drawer_FieldUseDepthPrepassWithDefferedRendering(FrameSettingsUI s, SerializedFrameSettings p, Editor owner)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine.Serialization;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
@@ -47,7 +48,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public bool enableTransparentObjects = true;
 
         public bool enableMSAA = false;
-        public MSAASamples msaaSampleCount { get; private set; }
+        public MSAASamples msaaSampleCount = MSAASamples.None;
 
         public LightLoopSettings lightLoopSettings = new LightLoopSettings();
 
@@ -87,6 +88,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             frameSettings.enableAsyncCompute = this.enableAsyncCompute;
 
             frameSettings.enableMSAA = this.enableMSAA;
+            frameSettings.msaaSampleCount = this.msaaSampleCount;
 
             this.lightLoopSettings.CopyTo(frameSettings.lightLoopSettings);
         }
@@ -154,7 +156,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             aggregate.enableTransparentObjects = srcFrameSettings.enableTransparentObjects;
 
             aggregate.enableMSAA = srcFrameSettings.enableMSAA && renderPipelineSettings.supportMSAA;
-            aggregate.msaaSampleCount = renderPipelineSettings.msaaSampleCount;
+            aggregate.msaaSampleCount = srcFrameSettings.msaaSampleCount;
 
             aggregate.ConfigureMSAADependentSettings();
             aggregate.ConfigureStereoDependentSettings();
@@ -222,6 +224,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static void RegisterDebug(string menuName, FrameSettings frameSettings)
         {
             List<DebugUI.Widget> widgets = new List<DebugUI.Widget>();
+
+            // Debug Menu UI
+            GUIContent[] debugMSAASamplesStrings = Enum.GetNames(typeof(MSAASamples)).Select(t => new GUIContent(t)).ToArray();
+            int[] debugMSAASamplesValues = (int[])Enum.GetValues(typeof(MSAASamples));
+
             widgets.AddRange(
             new DebugUI.Widget[]
             {
@@ -251,6 +258,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         new DebugUI.BoolField { displayName = "Enable Opaque Objects", getter = () => frameSettings.enableOpaqueObjects, setter = value => frameSettings.enableOpaqueObjects = value },
                         new DebugUI.BoolField { displayName = "Enable Transparent Objects", getter = () => frameSettings.enableTransparentObjects, setter = value => frameSettings.enableTransparentObjects = value },
                         new DebugUI.BoolField { displayName = "Enable MSAA", getter = () => frameSettings.enableMSAA, setter = value => frameSettings.enableMSAA = value },
+                        new DebugUI.EnumField { displayName = "MSAA Samples", getter = () => (int)frameSettings.msaaSampleCount, setter = value => frameSettings.msaaSampleCount = (MSAASamples)value, enumNames = debugMSAASamplesStrings, enumValues = debugMSAASamplesValues },
                     }
                 },
                 new DebugUI.Foldout

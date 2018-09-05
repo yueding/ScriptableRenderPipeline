@@ -124,6 +124,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static int[] debugScreenSpaceTracingLinearValues = null;
         public static GUIContent[] debuggedAlgorithmStrings = null;
         public static int[] debuggedAlgorithmValues = null;
+        public static GUIContent[] debugMSAASamplesStrings = null;
+        public static int[] debugMSAASamplesValues = null;
 
         ScreenSpaceLighting.ProjectionModel m_LastProjectionModel = ScreenSpaceLighting.ProjectionModel.None;
         ScreenSpaceTracingDebug m_ScreenSpaceTracingDebugData;

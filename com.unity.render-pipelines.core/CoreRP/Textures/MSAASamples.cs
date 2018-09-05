@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering
 {
-    public enum MSAASamples
+    public enum MSAASamples : int
     {
         None = 1,
         MSAA2x = 2,

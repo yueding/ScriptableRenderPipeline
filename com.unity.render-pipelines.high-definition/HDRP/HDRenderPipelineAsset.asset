@@ -42,6 +42,7 @@ MonoBehaviour:
     enableOpaqueObjects: 1
     enableTransparentObjects: 1
     enableMSAA: 1
+    msaaSampleCount: 8
     lightLoopSettings:
       enableTileAndCluster: 1
       enableComputeLightEvaluation: 1
@@ -62,7 +63,6 @@ MonoBehaviour:
     supportOnlyForward: 1
     supportDecals: 1
     supportMSAA: 1
-    msaaSampleCount: 8
     supportMotionVectors: 1
     supportStereo: 0
     supportRuntimeDebugDisplay: 1

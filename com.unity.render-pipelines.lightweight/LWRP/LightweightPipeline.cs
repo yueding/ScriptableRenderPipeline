@@ -7,8 +7,6 @@ using UnityEditor.Experimental.Rendering.LightweightPipeline;
 #endif
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.PostProcessing;
-using UnityEditor.Experimental.Rendering;
-using UnityEngine;
 using UnityEngine.Experimental.GlobalIllumination;
 using Lightmapping = UnityEngine.Experimental.GlobalIllumination.Lightmapping;
 

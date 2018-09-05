@@ -38,6 +38,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         public SerializedProperty enableTransparentObjects;
 
         public SerializedProperty enableMSAA;
+        public SerializedProperty msaaSampleCount;
 
         public SerializedProperty enableShadowMask;
 
@@ -74,6 +75,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             enableOpaqueObjects = root.Find((FrameSettings d) => d.enableOpaqueObjects);
             enableTransparentObjects = root.Find((FrameSettings d) => d.enableTransparentObjects);
             enableMSAA = root.Find((FrameSettings d) => d.enableMSAA);
+            msaaSampleCount = root.Find((FrameSettings d) => d.msaaSampleCount);
             enableShadowMask = root.Find((FrameSettings d) => d.enableShadowMask);
 
             lightLoopSettings = new SerializedLightLoopSettings(root.Find((FrameSettings d) => d.lightLoopSettings));

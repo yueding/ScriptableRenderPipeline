@@ -87,10 +87,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             if (d.supportOnlyForward.boolValue)
             {
                 EditorGUILayout.PropertyField(d.supportMSAA, _.GetContent("Support Multi Sampling Anti-Aliasing|This feature doesn't work currently."));
-                if (d.supportMSAA.boolValue)
-                {
-                    EditorGUILayout.PropertyField(d.MSAASampleCount, _.GetContent("MSAA Sample Count|Allow to select the level of MSAA."));
-                }
             }
             else
             {

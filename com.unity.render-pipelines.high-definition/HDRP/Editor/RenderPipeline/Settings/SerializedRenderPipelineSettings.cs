@@ -20,7 +20,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
         public SerializedProperty supportDecals;
         public SerializedProperty supportMSAA;
-        public SerializedProperty MSAASampleCount;
         public SerializedProperty supportMotionVectors;
         public SerializedProperty supportStereo;
         public SerializedProperty supportRuntimeDebugDisplay;
@@ -46,7 +45,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             supportDecals                   = root.Find((RenderPipelineSettings s) => s.supportDecals);
             supportMSAA                     = root.Find((RenderPipelineSettings s) => s.supportMSAA);
-            MSAASampleCount                 = root.Find((RenderPipelineSettings s) => s.msaaSampleCount);                        
             supportMotionVectors            = root.Find((RenderPipelineSettings s) => s.supportMotionVectors);
             supportStereo                   = root.Find((RenderPipelineSettings s) => s.supportStereo);
             supportRuntimeDebugDisplay      = root.Find((RenderPipelineSettings s) => s.supportRuntimeDebugDisplay);

@@ -214,7 +214,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Initial state of the RTHandle system.
             // Tells the system that we will require MSAA or not so that we can avoid wasteful render texture allocation.
             // TODO: Might want to initialize to at least the window resolution to avoid un-necessary re-alloc in the player
-            RTHandles.Initialize(1, 1, m_Asset.renderPipelineSettings.supportMSAA, m_Asset.renderPipelineSettings.msaaSampleCount);
+            RTHandles.Initialize(1, 1, m_Asset.renderPipelineSettings.supportMSAA, MSAASamples.None);
 
             m_GPUCopy = new GPUCopy(asset.renderPipelineResources.copyChannelCS);
 

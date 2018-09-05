@@ -36,7 +36,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [FormerlySerializedAs("supportDBuffer")]
         public bool supportDecals = true;
         public bool supportMSAA = false;
-        public MSAASamples  msaaSampleCount = MSAASamples.None;
         public bool supportMotionVectors = true;
         public bool supportStereo = false;
         public bool supportRuntimeDebugDisplay = true;
