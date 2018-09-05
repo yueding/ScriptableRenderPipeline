@@ -24,7 +24,7 @@ struct HDShadowData
     float4 normalBias;
     int flags;
     float edgeTolerance;
-    float4 shadowFilterParams1;
+    float4 shadowFilterParams0;
 };
 
 // Generated from UnityEngine.Experimental.Rendering.HDPipeline.HDDirectionalShadowData
@@ -75,9 +75,9 @@ float GetEdgeTolerance(HDShadowData value)
 {
     return value.edgeTolerance;
 }
-float4 GetShadowFilterParams1(HDShadowData value)
+float4 GetShadowFilterParams0(HDShadowData value)
 {
-    return value.shadowFilterParams1;
+    return value.shadowFilterParams0;
 }
 
 //

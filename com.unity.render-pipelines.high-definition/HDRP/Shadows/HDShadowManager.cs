@@ -22,7 +22,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public int          flags;
         public float        edgeTolerance;
 
-        public Vector4      shadowFilterParams1;
+        public Vector4      shadowFilterParams0;
     }
     
     // We use a different structure for directional light because these is a lot of data there
@@ -195,9 +195,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.edgeTolerance = shadowRequest.edgeTolerance;
             data.flags = shadowRequest.flags;
 
-            data.shadowFilterParams1.x = shadowRequest.shadowSoftness;
-            data.shadowFilterParams1.y = ShadowUtils.Asfloat(shadowRequest.blockerSampleCount);
-            data.shadowFilterParams1.z = ShadowUtils.Asfloat(shadowRequest.filterSampleCount);
+            data.shadowFilterParams0.x = shadowRequest.shadowSoftness;
+            data.shadowFilterParams0.y = ShadowUtils.Asfloat(shadowRequest.blockerSampleCount);
+            data.shadowFilterParams0.z = ShadowUtils.Asfloat(shadowRequest.filterSampleCount);
 
             return data;
         }
