@@ -3,14 +3,14 @@
 
 #include "LWRP/ShaderLibrary/Core.hlsl"
 
-struct VertexInput
+struct Attributes
 {
     float4 vertex   : POSITION;
     float2 uv       : TEXCOORD0;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
-struct VertexOutput
+struct Varyings
 {
     float4 position : SV_POSITION;
     float2 uv       : TEXCOORD0;
@@ -18,15 +18,15 @@ struct VertexOutput
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
-VertexOutput vert(VertexInput i)
+Varyings vert(Attributes input)
 {
-    VertexOutput o;
-    UNITY_SETUP_INSTANCE_ID(i);
-    UNITY_TRANSFER_INSTANCE_ID(i, o);
-    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-    o.uv = i.uv;
-    o.position = TransformObjectToHClip(i.vertex.xyz);
-    return o;
+    Varyings output;
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_TRANSFER_INSTANCE_ID(input, output);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+    output.uv = input.uv;
+    output.position = TransformObjectToHClip(input.vertex.xyz);
+    return output;
 }
 
 #if defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
@@ -78,10 +78,10 @@ float SampleDepth(float2 uv)
 #endif
 }
 
-float frag(VertexOutput i) : SV_Depth
+float frag(Varyings input) : SV_Depth
 {
-    UNITY_SETUP_INSTANCE_ID(i);
-    return SampleDepth(i.uv);
+    UNITY_SETUP_INSTANCE_ID(input);
+    return SampleDepth(input.uv);
 }
 
 #endif // LIGHTWEIGHT_DEPTH_COPY_INCLUDED

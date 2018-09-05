@@ -3,7 +3,7 @@
 
 #include "LWRP/ShaderLibrary/Lighting.hlsl"
 
-struct LightweightVertexInput
+struct Attributes
 {
     float4 vertex : POSITION;
     float3 normal : NORMAL;
@@ -13,13 +13,13 @@ struct LightweightVertexInput
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
-struct LightweightVertexOutput
+struct Varyings
 {
     float2 uv                       : TEXCOORD0;
     DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
 
 #ifdef _PUNCTUAL_LIGHTS
-    float3 positionWS                    : TEXCOORD2;
+    float3 positionWS               : TEXCOORD2;
 #endif
 
 #ifdef _NORMALMAP
@@ -42,31 +42,31 @@ struct LightweightVertexOutput
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
-void InitializeInputData(LightweightVertexOutput IN, half3 normalTS, out InputData inputData)
+void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData)
 {
     inputData = (InputData)0;
 
 #ifdef _PUNCTUAL_LIGHTS
-    inputData.positionWS = IN.positionWS;
+    inputData.positionWS = input.positionWS;
 #endif
 
 #ifdef _NORMALMAP
-    half3 viewDir = half3(IN.normal.w, IN.tangent.w, IN.binormal.w);
-    inputData.normalWS = TangentToWorldNormal(normalTS, IN.tangent.xyz, IN.binormal.xyz, IN.normal.xyz);
+    half3 viewDir = half3(input.normal.w, input.tangent.w, input.binormal.w);
+    inputData.normalWS = TangentToWorldNormal(normalTS, input.tangent.xyz, input.binormal.xyz, input.normal.xyz);
 #else
-    half3 viewDir = IN.viewDir;
-    inputData.normalWS = FragmentNormalWS(IN.normal);
+    half3 viewDir = input.viewDir;
+    inputData.normalWS = FragmentNormalWS(input.normal);
 #endif
 
     inputData.viewDirectionWS = FragmentViewDirWS(viewDir);
 #if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
-    inputData.shadowCoord = IN.shadowCoord;
+    inputData.shadowCoord = input.shadowCoord;
 #else
     inputData.shadowCoord = float4(0, 0, 0, 0);
 #endif
-    inputData.fogCoord = IN.fogFactorAndVertexLight.x;
-    inputData.vertexLighting = IN.fogFactorAndVertexLight.yzw;
-    inputData.bakedGI = SAMPLE_GI(IN.lightmapUV, IN.vertexSH, inputData.normalWS);
+    inputData.fogCoord = input.fogFactorAndVertexLight.x;
+    inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
+    inputData.bakedGI = SAMPLE_GI(input.lightmapUV, input.vertexSH, inputData.normalWS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -74,64 +74,59 @@ void InitializeInputData(LightweightVertexOutput IN, half3 normalTS, out InputDa
 ///////////////////////////////////////////////////////////////////////////////
 
 // Used in Standard (Physically Based) shader
-LightweightVertexOutput LitPassVertex(LightweightVertexInput v)
+Varyings LitPassVertex(Attributes input)
 {
-    LightweightVertexOutput o = (LightweightVertexOutput)0;
+    Varyings output = (Varyings)0;
 
-    UNITY_SETUP_INSTANCE_ID(v);
-    UNITY_TRANSFER_INSTANCE_ID(v, o);
-    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_TRANSFER_INSTANCE_ID(input, output);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-    o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+    output.uv = TRANSFORM_TEX(input.texcoord, _MainTex);
 
-    VertexPosition vertexPosition = GetVertexPosition(v.vertex.xyz);
+    VertexPosition vertexPosition = GetVertexPosition(input.vertex.xyz);
 
     half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - vertexPosition.worldSpace);
 
 #ifdef _NORMALMAP
-    o.normal.w = viewDir.x;
-    o.tangent.w = viewDir.y;
-    o.binormal.w = viewDir.z;
+    output.normal.w = viewDir.x;
+    output.tangent.w = viewDir.y;
+    output.binormal.w = viewDir.z;
 #else
-    o.viewDir = viewDir;
+    output.viewDir = viewDir;
 #endif
 
-    // initializes o.normal and if _NORMALMAP also o.tangent and o.binormal
-    OUTPUT_NORMAL(v, o);
+    OUTPUT_NORMAL(input, output);
+    OUTPUT_LIGHTMAP_UV(input.lightmapUV, unity_LightmapST, output.lightmapUV);
+    OUTPUT_SH(output.normal.xyz, output.vertexSH);
 
-    // We either sample GI from lightmap or SH.
-    // Lightmap UV and vertex SH coefficients use the same interpolator ("float2 lightmapUV" for lightmap or "half3 vertexSH" for SH)
-    // see DECLARE_LIGHTMAP_OR_SH macro.
-    // The following funcions initialize the correct variable with correct data
-    OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
-    OUTPUT_SH(o.normal.xyz, o.vertexSH);
-
-    half3 vertexLight = VertexLighting(vertexPosition.worldSpace, o.normal.xyz);
+    half3 vertexLight = VertexLighting(vertexPosition.worldSpace, output.normal.xyz);
     half fogFactor = ComputeFogFactor(vertexPosition.hclipSpace.z);
-    o.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
+    output.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
 
 #ifdef _PUNCTUAL_LIGHTS
-    o.positionWS = vertexPosition.worldSpace;
+    output.positionWS = vertexPosition.worldSpace;
 #endif
 
 #if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
-    o.shadowCoord = GetShadowCoord(vertexPosition);
+    output.shadowCoord = GetShadowCoord(vertexPosition);
 #endif
 
-    o.positionCS = vertexPosition.hclipSpace;
-    return o;
+    output.positionCS = vertexPosition.hclipSpace;
+
+    return output;
 }
 
 // Used in Standard (Physically Based) shader
-half4 LitPassFragment(LightweightVertexOutput IN) : SV_Target
+half4 LitPassFragment(Varyings input) : SV_Target
 {
-    UNITY_SETUP_INSTANCE_ID(IN);
+    UNITY_SETUP_INSTANCE_ID(input);
 
     SurfaceData surfaceData;
-    InitializeStandardLitSurfaceData(IN.uv, surfaceData);
+    InitializeStandardLitSurfaceData(input.uv, surfaceData);
 
     InputData inputData;
-    InitializeInputData(IN, surfaceData.normalTS, inputData);
+    InitializeInputData(input, surfaceData.normalTS, inputData);
 
     half4 color = LightweightFragmentPBR(inputData, surfaceData.albedo, surfaceData.metallic, surfaceData.specular, surfaceData.smoothness, surfaceData.occlusion, surfaceData.emission, surfaceData.alpha);
 

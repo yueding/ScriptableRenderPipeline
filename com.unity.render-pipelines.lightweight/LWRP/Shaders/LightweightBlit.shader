@@ -21,13 +21,13 @@ Shader "Hidden/LightweightPipeline/Blit"
 
             #include "LWRP/ShaderLibrary/Core.hlsl"
 
-            struct VertexInput
+            struct Attributes
             {
                 float4 vertex   : POSITION;
                 float2 uv       : TEXCOORD0;
             };
 
-            struct VertexOutput
+            struct Varyings
             {
                 half4 pos       : SV_POSITION;
                 half2 uv        : TEXCOORD0;
@@ -36,17 +36,17 @@ Shader "Hidden/LightweightPipeline/Blit"
             TEXTURE2D(_BlitTex);
             SAMPLER(sampler_BlitTex);
 
-            VertexOutput Vertex(VertexInput i)
+            Varyings Vertex(Attributes input)
             {
-                VertexOutput o;
-                o.pos = TransformObjectToHClip(i.vertex.xyz);
-                o.uv = i.uv;
-                return o;
+                Varyings output;
+                output.pos = TransformObjectToHClip(input.vertex.xyz);
+                output.uv = input.uv;
+                return output;
             }
 
-            half4 Fragment(VertexOutput i) : SV_Target
+            half4 Fragment(Varyings input) : SV_Target
             {
-                half4 col = SAMPLE_TEXTURE2D(_BlitTex, sampler_BlitTex, i.uv);
+                half4 col = SAMPLE_TEXTURE2D(_BlitTex, sampler_BlitTex, input.uv);
                 return col;
             }
             ENDHLSL

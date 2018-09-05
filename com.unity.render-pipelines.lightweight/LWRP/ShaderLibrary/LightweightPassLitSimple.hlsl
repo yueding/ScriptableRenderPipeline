@@ -3,7 +3,7 @@
 
 #include "LWRP/ShaderLibrary/Lighting.hlsl"
 
-struct LightweightVertexInput
+struct Attributes
 {
     float4 vertex : POSITION;
     float3 normal : NORMAL;
@@ -13,7 +13,7 @@ struct LightweightVertexInput
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
-struct LightweightVertexOutput
+struct Varyings
 {
     float2 uv                       : TEXCOORD0;
     DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
@@ -40,27 +40,27 @@ struct LightweightVertexOutput
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
-void InitializeInputData(LightweightVertexOutput IN, half3 normalTS, out InputData inputData)
+void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData)
 {
-    inputData.positionWS = IN.posWSShininess.xyz;
+    inputData.positionWS = input.posWSShininess.xyz;
 
 #ifdef _NORMALMAP
-    half3 viewDir = half3(IN.normal.w, IN.tangent.w, IN.binormal.w);
-    inputData.normalWS = TangentToWorldNormal(normalTS, IN.tangent.xyz, IN.binormal.xyz, IN.normal.xyz);
+    half3 viewDir = half3(input.normal.w, input.tangent.w, input.binormal.w);
+    inputData.normalWS = TangentToWorldNormal(normalTS, input.tangent.xyz, input.binormal.xyz, input.normal.xyz);
 #else
-    half3 viewDir = IN.viewDir;
-    inputData.normalWS = FragmentNormalWS(IN.normal);
+    half3 viewDir = input.viewDir;
+    inputData.normalWS = FragmentNormalWS(input.normal);
 #endif
 
     inputData.viewDirectionWS = FragmentViewDirWS(viewDir);
 #if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
-    inputData.shadowCoord = IN.shadowCoord;
+    inputData.shadowCoord = input.shadowCoord;
 #else
     inputData.shadowCoord = float4(0, 0, 0, 0);
 #endif
-    inputData.fogCoord = IN.fogFactorAndVertexLight.x;
-    inputData.vertexLighting = IN.fogFactorAndVertexLight.yzw;
-    inputData.bakedGI = SAMPLE_GI(IN.lightmapUV, IN.vertexSH, inputData.normalWS);
+    inputData.fogCoord = input.fogFactorAndVertexLight.x;
+    inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
+    inputData.bakedGI = SAMPLE_GI(input.lightmapUV, input.vertexSH, inputData.normalWS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -68,58 +68,52 @@ void InitializeInputData(LightweightVertexOutput IN, half3 normalTS, out InputDa
 ///////////////////////////////////////////////////////////////////////////////
 
 // Used in Standard (Simple Lighting) shader
-LightweightVertexOutput LitPassVertexSimple(LightweightVertexInput v)
+Varyings LitPassVertexSimple(Attributes input)
 {
-    LightweightVertexOutput o = (LightweightVertexOutput)0;
+    Varyings output = (Varyings)0;
 
-    UNITY_SETUP_INSTANCE_ID(v);
-    UNITY_TRANSFER_INSTANCE_ID(v, o);
-    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_TRANSFER_INSTANCE_ID(input, output);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-    o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+    output.uv = TRANSFORM_TEX(input.texcoord, _MainTex);
 
-    VertexPosition vertexPosition = GetVertexPosition(v.vertex.xyz);
-    o.posWSShininess.xyz = vertexPosition.worldSpace;
-    o.posWSShininess.w = _Shininess * 128.0;
-    o.positionCS = vertexPosition.hclipSpace;
+    VertexPosition vertexPosition = GetVertexPosition(input.vertex.xyz);
+    output.posWSShininess.xyz = vertexPosition.worldSpace;
+    output.posWSShininess.w = _Shininess * 128.0;
+    output.positionCS = vertexPosition.hclipSpace;
 
     half3 viewDir = VertexViewDirWS(GetCameraPositionWS() - vertexPosition.worldSpace);
 
 #ifdef _NORMALMAP
-    o.normal.w = viewDir.x;
-    o.tangent.w = viewDir.y;
-    o.binormal.w = viewDir.z;
+    output.normal.w = viewDir.x;
+    output.tangent.w = viewDir.y;
+    output.binormal.w = viewDir.z;
 #else
-    o.viewDir = viewDir;
+    output.viewDir = viewDir;
 #endif
 
-    // initializes o.normal and if _NORMALMAP also o.tangent and o.binormal
-    OUTPUT_NORMAL(v, o);
+    OUTPUT_NORMAL(input, output);
+    OUTPUT_LIGHTMAP_UV(input.lightmapUV, unity_LightmapST, output.lightmapUV);
+    OUTPUT_SH(output.normal.xyz, output.vertexSH);
 
-    // We either sample GI from lightmap or SH.
-    // Lightmap UV and vertex SH coefficients use the same interpolator ("float2 lightmapUV" for lightmap or "half3 vertexSH" for SH)
-    // see DECLARE_LIGHTMAP_OR_SH macro.
-    // The following funcions initialize the correct variable with correct data
-    OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
-    OUTPUT_SH(o.normal.xyz, o.vertexSH);
-
-    half3 vertexLight = VertexLighting(vertexPosition.worldSpace, o.normal.xyz);
+    half3 vertexLight = VertexLighting(vertexPosition.worldSpace, output.normal.xyz);
     half fogFactor = ComputeFogFactor(vertexPosition.hclipSpace.z);
-    o.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
+    output.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
 
 #if defined(_DIRECTIONAL_SHADOWS) && !defined(_RECEIVE_SHADOWS_OFF)
-    o.shadowCoord = GetShadowCoord(vertexPosition);
+    output.shadowCoord = GetShadowCoord(vertexPosition);
 #endif
 
-    return o;
+    return output;
 }
 
 // Used for StandardSimpleLighting shader
-half4 LitPassFragmentSimple(LightweightVertexOutput IN) : SV_Target
+half4 LitPassFragmentSimple(Varyings input) : SV_Target
 {
-    UNITY_SETUP_INSTANCE_ID(IN);
+    UNITY_SETUP_INSTANCE_ID(input);
 
-    float2 uv = IN.uv;
+    float2 uv = input.uv;
     half4 diffuseAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_PARAM(_MainTex, sampler_MainTex));
     half3 diffuse = diffuseAlpha.rgb * _Color.rgb;
 
@@ -132,10 +126,10 @@ half4 LitPassFragmentSimple(LightweightVertexOutput IN) : SV_Target
     half3 normalTS = SampleNormal(uv, TEXTURE2D_PARAM(_BumpMap, sampler_BumpMap));
     half3 emission = SampleEmission(uv, _EmissionColor.rgb, TEXTURE2D_PARAM(_EmissionMap, sampler_EmissionMap));
     half4 specularGloss = SampleSpecularGloss(uv, diffuseAlpha.a, _SpecColor, TEXTURE2D_PARAM(_SpecGlossMap, sampler_SpecGlossMap));
-    half shininess = IN.posWSShininess.w;
+    half shininess = input.posWSShininess.w;
 
     InputData inputData;
-    InitializeInputData(IN, normalTS, inputData);
+    InitializeInputData(input, normalTS, inputData);
 
     half4 color = LightweightFragmentBlinnPhong(inputData, diffuse, specularGloss, shininess, emission, alpha);
     ApplyFog(color.rgb, inputData.fogCoord);
