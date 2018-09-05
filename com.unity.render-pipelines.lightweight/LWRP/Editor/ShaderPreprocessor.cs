@@ -90,6 +90,22 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 !CoreUtils.HasFlag(features, ShaderFeatures.MixedLighting))
                 return true;
 
+            return false;
+        }
+
+        bool StripUnsupportedVariants(ShaderCompilerData compilerData)
+        {
+            // Dynamic GI is not supported so we can strip variants that have directional lightmap
+            // enabled but not baked lightmap.
+            if (compilerData.shaderKeywordSet.IsEnabled(LitShaderKeywords.DirectionalLightmap) &&
+                !compilerData.shaderKeywordSet.IsEnabled(LitShaderKeywords.Lightmap))
+                return true;
+
+            if (compilerData.shaderCompilerPlatform == ShaderCompilerPlatform.GLES20)
+            {
+                if (compilerData.shaderKeywordSet.IsEnabled(LitShaderKeywords.CascadeShadows))
+                    return true;
+            }
 
             return false;
         }
@@ -109,11 +125,6 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
             if (isPunctualShadows && !compilerData.shaderKeywordSet.IsEnabled(LitShaderKeywords.RealtimePunctualLights)) 
                 return true;
 
-            // Note: LWRP doesn't support Dynamic Lightmap.
-            if (compilerData.shaderKeywordSet.IsEnabled(LitShaderKeywords.DirectionalLightmap) &&
-                !compilerData.shaderKeywordSet.IsEnabled(LitShaderKeywords.Lightmap))
-                return true;
-
             return false;
         }
 
@@ -126,6 +137,9 @@ namespace UnityEditor.Experimental.Rendering.LightweightPipeline
                 return true;
 
             if (StripUnusedFeatures(features, compilerData))
+                return true;
+
+            if (StripUnsupportedVariants(compilerData))
                 return true;
 
             if (StripInvalidVariants(compilerData))
