@@ -2,21 +2,21 @@
 // There are two variants provided, one takes the texture and sampler explicitly so they can be statically passed in.
 // The variant without resource parameters dynamically accesses the texture when sampling.
 
-#ifdef PUNCTUAL_SHADOW_LOW
+// #ifdef PUNCTUAL_SHADOW_LOW
 #define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#elif PUNCTUAL_SHADOW_MEDIUM
-#define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#else // PUNCTUAL_SHADOW_HIGH
-#define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowFilterParams0.x, asint(sd.shadowFilterParams0.y), asint(sd.shadowFilterParams0.z), tex, samp, s_point_clamp_sampler)
-#endif
+// #elif PUNCTUAL_SHADOW_MEDIUM
+// #define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
+// #else // PUNCTUAL_SHADOW_HIGH
+// #define PUNCTUAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowFilterParams0.x, asint(sd.shadowFilterParams0.y), asint(sd.shadowFilterParams0.z), tex, samp, s_point_clamp_sampler)
+// #endif
 
-#ifdef DIRECTIONAL_SHADOW_LOW
+// #ifdef DIRECTIONAL_SHADOW_LOW
 #define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_5x5(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#elif DIRECTIONAL_SHADOW_MEDIUM
-#define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
-#else // DIRECTIONAL_SHADOW_HIGH
-#define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowFilterParams0.x, asint(sd.shadowFilterParams0.y), asint(sd.shadowFilterParams0.z), tex, samp, s_point_clamp_sampler)
-#endif
+// #elif DIRECTIONAL_SHADOW_MEDIUM
+// #define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCF_Tent_7x7(sd.textureSize, sd.textureSizeRcp, posTC, sampleBias, tex, samp)
+// #else // DIRECTIONAL_SHADOW_HIGH
+// #define DIRECTIONAL_FILTER_ALGORITHM(sd, posTC, sampleBias, tex, samp) SampleShadow_PCSS(posTC, sd.scaleOffset, sampleBias, sd.shadowFilterParams0.x, asint(sd.shadowFilterParams0.y), asint(sd.shadowFilterParams0.z), tex, samp, s_point_clamp_sampler)
+// #endif
 
 real4 EvalShadow_WorldToShadow(real4x4 viewProjection, real3 positionWS)
 {
@@ -68,6 +68,7 @@ real EvalShadow_WorldTexelSize(real4 viewBias, real L_dist, bool perspProj)
 }
 
 // used to scale down view biases to mitigate light leaking across shadowed corners
+#if SHADOW_USE_VIEW_BIAS_SCALING != 0
 real EvalShadow_ReceiverBiasWeightFlag(int flag)
 {
     return (flag & HDSHADOWFLAG_EDGE_LEAK_FIXUP) ? 1.0 : 0.0;
@@ -92,6 +93,17 @@ real EvalShadow_ReceiverBiasWeight(real4x4 viewProjection, real4 scaleOffset, re
     real3 pos = EvalShadow_ReceiverBiasWeightPos(positionWS, normalWS, L, EvalShadow_WorldTexelSize(viewBias, L_dist, perspProj), edgeTolerance, EvalShadow_ReceiverBiasWeightUseNormalFlag(flags));
     return lerp(1.0, SAMPLE_TEXTURE2D_SHADOW(tex, samp, EvalShadow_GetTexcoordsAtlas(viewProjection, scaleOffset, pos, perspProj)).x, EvalShadow_ReceiverBiasWeightFlag(flags));
 }
+
+real EvalShadow_ReceiverBiasWeight(Texture2D tex, SamplerState samp, real3 positionWS, real3 normalWS, real3 L, real L_dist, bool perspProj)
+{
+    // only used by PCF filters
+    return 1.0;
+}
+#else // SHADOW_USE_VIEW_BIAS_SCALING != 0
+real EvalShadow_ReceiverBiasWeight(Texture2D tex, SamplerComparisonState samp, real3 positionWS, real3 normalWS, real3 L, real L_dist, bool perspProj)                              { return 1.0; }
+real EvalShadow_ReceiverBiasWeight (Texture2D tex, SamplerState samp, real3 positionWS, real3 normalWS, real3 L, real L_dist, bool perspProj)                                        { return 1.0; }
+#endif // SHADOW_USE_VIEW_BIAS_SCALING != 0
+
 
 // receiver bias either using the normal to weight normal and view biases, or just light view biasing
 real3 EvalShadow_ReceiverBias(real4 viewBias, real4 normalBias, real3 positionWS, real3 normalWS, real3 L, real L_dist, real lightviewBiasWeight, bool perspProj)
@@ -118,6 +130,7 @@ real3 EvalShadow_ReceiverBias(real4 viewBias, real4 normalBias, real3 positionWS
 #endif
 }
 
+// Reimplement SHADOW_USE_SAMPLE_BIASING
 // sample bias used by wide PCF filters to offset individual taps
 real2 EvalShadow_SampleBias_Persp(real3 positionWS, real3 normalWS, real3 tcs) { return 0.0.xx; }
 real2 EvalShadow_SampleBias_Ortho(real3 normalWS)                                { return 0.0.xx; }

@@ -14,6 +14,11 @@
 real SampleShadow_PCF_Tent_5x5(real4 textureSize, real4 texelSizeRcp, real3 coord, real2 sampleBias, Texture2D tex, SamplerComparisonState compSamp)
 {
     real4 shadowMapTexture_TexelSize = real4(texelSizeRcp.xy, textureSize.xy);
+    
+#if SHADOW_USE_DEPTH_BIAS == 1
+    // add the depth bias
+    coord.z += depthBias;
+#endif
 
     real shadow = 0.0;
     real fetchesWeights[9];
@@ -21,6 +26,7 @@ real SampleShadow_PCF_Tent_5x5(real4 textureSize, real4 texelSizeRcp, real3 coor
 
     SampleShadow_ComputeSamples_Tent_5x5(shadowMapTexture_TexelSize, coord.xy, fetchesWeights, fetchesUV);
 
+#if SHADOW_OPTIMIZE_REGISTER_USAGE == 1 && SHADOW_USE_SAMPLE_BIASING == 0
     // the loops are only there to prevent the compiler form coalescing all 9 texture fetches which increases register usage
     int i;
     UNITY_LOOP
@@ -42,6 +48,13 @@ real SampleShadow_PCF_Tent_5x5(real4 textureSize, real4 texelSizeRcp, real3 coor
     }
 
     shadow += fetchesWeights[ 8] * SAMPLE_TEXTURE2D_SHADOW(tex, compSamp, real3(fetchesUV[ 8].xy, coord.z + dot(fetchesUV[ 8].xy - coord.xy, sampleBias))).x;
+#else
+    for( int i = 0; i < 9; i++ )
+    {
+        shadow += fetchesWeights[i] * SAMPLE_TEXTURE2D_SHADOW(tex, compSamp, real3( fetchesUV[i].xy, coord.z + dot(fetchesUV[i].xy - coord.xy, sampleBias)), slice).x;
+    }
+#endif
+
     return shadow;
 }
 
@@ -52,12 +65,18 @@ real SampleShadow_PCF_Tent_7x7(real4 textureSize, real4 texelSizeRcp, real3 coor
 {
     real4 shadowMapTexture_TexelSize = real4(texelSizeRcp.xy, textureSize.xy);
 
+#if SHADOW_USE_DEPTH_BIAS == 1
+    // add the depth bias
+    coord.z += depthBias;
+#endif
+
     real shadow = 0.0;
     real fetchesWeights[16];
     real2 fetchesUV[16];
 
     SampleShadow_ComputeSamples_Tent_7x7(shadowMapTexture_TexelSize, coord.xy, fetchesWeights, fetchesUV);
 
+#if SHADOW_OPTIMIZE_REGISTER_USAGE == 1
     // the loops are only there to prevent the compiler form coalescing all 16 texture fetches which increases register usage
     int i;
     UNITY_LOOP
@@ -92,6 +111,13 @@ real SampleShadow_PCF_Tent_7x7(real4 textureSize, real4 texelSizeRcp, real3 coor
         shadow += fetchesWeights[14] * SAMPLE_TEXTURE2D_SHADOW(tex, compSamp, real3(fetchesUV[14].xy, coord.z + dot(fetchesUV[14].xy - coord.xy, sampleBias))).x;
         shadow += fetchesWeights[15] * SAMPLE_TEXTURE2D_SHADOW(tex, compSamp, real3(fetchesUV[15].xy, coord.z + dot(fetchesUV[15].xy - coord.xy, sampleBias))).x;
     }
+#else
+    for( int i = 0; i < 16; i++ )
+    {
+        shadow += fetchesWeights[i] * SAMPLE_TEXTURE2D_SHADOW(tex, compSamp, real3(fetchesUV[i].xy, coord.z + dot(fetchesUV[i].xy - coord.xy, sampleBias))).x;
+    }
+#endif
+
     return shadow;
 }
 
@@ -101,6 +127,11 @@ real SampleShadow_PCF_Tent_7x7(real4 textureSize, real4 texelSizeRcp, real3 coor
 real SampleShadow_PCF_9tap_Adaptive(real4 texelSizeRcp, real3 tcs, real2 sampleBias, real filterSize, Texture2D tex, SamplerComparisonState compSamp)
 {
     texelSizeRcp *= filterSize;
+
+#if SHADOW_USE_DEPTH_BIAS == 1
+    // add the depth bias
+    tcs.z += depthBias;
+#endif
 
     // Terms0 are weights for the individual samples, the other terms are offsets in texel space
     real4 vShadow3x3PCFTerms0 = real4(20.0 / 267.0, 33.0 / 267.0, 55.0 / 267.0, 0.0);

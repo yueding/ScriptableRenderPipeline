@@ -74,7 +74,11 @@ void EvaluateLight_Directional(LightLoopContext lightLoopContext, PositionInputs
         uint  payloadOffset;
         real  fade;
         int cascadeCount;
+#ifdef USE_HD_SHADOW_SYSTEM
+        int shadowSplitIndex = EvalShadow_GetSplitIndex(lightLoopContext.shadowContext, lightData.shadowIndex, positionWS, fade, cascadeCount);
+#else
         int shadowSplitIndex = EvalShadow_GetSplitIndex(lightLoopContext.shadowContext, lightData.shadowIndex, positionWS, payloadOffset, fade, cascadeCount);
+#endif
         // we have a fade caclulation for each cascade but we must lerp with shadow mask only for the last one
         // if shadowSplitIndex is -1 it mean we are outside cascade and should return 1.0 to use shadowmask: saturate(-shadowSplitIndex) return 0 for >= 0 and 1 for -1
         fade = ((shadowSplitIndex + 1) == cascadeCount) ? fade : saturate(-shadowSplitIndex);

@@ -1,6 +1,13 @@
 #ifndef LIGHTLOOP_HD_SHADOW_HLSL
 #define LIGHTLOOP_HD_SHADOW_HLSL
 
+#define SHADOW_OPTIMIZE_REGISTER_USAGE 1
+
+#define SHADOW_USE_VIEW_BIAS_SCALING            1   // Enable view bias scaling to mitigate light leaking across edges. Uses the light vector if SHADOW_USE_ONLY_VIEW_BASED_BIASING is defined, otherwise uses the normal.
+// Note: Sample biasing work well but is very costly in term of VGPR, disable it for now
+#define SHADOW_USE_SAMPLE_BIASING               0   // Enable per sample biasing for wide multi-tap PCF filters. Incompatible with SHADOW_USE_ONLY_VIEW_BASED_BIASING.
+#define SHADOW_USE_DEPTH_BIAS                   0   // Enable clip space z biasing
+
 # include "HDRP/Shadows/HDShadowContext.hlsl"
 
 float GetDirectionalShadowAttenuation(HDShadowContext shadowContext, float3 positionWS, float3 normalWS, int shadowDataIndex, float3 L)
