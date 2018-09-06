@@ -26,6 +26,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Flags that defines if we are using a local texture or external
         bool m_ReuseGBufferMemory = false;
         bool m_MSAASupported = false;
+        MSAASamples m_MSAASamples = MSAASamples.None;
 
         // Arrays of RTIDs that are used to set render targets (when MSAA and when not MSAA)
         protected RenderTargetIdentifier[] m_RTIDs = new RenderTargetIdentifier[1];
@@ -42,6 +43,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // Set the flags
             m_MSAASupported = settings.supportMSAA;
+            m_MSAASamples = m_MSAASupported ? settings.msaaSampleCount : MSAASamples.None;
+
             m_ReuseGBufferMemory = !settings.supportOnlyForward;
 
             // Create the depth/stencil buffer
@@ -160,6 +163,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return m_CameraDepthValuesBuffer;
         }
 
+        public void SetNumMSAASamples(MSAASamples msaaSamples)
+        {
+            m_MSAASamples = msaaSamples;
+        }
+
         public RTHandleSystem.RTHandle GetStencilBufferCopy()
         {
             return m_CameraStencilBufferCopy;
@@ -237,7 +245,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     Shader.SetGlobalTexture(HDShaderIDs._DepthTextureMS, m_DepthAsColorMSAART);
 
                     // Resolve the depth and normal buffers
-                    cmd.DrawProcedural(Matrix4x4.identity, m_DepthResolveMaterial, SampleCountToPassIndex(frameSettings.msaaSampleCount), MeshTopology.Triangles, 3, 1);
+                    cmd.DrawProcedural(Matrix4x4.identity, m_DepthResolveMaterial, SampleCountToPassIndex(m_MSAASamples), MeshTopology.Triangles, 3, 1);
                 }
             }
         }
@@ -255,7 +263,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     m_PropertyBlock.SetTexture(HDShaderIDs._ColorTextureMS, msaaTarget);
 
                     // Resolve the depth and normal buffers
-                    cmd.DrawProcedural(Matrix4x4.identity, m_ColorResolveMaterial, SampleCountToPassIndex(frameSettings.msaaSampleCount), MeshTopology.Triangles, 3, 1, m_PropertyBlock);
+                    cmd.DrawProcedural(Matrix4x4.identity, m_ColorResolveMaterial, SampleCountToPassIndex(m_MSAASamples), MeshTopology.Triangles, 3, 1, m_PropertyBlock);
                 }
             }
         }
