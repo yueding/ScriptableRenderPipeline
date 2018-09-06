@@ -76,6 +76,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 {
                     Camera camera = renderingData.cameraData.camera;
                     context.StartMultiEye(camera);
+                    XRUtils.RenderOcclusionMesh(cmd, context, camera);
                     context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, opaqueFilterSettings);
                     context.StopMultiEye(camera);
                 }
