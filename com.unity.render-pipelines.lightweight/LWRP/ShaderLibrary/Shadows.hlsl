@@ -21,35 +21,35 @@ SAMPLER(sampler_ScreenSpaceShadowMapTexture);
 TEXTURE2D_SHADOW(_DirectionalShadowmapTexture);
 SAMPLER_CMP(sampler_DirectionalShadowmapTexture);
 
-TEXTURE2D_SHADOW(_LocalShadowmapTexture);
-SAMPLER_CMP(sampler_LocalShadowmapTexture);
+TEXTURE2D_SHADOW(_PunctualShadowmapTexture);
+SAMPLER_CMP(sampler_PunctualShadowmapTexture);
 
 CBUFFER_START(_DirectionalShadowBuffer)
 // Last cascade is initialized with a no-op matrix. It always transforms
-// shadow coord to half(0, 0, NEAR_PLANE). We use this trick to avoid
+// shadow coord to half3(0, 0, NEAR_PLANE). We use this trick to avoid
 // branching since ComputeCascadeIndex can return cascade index = MAX_SHADOW_CASCADES
-float4x4    _WorldToShadow[MAX_SHADOW_CASCADES + 1];
-float4      _DirShadowSplitSpheres0;
-float4      _DirShadowSplitSpheres1;
-float4      _DirShadowSplitSpheres2;
-float4      _DirShadowSplitSpheres3;
-float4      _DirShadowSplitSphereRadii;
-half4       _ShadowOffset0;
-half4       _ShadowOffset1;
-half4       _ShadowOffset2;
-half4       _ShadowOffset3;
-half4       _ShadowData;    // (x: shadowStrength)
-float4      _ShadowmapSize; // (xy: 1/width and 1/height, zw: width and height)
+float4x4    _DirectionalLightWorldToShadow[MAX_SHADOW_CASCADES + 1];
+float4      _CascadeShadowSplitSpheres0;
+float4      _CascadeShadowSplitSpheres1;
+float4      _CascadeShadowSplitSpheres2;
+float4      _CascadeShadowSplitSpheres3;
+float4      _CascadeShadowSplitSphereRadii;
+half4       _DirectionalShadowOffset0;
+half4       _DirectionalShadowOffset1;
+half4       _DirectionalShadowOffset2;
+half4       _DirectionalShadowOffset3;
+half4       _DirectionalShadowData;    // (x: shadowStrength)
+float4      _DirectionalShadowmapSize; // (xy: 1/width and 1/height, zw: width and height)
 CBUFFER_END
 
-CBUFFER_START(_LocalShadowBuffer)
-float4x4    _LocalWorldToShadowAtlas[MAX_VISIBLE_LIGHTS];
-half        _LocalShadowStrength[MAX_VISIBLE_LIGHTS];
-half4       _LocalShadowOffset0;
-half4       _LocalShadowOffset1;
-half4       _LocalShadowOffset2;
-half4       _LocalShadowOffset3;
-float4      _LocalShadowmapSize; // (xy: 1/width and 1/height, zw: width and height)
+CBUFFER_START(_PunctualShadowBuffer)
+float4x4    _PunctualLightsWorldToShadow[MAX_VISIBLE_LIGHTS];
+half        _PunctualShadowStrength[MAX_VISIBLE_LIGHTS];
+half4       _PunctualShadowOffset0;
+half4       _PunctualShadowOffset1;
+half4       _PunctualShadowOffset2;
+half4       _PunctualShadowOffset3;
+float4      _PunctualShadowmapSize; // (xy: 1/width and 1/height, zw: width and height)
 CBUFFER_END
 
 #if UNITY_REVERSED_Z
@@ -67,36 +67,36 @@ struct ShadowSamplingData
     float4 shadowmapSize;
 };
 
-ShadowSamplingData GetMainLightShadowSamplingData()
+ShadowSamplingData GetDirectionalLightShadowSamplingData()
 {
     ShadowSamplingData shadowSamplingData;
-    shadowSamplingData.shadowOffset0 = _ShadowOffset0;
-    shadowSamplingData.shadowOffset1 = _ShadowOffset1;
-    shadowSamplingData.shadowOffset2 = _ShadowOffset2;
-    shadowSamplingData.shadowOffset3 = _ShadowOffset3;
-    shadowSamplingData.shadowmapSize = _ShadowmapSize;
+    shadowSamplingData.shadowOffset0 = _DirectionalShadowOffset0;
+    shadowSamplingData.shadowOffset1 = _DirectionalShadowOffset1;
+    shadowSamplingData.shadowOffset2 = _DirectionalShadowOffset2;
+    shadowSamplingData.shadowOffset3 = _DirectionalShadowOffset3;
+    shadowSamplingData.shadowmapSize = _DirectionalShadowmapSize;
     return shadowSamplingData;
 }
 
-ShadowSamplingData GetLocalLightShadowSamplingData()
+ShadowSamplingData GetPunctualLightShadowSamplingData()
 {
     ShadowSamplingData shadowSamplingData;
-    shadowSamplingData.shadowOffset0 = _LocalShadowOffset0;
-    shadowSamplingData.shadowOffset1 = _LocalShadowOffset1;
-    shadowSamplingData.shadowOffset2 = _LocalShadowOffset2;
-    shadowSamplingData.shadowOffset3 = _LocalShadowOffset3;
-    shadowSamplingData.shadowmapSize = _LocalShadowmapSize;
+    shadowSamplingData.shadowOffset0 = _PunctualShadowOffset0;
+    shadowSamplingData.shadowOffset1 = _PunctualShadowOffset1;
+    shadowSamplingData.shadowOffset2 = _PunctualShadowOffset2;
+    shadowSamplingData.shadowOffset3 = _PunctualShadowOffset3;
+    shadowSamplingData.shadowmapSize = _PunctualShadowmapSize;
     return shadowSamplingData;
 }
 
-half GetMainLightShadowStrength()
+half GetDirectionalLightShadowStrength()
 {
-    return _ShadowData.x;
+    return _DirectionalShadowData.x;
 }
 
-half GetLocalLightShadowStrenth(int lightIndex)
+half GetPunctualLightShadowStrenth(int lightIndex)
 {
-    return _LocalShadowStrength[lightIndex];
+    return _PunctualShadowStrength[lightIndex];
 }
 
 half SampleScreenSpaceShadowMap(float4 shadowCoord)
@@ -160,13 +160,13 @@ real SampleShadowmap(float4 shadowCoord, TEXTURE2D_SHADOW_ARGS(ShadowMap, sample
 
 half ComputeCascadeIndex(float3 positionWS)
 {
-    float3 fromCenter0 = positionWS - _DirShadowSplitSpheres0.xyz;
-    float3 fromCenter1 = positionWS - _DirShadowSplitSpheres1.xyz;
-    float3 fromCenter2 = positionWS - _DirShadowSplitSpheres2.xyz;
-    float3 fromCenter3 = positionWS - _DirShadowSplitSpheres3.xyz;
+    float3 fromCenter0 = positionWS - _CascadeShadowSplitSpheres0.xyz;
+    float3 fromCenter1 = positionWS - _CascadeShadowSplitSpheres1.xyz;
+    float3 fromCenter2 = positionWS - _CascadeShadowSplitSpheres2.xyz;
+    float3 fromCenter3 = positionWS - _CascadeShadowSplitSpheres3.xyz;
     float4 distances2 = float4(dot(fromCenter0, fromCenter0), dot(fromCenter1, fromCenter1), dot(fromCenter2, fromCenter2), dot(fromCenter3, fromCenter3));
 
-    half4 weights = half4(distances2 < _DirShadowSplitSphereRadii);
+    half4 weights = half4(distances2 < _CascadeShadowSplitSphereRadii);
     weights.yzw = saturate(weights.yzw - weights.xyz);
 
     return 4 - dot(weights, half4(4, 3, 2, 1));
@@ -176,9 +176,9 @@ float4 TransformWorldToShadowCoord(float3 positionWS)
 {
 #ifdef _DIRECTIONAL_SHADOWS_CASCADE
     half cascadeIndex = ComputeCascadeIndex(positionWS);
-    return mul(_WorldToShadow[cascadeIndex], float4(positionWS, 1.0));
+    return mul(_DirectionalLightWorldToShadow[cascadeIndex], float4(positionWS, 1.0));
 #else
-    return mul(_WorldToShadow[0], float4(positionWS, 1.0));
+    return mul(_DirectionalLightWorldToShadow[0], float4(positionWS, 1.0));
 #endif
 }
 
@@ -197,21 +197,21 @@ half DirectionalLightRealtimeShadow(float4 shadowCoord)
 #if SHADOWS_SCREEN
     return SampleScreenSpaceShadowMap(shadowCoord);
 #else
-    ShadowSamplingData shadowSamplingData = GetMainLightShadowSamplingData();
-    half shadowStrength = GetMainLightShadowStrength();
+    ShadowSamplingData shadowSamplingData = GetDirectionalLightShadowSamplingData();
+    half shadowStrength = GetDirectionalLightShadowStrength();
     return SampleShadowmap(shadowCoord, TEXTURE2D_PARAM(_DirectionalShadowmapTexture, sampler_DirectionalShadowmapTexture), shadowSamplingData, shadowStrength, false);
 #endif
 }
 
-half PuntualLightRealtimeShadow(int lightIndex, float3 positionWS)
+half PunctualLightRealtimeShadow(int lightIndex, float3 positionWS)
 {
-#if !defined(_LOCAL_SHADOWS_ENABLED) || defined(_RECEIVE_SHADOWS_OFF)
+#if !defined(_PUNCTUAL_LIGHT_SHADOWS) || defined(_RECEIVE_SHADOWS_OFF)
     return 1.0h;
 #else
-    float4 shadowCoord = mul(_LocalWorldToShadowAtlas[lightIndex], float4(positionWS, 1.0));
-    ShadowSamplingData shadowSamplingData = GetLocalLightShadowSamplingData();
-    half shadowStrength = GetLocalLightShadowStrenth(lightIndex);
-    return SampleShadowmap(shadowCoord, TEXTURE2D_PARAM(_LocalShadowmapTexture, sampler_LocalShadowmapTexture), shadowSamplingData, shadowStrength, true);
+    float4 shadowCoord = mul(_PunctualLightsWorldToShadow[lightIndex], float4(positionWS, 1.0));
+    ShadowSamplingData shadowSamplingData = GetPunctualLightShadowSamplingData();
+    half shadowStrength = GetPunctualLightShadowStrenth(lightIndex);
+    return SampleShadowmap(shadowCoord, TEXTURE2D_PARAM(_PunctualShadowmapTexture, sampler_PunctualShadowmapTexture), shadowSamplingData, shadowStrength, true);
 #endif
 }
 

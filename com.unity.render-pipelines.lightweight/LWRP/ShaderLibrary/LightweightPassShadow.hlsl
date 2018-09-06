@@ -55,9 +55,9 @@ VertexOutput ShadowPassVertex(VertexInput v)
     return o;
 }
 
-half4 ShadowPassFragment(VertexOutput IN) : SV_TARGET
+half4 ShadowPassFragment(VertexOutput input) : SV_TARGET
 {
-    Alpha(SampleAlbedoAlpha(IN.uv, TEXTURE2D_PARAM(_MainTex, sampler_MainTex)).a, _Color, _Cutoff);
+    Alpha(SampleAlbedoAlpha(input.uv, TEXTURE2D_PARAM(_MainTex, sampler_MainTex)).a, _Color, _Cutoff);
     return 0;
 }
 

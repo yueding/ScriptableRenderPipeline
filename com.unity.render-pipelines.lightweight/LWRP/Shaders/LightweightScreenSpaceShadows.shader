@@ -80,8 +80,8 @@ Shader "Hidden/LightweightPipeline/ScreenSpaceShadows"
             float4 coords = TransformWorldToShadowCoord(wpos);
 
             // Screenspace shadowmap is only used for directional lights which use orthogonal projection.
-            ShadowSamplingData shadowSamplingData = GetMainLightShadowSamplingData();
-            half shadowStrength = GetMainLightShadowStrength();
+            ShadowSamplingData shadowSamplingData = GetDirectionalLightShadowSamplingData();
+            half shadowStrength = GetDirectionalLightShadowStrength();
             return SampleShadowmap(coords, TEXTURE2D_PARAM(_DirectionalShadowmapTexture, sampler_DirectionalShadowmapTexture), shadowSamplingData, shadowStrength, false);
         }
 

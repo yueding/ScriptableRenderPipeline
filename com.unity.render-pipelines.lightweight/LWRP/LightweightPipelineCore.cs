@@ -39,7 +39,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public bool shadePunctualLightsPerVertex;
         public int mainLightIndex;
         public List<VisibleLight> visibleLights;
-        public List<int> visibleLocalLightIndices;
+        public List<int> visiblePunctualLightIndices;
         public bool supportsMixedLighting;
     }
 
@@ -74,9 +74,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public int directionalShadowAtlasHeight;
         public int directionalLightCascadeCount;
         public Vector3 directionalLightCascades;
-        public bool renderLocalShadows;
-        public int localShadowAtlasWidth;
-        public int localShadowAtlasHeight;
+        public bool renderPunctualShadows;
+        public int punctualShadowAtlasWidth;
+        public int punctualShadowAtlasHeight;
         public bool supportsSoftShadows;
         public int bufferBitCount;
     }
@@ -125,11 +125,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             else if (pipelineAsset.punctualLightsSupport == RealtimeLightSupport.PerPixel)
             {
                 s_ShaderFeatures |= ShaderFeatures.RealtimeDirectionalLights;
-                if (pipelineAsset.supportsLocalShadows)
+                if (pipelineAsset.supportsPunctualShadows)
                     s_ShaderFeatures |= ShaderFeatures.RealtimePunctualLightShadows;
             }
 
-            bool anyShadows = pipelineAsset.supportsDirectionalShadows || pipelineAsset.supportsLocalShadows;
+            bool anyShadows = pipelineAsset.supportsDirectionalShadows || pipelineAsset.supportsPunctualShadows;
             if (pipelineAsset.supportsSoftShadows && anyShadows)
                 s_ShaderFeatures |= ShaderFeatures.SoftShadows;
 

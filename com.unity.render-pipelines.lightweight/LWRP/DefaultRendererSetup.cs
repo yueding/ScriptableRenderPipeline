@@ -33,7 +33,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         private RenderTargetHandle DepthTexture;
         private RenderTargetHandle OpaqueColor;
         private RenderTargetHandle DirectionalShadowmap;
-        private RenderTargetHandle LocalShadowmap;
+        private RenderTargetHandle PunctualShadowmap;
         private RenderTargetHandle ScreenSpaceShadowmap;
 
         [NonSerialized]
@@ -73,7 +73,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             DepthTexture.Init("_CameraDepthTexture");
             OpaqueColor.Init("_CameraOpaqueTexture");
             DirectionalShadowmap.Init("_DirectionalShadowmapTexture");
-            LocalShadowmap.Init("_LocalShadowmapTexture");
+            PunctualShadowmap.Init("_PunctualShadowmapTexture");
             ScreenSpaceShadowmap.Init("_ScreenSpaceShadowMapTexture");
 
             m_Initialized = true;
@@ -102,9 +102,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 renderer.EnqueuePass(m_DirectionalShadowPass);
             }
 
-            if (renderingData.shadowData.renderLocalShadows)
+            if (renderingData.shadowData.renderPunctualShadows)
             {
-                m_LocalShadowPass.Setup(LocalShadowmap, renderer.maxVisibleLocalLights);
+                m_LocalShadowPass.Setup(PunctualShadowmap, renderer.maxVisiblePunctualLights);
                 renderer.EnqueuePass(m_LocalShadowPass);
             }
 
@@ -146,7 +146,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             RendererConfiguration rendererConfiguration = ScriptableRenderer.GetRendererConfiguration(renderingData.lightData.punctualLightsCount);
 
-            m_SetupLightweightConstants.Setup(renderer.maxVisibleLocalLights, renderer.perObjectLightIndices);
+            m_SetupLightweightConstants.Setup(renderer.maxVisiblePunctualLights, renderer.perObjectLightIndices);
             renderer.EnqueuePass(m_SetupLightweightConstants);
 
             m_RenderOpaqueForwardPass.Setup(baseDescriptor, colorHandle, depthHandle, ScriptableRenderer.GetCameraClearFlag(camera), camera.backgroundColor, rendererConfiguration);

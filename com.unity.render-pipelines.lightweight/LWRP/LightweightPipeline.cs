@@ -61,14 +61,14 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public bool supportsDirectionalShadows { get; private set; }
             public RealtimeLightSupport punctualLightSupport { get; private set; }
             public bool supportsSoftParticles { get; private set; }
-            public bool supportsLocalShadows { get; private set; }
+            public bool supportsPunctualShadows { get; private set; }
             public float shadowDistance { get; private set; }
             public int cascadeCount { get; private set; }
             public int directionalShadowAtlasResolution { get; private set; }
             public float cascade2Split { get; private set; }
             public Vector3 cascade4Split { get; private set; }
             public bool supportsVertexLight { get; private set; }
-            public int localShadowAtlasResolution { get; private set; }
+            public int punctualShadowAtlasResolution { get; private set; }
             public bool supportsSoftShadows { get; private set; }
             public bool mixedLightingSupported { get; private set; }
 
@@ -87,13 +87,13 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 cache.supportsDirectionalShadows = asset.supportsDirectionalShadows;
                 cache.punctualLightSupport = asset.punctualLightsSupport;
                 cache.supportsSoftParticles = asset.supportsSoftParticles;
-                cache.supportsLocalShadows = asset.supportsLocalShadows;
+                cache.supportsPunctualShadows = asset.supportsPunctualShadows;
                 cache.shadowDistance = asset.shadowDistance;
                 cache.cascadeCount = asset.cascadeCount;
                 cache.directionalShadowAtlasResolution = asset.directionalShadowAtlasResolution;
                 cache.cascade2Split = asset.cascade2Split;
                 cache.cascade4Split = asset.cascade4Split;
-                cache.localShadowAtlasResolution = asset.localShadowAtlasResolution;
+                cache.punctualShadowAtlasResolution = asset.punctualShadowAtlasResolution;
                 cache.supportsSoftShadows = asset.supportsSoftShadows;
                 cache.mixedLightingSupported = asset.mixedLightingSupported;
 
@@ -279,7 +279,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             cameraData.requiresOpaqueTexture = settings.supportsCameraOpaqueTexture;
             cameraData.opaqueTextureDownsampling = settings.opaqueDownsampling;
 
-            bool anyShadowsEnabled = settings.supportsDirectionalShadows || settings.supportsLocalShadows;
+            bool anyShadowsEnabled = settings.supportsDirectionalShadows || settings.supportsPunctualShadows;
             cameraData.maxShadowDistance = (anyShadowsEnabled) ? settings.shadowDistance : 0.0f;
 
             LightweightAdditionalCameraData additionalCameraData = camera.gameObject.GetComponent<LightweightAdditionalCameraData>();
@@ -309,10 +309,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             int maxSupportedPunctualLights, out RenderingData renderingData)
         {
             List<VisibleLight> visibleLights = cullResults.visibleLights;
-            List<int> localLightIndices = new List<int>();
+            List<int> punctualLightIndices = new List<int>();
 
             bool hasDirectionalShadowCastingLight = false;
-            bool hasLocalShadowCastingLight = false;
+            bool hasPunctualShadowCastingLight = false;
 
             if (cameraData.maxShadowDistance > 0.0f)
             {
@@ -324,22 +324,22 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     {
                         hasDirectionalShadowCastingLight |= castShadows;
                     }
-                    else if (localLightIndices.Count < maxSupportedPunctualLights)
+                    else if (punctualLightIndices.Count < maxSupportedPunctualLights)
                     {
-                        hasLocalShadowCastingLight |= castShadows;
-                        localLightIndices.Add(i);
+                        hasPunctualShadowCastingLight |= castShadows;
+                        punctualLightIndices.Add(i);
                     }
                 }
             }
 
             renderingData.cullResults = cullResults;
             renderingData.cameraData = cameraData;
-            InitializeLightData(settings, visibleLights, localLightIndices, out renderingData.lightData);
-            InitializeShadowData(settings, hasDirectionalShadowCastingLight, hasLocalShadowCastingLight && !renderingData.lightData.shadePunctualLightsPerVertex, out renderingData.shadowData);
+            InitializeLightData(settings, visibleLights, punctualLightIndices, out renderingData.lightData);
+            InitializeShadowData(settings, hasDirectionalShadowCastingLight, hasPunctualShadowCastingLight && !renderingData.lightData.shadePunctualLightsPerVertex, out renderingData.shadowData);
             renderingData.supportsDynamicBatching = settings.supportsDynamicBatching;
         }
 
-        static void InitializeShadowData(PipelineSettings settings, bool hasDirectionalShadowCastingLight, bool hasLocalShadowCastingLight, out ShadowData shadowData)
+        static void InitializeShadowData(PipelineSettings settings, bool hasDirectionalShadowCastingLight, bool hasPunctualShadowCastingLight, out ShadowData shadowData)
         {
             // Until we can have keyword stripping forcing single cascade hard shadows on gles2
             bool supportsScreenSpaceShadows = SystemInfo.graphicsDeviceType != GraphicsDeviceType.OpenGLES2;
@@ -367,20 +367,20 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     break;
             }
 
-            shadowData.renderLocalShadows = settings.supportsLocalShadows && hasLocalShadowCastingLight;
-            shadowData.localShadowAtlasWidth = shadowData.localShadowAtlasHeight = settings.localShadowAtlasResolution;
+            shadowData.renderPunctualShadows = settings.supportsPunctualShadows && hasPunctualShadowCastingLight;
+            shadowData.punctualShadowAtlasWidth = shadowData.punctualShadowAtlasHeight = settings.punctualShadowAtlasResolution;
             shadowData.supportsSoftShadows = settings.supportsSoftShadows;
             shadowData.bufferBitCount = 16;
         }
 
         static void InitializeLightData(PipelineSettings settings, List<VisibleLight> visibleLights,
-            List<int> localLightIndices, out LightData lightData)
+            List<int> punctualLightIndices, out LightData lightData)
         {
             lightData.mainLightIndex = GetMainLight(settings, visibleLights);
-            lightData.punctualLightsCount = localLightIndices.Count;
+            lightData.punctualLightsCount = punctualLightIndices.Count;
             lightData.shadePunctualLightsPerVertex = settings.punctualLightSupport == RealtimeLightSupport.PerVertex;
             lightData.visibleLights = visibleLights;
-            lightData.visibleLocalLightIndices = localLightIndices;
+            lightData.visiblePunctualLightIndices = punctualLightIndices;
             lightData.supportsMixedLighting = settings.mixedLightingSupported;
         }
 

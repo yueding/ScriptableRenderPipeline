@@ -11,17 +11,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         // Lights are culled per-object. In platforms that don't use StructuredBuffer
         // the engine will set 4 light indices in the following constant unity_4LightIndices0
         // Additionally the engine set unity_4LightIndices1 but LWRP doesn't use that.
-        const int k_MaxConstantLocalLights = 4;
+        const int k_MaxConstantPunctualLights = 4;
 
         // LWRP uses a fixed constant buffer to hold light data. This must match the value of
         // MAX_VISIBLE_LIGHTS 16 in Input.hlsl
-        const int k_MaxVisibleLocalLights = 16;
+        const int k_MaxVisiblePunctualLights = 16;
 
         public int maxSupportedPunctualLights
         {
             get
             {
-                return useComputeBufferForPerObjectLightIndices ? k_MaxVisibleLocalLights : k_MaxConstantLocalLights;
+                return useComputeBufferForPerObjectLightIndices ? k_MaxVisiblePunctualLights : k_MaxConstantPunctualLights;
             }
         }
 
@@ -40,7 +40,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
         }
 
-        public int maxVisibleLocalLights { get { return k_MaxVisibleLocalLights; } }
+        public int maxVisiblePunctualLights { get { return k_MaxVisiblePunctualLights; } }
 
         public PostProcessRenderContext postProcessingContext { get; private set; }
 
@@ -280,10 +280,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             return clearFlag;
         }
 
-        public static RendererConfiguration GetRendererConfiguration(int localLightsCount)
+        public static RendererConfiguration GetRendererConfiguration(int punctualLightsCount)
         {
             RendererConfiguration configuration = RendererConfiguration.PerObjectReflectionProbes | RendererConfiguration.PerObjectLightmaps | RendererConfiguration.PerObjectLightProbe;
-            if (localLightsCount > 0)
+            if (punctualLightsCount > 0)
             {
                 if (useComputeBufferForPerObjectLightIndices)
                     configuration |= RendererConfiguration.ProvideLightIndices;

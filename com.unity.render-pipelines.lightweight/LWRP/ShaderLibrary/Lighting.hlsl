@@ -147,7 +147,7 @@ Light GetPunctualLight(half i, float3 positionWS)
     Light light;
     light.direction = lightDirection;
     light.distanceAttenuation = attenuation;
-    light.shadowAttenuation = PuntualLightRealtimeShadow(perObjectLightIndex, positionWS);
+    light.shadowAttenuation = PunctualLightRealtimeShadow(perObjectLightIndex, positionWS);
     light.subtractiveModeAttenuation = positionAndSubtractiveLightMode.w;
     light.color = _PunctualLightsColor[perObjectLightIndex].rgb;
 
@@ -402,7 +402,7 @@ half3 SubtractDirectMainLightFromLightmap(Light mainLight, half3 normalWS, half3
 
     // 1) Gives good estimate of illumination as if light would've been shadowed during the bake.
     // We only subtract the main direction light. This is accounted in the contribution term below.
-    half shadowStrength = _ShadowData.x;
+    half shadowStrength = GetDirectionalLightShadowStrength();
     half contributionTerm = saturate(dot(mainLight.direction, normalWS));
     half3 lambert = mainLight.color * contributionTerm;
     half3 estimatedLightContributionMaskedByInverseOfShadow = lambert * (1.0 - mainLight.shadowAttenuation);

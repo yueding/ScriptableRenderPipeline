@@ -33,7 +33,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         Vector4[] m_LightAttenuations;
         Vector4[] m_LightSpotDirections;
 
-        private int maxVisibleLocalLights { get; set; }
+        private int maxVisiblePunctualLights { get; set; }
         private ComputeBuffer perObjectLightIndices { get; set; }
 
         public SetupLightweightConstanstPass()
@@ -53,17 +53,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_LightSpotDirections = new Vector4[0];
         }
 
-        public void Setup(int maxVisibleLocalLights, ComputeBuffer perObjectLightIndices)
+        public void Setup(int maxVisiblePunctualLights, ComputeBuffer perObjectLightIndices)
         {
-            this.maxVisibleLocalLights = maxVisibleLocalLights;
+            this.maxVisiblePunctualLights = maxVisiblePunctualLights;
             this.perObjectLightIndices = perObjectLightIndices;
 
-            if (m_LightColors.Length != maxVisibleLocalLights)
+            if (m_LightColors.Length != maxVisiblePunctualLights)
             {
-                m_LightPositions = new Vector4[maxVisibleLocalLights];
-                m_LightColors = new Vector4[maxVisibleLocalLights];
-                m_LightAttenuations = new Vector4[maxVisibleLocalLights];
-                m_LightSpotDirections = new Vector4[maxVisibleLocalLights];
+                m_LightPositions = new Vector4[maxVisiblePunctualLights];
+                m_LightColors = new Vector4[maxVisiblePunctualLights];
+                m_LightAttenuations = new Vector4[maxVisiblePunctualLights];
+                m_LightSpotDirections = new Vector4[maxVisiblePunctualLights];
             }
         }
 
@@ -174,7 +174,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         void SetupShaderLightConstants(CommandBuffer cmd, ref LightData lightData)
         {
             // Clear to default all light constant data
-            for (int i = 0; i < maxVisibleLocalLights; ++i)
+            for (int i = 0; i < maxVisiblePunctualLights; ++i)
                 InitializeLightConstants(lightData.visibleLights, -1, out m_LightPositions[i],
                     out m_LightColors[i],
                     out m_LightAttenuations[i],
@@ -202,17 +202,17 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             List<VisibleLight> lights = lightData.visibleLights;
             if (lightData.punctualLightsCount > 0)
             {
-                int localLightsCount = 0;
-                for (int i = 0; i < lights.Count && localLightsCount < maxVisibleLocalLights; ++i)
+                int punctualLightsCount = 0;
+                for (int i = 0; i < lights.Count && punctualLightsCount < maxVisiblePunctualLights; ++i)
                 {
                     VisibleLight light = lights[i];
                     if (light.lightType != LightType.Directional)
                     {
-                        InitializeLightConstants(lights, i, out m_LightPositions[localLightsCount],
-                            out m_LightColors[localLightsCount],
-                            out m_LightAttenuations[localLightsCount],
-                            out m_LightSpotDirections[localLightsCount]);
-                        localLightsCount++;
+                        InitializeLightConstants(lights, i, out m_LightPositions[punctualLightsCount],
+                            out m_LightColors[punctualLightsCount],
+                            out m_LightAttenuations[punctualLightsCount],
+                            out m_LightSpotDirections[punctualLightsCount]);
+                        punctualLightsCount++;
                     }
                 }
 
@@ -249,25 +249,25 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 shadowData.supportsSoftShadows && lightData.mainLightIndex != -1 &&
                 visibleLights[lightData.mainLightIndex].light.shadows == LightShadows.Soft;
 
-            bool softLocalShadows = false;
-            if (shadowData.renderLocalShadows && shadowData.supportsSoftShadows)
+            bool softPunctualShadows = false;
+            if (shadowData.renderPunctualShadows && shadowData.supportsSoftShadows)
             {
-                List<int> visibleLocalLightIndices = lightData.visibleLocalLightIndices;
-                for (int i = 0; i < visibleLocalLightIndices.Count; ++i)
+                List<int> visiblePunctualLightIndices = lightData.visiblePunctualLightIndices;
+                for (int i = 0; i < visiblePunctualLightIndices.Count; ++i)
                 {
-                    if (visibleLights[visibleLocalLightIndices[i]].light.shadows == LightShadows.Soft)
+                    if (visibleLights[visiblePunctualLightIndices[i]].light.shadows == LightShadows.Soft)
                     {
-                        softLocalShadows = true;
+                        softPunctualShadows = true;
                         break;
                     }
                 }
             }
 
-            // Currently shadow filtering keyword is shared between local and directional shadows.
-            bool hasSoftShadows = softDirectionalShadows || softLocalShadows;
+            // Currently shadow filtering keyword is shared between punctual and directional shadows.
+            bool hasSoftShadows = softDirectionalShadows || softPunctualShadows;
 
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RealtimeDirectionalShadows, shadowData.renderDirectionalShadows);
-            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RealtimePunctualLightShadows, shadowData.renderLocalShadows);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.RealtimePunctualLightShadows, shadowData.renderPunctualShadows);
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.SoftShadows, hasSoftShadows);
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.CascadeShadows, shadowData.directionalLightCascadeCount > 1);
 

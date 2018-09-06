@@ -8,11 +8,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             public static int _WorldToShadow;
             public static int _ShadowData;
-            public static int _DirShadowSplitSpheres0;
-            public static int _DirShadowSplitSpheres1;
-            public static int _DirShadowSplitSpheres2;
-            public static int _DirShadowSplitSpheres3;
-            public static int _DirShadowSplitSphereRadii;
+            public static int _CascadeShadowSplitSpheres0;
+            public static int _CascadeShadowSplitSpheres1;
+            public static int _CascadeShadowSplitSpheres2;
+            public static int _CascadeShadowSplitSpheres3;
+            public static int _CascadeShadowSplitSphereRadii;
             public static int _ShadowOffset0;
             public static int _ShadowOffset1;
             public static int _ShadowOffset2;
@@ -43,18 +43,18 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_CascadeSlices = new ShadowSliceData[k_MaxCascades];
             m_CascadeSplitDistances = new Vector4[k_MaxCascades];
 
-            DirectionalShadowConstantBuffer._WorldToShadow = Shader.PropertyToID("_WorldToShadow");
-            DirectionalShadowConstantBuffer._ShadowData = Shader.PropertyToID("_ShadowData");
-            DirectionalShadowConstantBuffer._DirShadowSplitSpheres0 = Shader.PropertyToID("_DirShadowSplitSpheres0");
-            DirectionalShadowConstantBuffer._DirShadowSplitSpheres1 = Shader.PropertyToID("_DirShadowSplitSpheres1");
-            DirectionalShadowConstantBuffer._DirShadowSplitSpheres2 = Shader.PropertyToID("_DirShadowSplitSpheres2");
-            DirectionalShadowConstantBuffer._DirShadowSplitSpheres3 = Shader.PropertyToID("_DirShadowSplitSpheres3");
-            DirectionalShadowConstantBuffer._DirShadowSplitSphereRadii = Shader.PropertyToID("_DirShadowSplitSphereRadii");
-            DirectionalShadowConstantBuffer._ShadowOffset0 = Shader.PropertyToID("_ShadowOffset0");
-            DirectionalShadowConstantBuffer._ShadowOffset1 = Shader.PropertyToID("_ShadowOffset1");
-            DirectionalShadowConstantBuffer._ShadowOffset2 = Shader.PropertyToID("_ShadowOffset2");
-            DirectionalShadowConstantBuffer._ShadowOffset3 = Shader.PropertyToID("_ShadowOffset3");
-            DirectionalShadowConstantBuffer._ShadowmapSize = Shader.PropertyToID("_ShadowmapSize");
+            DirectionalShadowConstantBuffer._WorldToShadow = Shader.PropertyToID("_DirectionalLightWorldToShadow");
+            DirectionalShadowConstantBuffer._ShadowData = Shader.PropertyToID("_DirectionalShadowData");
+            DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres0 = Shader.PropertyToID("_CascadeShadowSplitSpheres0");
+            DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres1 = Shader.PropertyToID("_CascadeShadowSplitSpheres1");
+            DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres2 = Shader.PropertyToID("_CascadeShadowSplitSpheres2");
+            DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres3 = Shader.PropertyToID("_CascadeShadowSplitSpheres3");
+            DirectionalShadowConstantBuffer._CascadeShadowSplitSphereRadii = Shader.PropertyToID("_CascadeShadowSplitSphereRadii");
+            DirectionalShadowConstantBuffer._ShadowOffset0 = Shader.PropertyToID("_DirectionalShadowOffset0");
+            DirectionalShadowConstantBuffer._ShadowOffset1 = Shader.PropertyToID("_DirectionalShadowOffset1");
+            DirectionalShadowConstantBuffer._ShadowOffset2 = Shader.PropertyToID("_DirectionalShadowOffset2");
+            DirectionalShadowConstantBuffer._ShadowOffset3 = Shader.PropertyToID("_DirectionalShadowOffset3");
+            DirectionalShadowConstantBuffer._ShadowmapSize = Shader.PropertyToID("_DirectionalShadowmapSize");
 
             m_ShadowmapFormat = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.Shadowmap)
                 ? RenderTextureFormat.Shadowmap
@@ -174,11 +174,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             cmd.SetGlobalTexture(destination.id, m_DirectionalShadowmapTexture);
             cmd.SetGlobalMatrixArray(DirectionalShadowConstantBuffer._WorldToShadow, m_DirectionalShadowMatrices);
             cmd.SetGlobalVector(DirectionalShadowConstantBuffer._ShadowData, new Vector4(light.shadowStrength, 0.0f, 0.0f, 0.0f));
-            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._DirShadowSplitSpheres0, m_CascadeSplitDistances[0]);
-            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._DirShadowSplitSpheres1, m_CascadeSplitDistances[1]);
-            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._DirShadowSplitSpheres2, m_CascadeSplitDistances[2]);
-            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._DirShadowSplitSpheres3, m_CascadeSplitDistances[3]);
-            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._DirShadowSplitSphereRadii, new Vector4(m_CascadeSplitDistances[0].w * m_CascadeSplitDistances[0].w,
+            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres0, m_CascadeSplitDistances[0]);
+            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres1, m_CascadeSplitDistances[1]);
+            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres2, m_CascadeSplitDistances[2]);
+            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._CascadeShadowSplitSpheres3, m_CascadeSplitDistances[3]);
+            cmd.SetGlobalVector(DirectionalShadowConstantBuffer._CascadeShadowSplitSphereRadii, new Vector4(m_CascadeSplitDistances[0].w * m_CascadeSplitDistances[0].w,
                 m_CascadeSplitDistances[1].w * m_CascadeSplitDistances[1].w,
                 m_CascadeSplitDistances[2].w * m_CascadeSplitDistances[2].w,
                 m_CascadeSplitDistances[3].w * m_CascadeSplitDistances[3].w));

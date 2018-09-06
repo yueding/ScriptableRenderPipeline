@@ -310,12 +310,12 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             get { return m_Cascade4Split; }
         }
 
-        public bool supportsLocalShadows
+        public bool supportsPunctualShadows
         {
             get { return m_LocalShadowsSupported; }
         }
 
-        public int localShadowAtlasResolution
+        public int punctualShadowAtlasResolution
         {
             get { return (int)m_LocalShadowsAtlasResolution; }
         }
