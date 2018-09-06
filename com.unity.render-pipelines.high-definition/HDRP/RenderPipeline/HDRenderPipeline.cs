@@ -1458,7 +1458,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     cmd.EnableShaderKeyword("WRITE_NORMAL_BUFFER");
 
                     HDUtils.SetRenderTarget(cmd, hdCamera, m_NormalBufferManager.GetBuffersRTI(), m_CameraDepthStencilBuffer);
-
+                    
+                    XRUtils.RenderOcclusionMesh(cmd, renderContext, hdCamera.camera);
                     // Full forward: Output normal buffer for both forward and forwardOnly
                     RenderOpaqueRenderList(cull, hdCamera, renderContext, cmd, m_DepthOnlyAndDepthForwardOnlyPassNames, 0, HDRenderQueue.k_RenderQueue_AllOpaque);
                 }
