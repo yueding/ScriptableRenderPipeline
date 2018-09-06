@@ -35,10 +35,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent msaaContent = new GUIContent("Anti Aliasing (MSAA)", "Controls the global anti aliasing settings.");
             public static GUIContent dynamicBatching = new GUIContent("Dynamic Batching", "If enabled the pipeline will batch drawcalls with few triangles together by copying their vertex buffers into a shared buffer on a per-frame basis.");
 
-            public static GUIContent supportsSoftShadows = new GUIContent("Soft Shadows", "If enabled pipeline will perform shadow filtering. Otherwise all lights that cast shadows will fallback to perform a single shadow sample.\nNeeds either Directional or Local Shadows to be enabled in the Capabilities section.");
+            public static GUIContent supportsSoftShadows = new GUIContent("Soft Shadows", "If enabled pipeline will perform shadow filtering. Otherwise all lights that cast shadows will fallback to perform a single shadow sample.\nNeeds either Directional or Punctual Shadows to be enabled in the Capabilities section.");
             public static GUIContent supportsDirectionalShadows = new GUIContent("Directional Shadows", "If enabled shadows will be supported for directional lights.\nNeeds Directional Shadows to be enabled in the Capabilities section.");
 
-            public static GUIContent punctualLightsSupportLabel = EditorGUIUtility.TrTextContent("Realtime Point and Spot Lights", "Support for realtime point and spot lights.");
+            public static GUIContent punctualLightsSupportLabel = EditorGUIUtility.TrTextContent("Punctual Lights", "Support for realtime point and spot lights.");
             public static GUIContent mixedLightingSupportLabel = EditorGUIUtility.TrTextContent("Mixed Lighting", "Support for mixed light mode.");
             
 
@@ -53,9 +53,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static GUIContent shadowCascadeSplit = new GUIContent("Cascades Split",
                     "Percentages to split shadow volume");
 
-            public static GUIContent supportsLocalShadows = new GUIContent("Local Shadows", "If enabled shadows will be supported for spot lights.\nNeeds Local Shadows to be enabled in the Capabilities section.");
+            public static GUIContent supportsPunctualShadows = new GUIContent("Punctual Shadows", "If enabled shadows will be supported for spot lights.\n");
 
-            public static GUIContent localShadowsAtlasResolution = new GUIContent("Atlas Resolution",
+            public static GUIContent punctualShadowsAtlasResolution = new GUIContent("Atlas Resolution",
                     "All local lights are packed into a single atlas. This setting controls the atlas size.");
 
             public static string[] punctualLightsOptions = {"Not Supported", "Per Vertex", "Per Pixel"};
@@ -89,8 +89,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         SerializedProperty m_ShadowCascadesProp;
         SerializedProperty m_ShadowCascade2SplitProp;
         SerializedProperty m_ShadowCascade4SplitProp;
-        SerializedProperty m_LocalShadowSupportedProp;
-        SerializedProperty m_LocalShadowsAtlasResolutionProp;
+        SerializedProperty m_PunctualShadowSupportedProp;
+        SerializedProperty m_PunctualShadowsAtlasResolutionProp;
         SerializedProperty m_MixedLightingSupportedProp;
 
         SerializedProperty m_XRConfig;
@@ -128,8 +128,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             m_ShadowCascadesProp = serializedObject.FindProperty("m_ShadowCascades");
             m_ShadowCascade2SplitProp = serializedObject.FindProperty("m_Cascade2Split");
             m_ShadowCascade4SplitProp = serializedObject.FindProperty("m_Cascade4Split");
-            m_LocalShadowSupportedProp = serializedObject.FindProperty("m_LocalShadowsSupported");
-            m_LocalShadowsAtlasResolutionProp = serializedObject.FindProperty("m_LocalShadowsAtlasResolution");
+            m_PunctualShadowSupportedProp = serializedObject.FindProperty("m_LocalShadowsSupported");
+            m_PunctualShadowsAtlasResolutionProp = serializedObject.FindProperty("m_LocalShadowsAtlasResolution");
             m_SoftShadowsSupportedProp = serializedObject.FindProperty("m_SoftShadowsSupported");
             m_MixedLightingSupportedProp = serializedObject.FindProperty("m_MixedLightingSupported");
 
@@ -158,8 +158,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             EditorGUI.indentLevel++;
             EditorGUILayout.PropertyField(m_DirectionalShadowsSupportedProp, Styles.supportsDirectionalShadows);
             CoreEditorUtils.DrawPopup(Styles.punctualLightsSupportLabel, m_PunctualLightsSupportProp, Styles.punctualLightsOptions);
-            EditorGUILayout.PropertyField(m_LocalShadowSupportedProp, Styles.supportsLocalShadows);
-            EditorGUI.BeginDisabledGroup(!(m_DirectionalShadowsSupportedProp.boolValue || m_LocalShadowSupportedProp.boolValue));
+            EditorGUILayout.PropertyField(m_PunctualShadowSupportedProp, Styles.supportsPunctualShadows);
+            EditorGUI.BeginDisabledGroup(!(m_DirectionalShadowsSupportedProp.boolValue || m_PunctualShadowSupportedProp.boolValue));
                 EditorGUILayout.PropertyField(m_SoftShadowsSupportedProp, Styles.supportsSoftShadows);
             EditorGUI.EndDisabledGroup();
             EditorGUILayout.PropertyField(m_MixedLightingSupportedProp, Styles.mixedLightingSupportLabel);
@@ -237,10 +237,10 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 EditorGUI.EndDisabledGroup();
 
                 // Local Shadows
-                EditorGUI.BeginDisabledGroup(!m_LocalShadowSupportedProp.boolValue);
+                EditorGUI.BeginDisabledGroup(!m_PunctualShadowSupportedProp.boolValue);
                 EditorGUILayout.LabelField(Styles.localShadowLabel);
                 EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(m_LocalShadowsAtlasResolutionProp, Styles.localShadowsAtlasResolution);
+                EditorGUILayout.PropertyField(m_PunctualShadowsAtlasResolutionProp, Styles.punctualShadowsAtlasResolution);
                 EditorGUI.indentLevel--;
                 EditorGUI.indentLevel--;
                 EditorGUI.EndDisabledGroup();
