@@ -110,6 +110,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
     public class HDShadowManager : IDisposable
     {
+        public const int            k_DirectionalShadowCascadeCount = 4;
+
         List<HDShadowData>          m_ShadowDatas = new List<HDShadowData>();
         List<HDShadowRequest>       m_ShadowRequests = new List<HDShadowRequest>();
 
@@ -210,7 +212,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        public void ProcessShadowRequests(CullResults cullResults, Camera camera)
+        unsafe public void ProcessShadowRequests(CullResults cullResults, Camera camera)
         {
             int shadowIndex = 0;
 
@@ -230,8 +232,26 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 shadowRequest.shadowIndex = shadowIndex++;
             }
 
+            int first = k_DirectionalShadowCascadeCount, second = k_DirectionalShadowCascadeCount;
+
+            fixed (float *sphereBuffer = m_DirectionalShadowData.sphereCascades)
+            {
+                Vector4 * sphere = (Vector4 *)sphereBuffer;
+                for (int i = 0; i < k_DirectionalShadowCascadeCount; i++)
+                {
+                    first  = (first  == k_DirectionalShadowCascadeCount                       && sphere[i].w > 0.0f) ? i : first;
+                    second = ((second == k_DirectionalShadowCascadeCount || second == first)  && sphere[i].w > 0.0f) ? i : second;
+                }
+            }
+
+
             // Update directional datas:
-            m_DirectionalShadowData.cascadeDirection = (GetCascadeSphereAtIndex(1) - GetCascadeSphereAtIndex(0)).normalized;
+            if (second != k_DirectionalShadowCascadeCount)
+                m_DirectionalShadowData.cascadeDirection = (GetCascadeSphereAtIndex(second) - GetCascadeSphereAtIndex(first)).normalized;
+            else
+                m_DirectionalShadowData.cascadeDirection = Vector4.zero;
+
+            m_DirectionalShadowData.cascadeDirection.w = k_DirectionalShadowCascadeCount;
         }
  
         public void RenderShadows(ScriptableRenderContext renderContext, CommandBuffer cmd, CullResults cullResults)

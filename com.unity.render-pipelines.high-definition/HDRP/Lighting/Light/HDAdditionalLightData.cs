@@ -266,7 +266,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             cullingSphere.z -= cameraPos.z;
                         }
                         
-                        manager.UpdateCascade(faceIndex, cullingSphere, cascadeBorders[0]);
+                        manager.UpdateCascade(faceIndex, cullingSphere, cascadeBorders[faceIndex]);
                         break;
                     case LightType.Area:
                         HDShadowUtils.ExtractAreaLightData(visibleLight, lightTypeExtent, out shadowRequest.view, out invViewProjection, out shadowRequest.projection, out shadowRequest.deviceProjection, out shadowRequest.splitData);
