@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEditor.Graphing;
 using UnityEditor.ShaderGraph;
 using UnityEngine.Experimental.Rendering;
@@ -136,7 +137,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             float constantAlpha = 0.0f;
             if (masterNode.IsSlotConnected(PBRMasterNode.AlphaThresholdSlotId) ||
-                (float.TryParse(masterNode.GetSlotValue(PBRMasterNode.AlphaThresholdSlotId, GenerationMode.ForReals), out constantAlpha) && (constantAlpha > 0.0f)))
+                (float.TryParse(masterNode.GetSlotValue(PBRMasterNode.AlphaThresholdSlotId, GenerationMode.ForReals), NumberStyles.Float, CultureInfo.InvariantCulture.NumberFormat, out constantAlpha) && (constantAlpha > 0.0f)))
             {
                 activeFields.Add("AlphaTest");
             }
