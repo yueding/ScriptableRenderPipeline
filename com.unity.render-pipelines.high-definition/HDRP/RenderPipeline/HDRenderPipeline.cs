@@ -1230,7 +1230,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             renderContext.StereoEndRender(hdCamera.camera);
                     }
 
-                    // Copy depth buffer if render texture has one as our depth buffer can be bigger than the one provided adn we use our RT handle system.
+                    // Copy depth buffer if render texture has one as our depth buffer can be bigger than the one provided and we use our RT handle system.
                     // We need to copy only the corresponding portion
                     // (it's handled automatically by the copy shader because it uses a load in pixel coordinates based on the target).
                     // This copy will also have the effect of re-binding this depth buffer correctly for subsequent editor rendering (This allow to have correct Gizmo/Icons).
