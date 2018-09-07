@@ -36,13 +36,9 @@ Shader "Hidden/HDRenderPipeline/CameraMotionVectors"
 
             float4 worldPos = float4(posInput.positionWS, 1.0);
             float4 prevPos = worldPos;
-#if UNITY_SINGLE_PASS_STEREO
-            float4 prevClipPos = mul(_PrevViewProjMatrixStereo[unity_StereoEyeIndex], prevPos); // Don't need to jitter for VR
-            float4 curClipPos = mul(UNITY_MATRIX_VP, worldPos); // Don't need to jitter for VR
-#else
-            float4 prevClipPos = mul(_PrevViewProjMatrix, prevPos);
-            float4 curClipPos = mul(_NonJitteredViewProjMatrix, worldPos);
-#endif
+
+            float4 prevClipPos = mul(UNITY_MATRIX_PREV_VP, prevPos);
+            float4 curClipPos = mul(UNITY_MATRIX_UNJITTERED_VP, worldPos);
 
             float2 previousPositionCS = prevClipPos.xy / prevClipPos.w;
             float2 positionCS = curClipPos.xy / curClipPos.w;
@@ -53,10 +49,8 @@ Shader "Hidden/HDRenderPipeline/CameraMotionVectors"
             velocity.y = -velocity.y;
 #endif
 
-#if UNITY_SINGLE_PASS_STEREO
-            // Since texture is double-wide, we need to halve again the velocity in x
-            velocity.x = velocity.x * 0.5;
-#endif
+            velocity.x = velocity.x * _TextureWidthScaling; // _TextureWidthScaling = 0.5 for SinglePassDoubleWide (stereo) and 1.0 otherwise
+
             // Convert velocity from Clip space (-1..1) to NDC 0..1 space
             // Note it doesn't mean we don't have negative value, we store negative or positive offset in NDC space.
             // Note: ((positionCS * 0.5 + 0.5) - (previousPositionCS * 0.5 + 0.5)) = (velocity * 0.5)

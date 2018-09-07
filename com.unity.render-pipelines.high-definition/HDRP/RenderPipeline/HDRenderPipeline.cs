@@ -448,11 +448,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
 
             // VR is not supported currently in HD
-            if (XRGraphicsConfig.enabled)
-            {
-                CoreUtils.DisplayUnsupportedXRMessage();
-                return false;
-            }
+            //if (XRGraphicsConfig.enabled)
+            //{
+            //    CoreUtils.DisplayUnsupportedXRMessage();
+            //    return false;
+            //}
             return true;
         }
 
