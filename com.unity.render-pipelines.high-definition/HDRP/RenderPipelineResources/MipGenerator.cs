@@ -18,8 +18,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public MipGenerator(HDRenderPipelineAsset asset)
         {
-            m_DepthPyramidCS = asset.renderPipelineResources.depthPyramidCS;
-            m_ColorPyramidCS = asset.renderPipelineResources.colorPyramidCS;
+            m_DepthPyramidCS = asset.renderPipelineResources.shaders.depthPyramidCS;
+            m_ColorPyramidCS = asset.renderPipelineResources.shaders.colorPyramidCS;
 
             m_DepthDownsampleKernel = m_DepthPyramidCS.FindKernel("KDepthDownsample8DualUav");
             m_ColorDownsampleKernel = m_ColorPyramidCS.FindKernel("KColorDownsample");

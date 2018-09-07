@@ -154,8 +154,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             preset = asset.renderPipelineSettings.increaseResolutionOfVolumetrics ? VolumetricLightingPreset.High :
                                                                                     VolumetricLightingPreset.Medium;
 
-            m_VolumeVoxelizationCS = asset.renderPipelineResources.volumeVoxelizationCS;
-            m_VolumetricLightingCS = asset.renderPipelineResources.volumetricLightingCS;
+            m_VolumeVoxelizationCS = asset.renderPipelineResources.shaders.volumeVoxelizationCS;
+            m_VolumetricLightingCS = asset.renderPipelineResources.shaders.volumetricLightingCS;
 
             CreateBuffers();
         }

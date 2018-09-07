@@ -73,23 +73,23 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // Disney SSS (compute + combine)
             string kernelName = hdAsset.renderPipelineSettings.increaseSssSampleCount ? "SubsurfaceScatteringHQ" : "SubsurfaceScatteringMQ";
-            m_SubsurfaceScatteringCS = hdAsset.renderPipelineResources.subsurfaceScatteringCS;
+            m_SubsurfaceScatteringCS = hdAsset.renderPipelineResources.shaders.subsurfaceScatteringCS;
             m_SubsurfaceScatteringKernel = m_SubsurfaceScatteringCS.FindKernel(kernelName);
-            m_CombineLightingPass = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.combineLighting);
+            m_CombineLightingPass = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.shaders.combineLightingPS);
             m_CombineLightingPass.SetInt(HDShaderIDs._StencilMask, (int)HDRenderPipeline.StencilBitMask.LightingMask);
 
             // Jimenez SSS Model (shader)
-            m_SssVerticalFilterPass = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.subsurfaceScattering);
+            m_SssVerticalFilterPass = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.shaders.subsurfaceScatteringPS);
             m_SssVerticalFilterPass.DisableKeyword("SSS_FILTER_HORIZONTAL_AND_COMBINE");
             m_SssVerticalFilterPass.SetFloat(HDShaderIDs._DstBlend, (float)BlendMode.Zero);
             m_SssVerticalFilterPass.SetInt(HDShaderIDs._StencilMask, (int)HDRenderPipeline.StencilBitMask.LightingMask);
 
-            m_SssHorizontalFilterAndCombinePass = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.subsurfaceScattering);
+            m_SssHorizontalFilterAndCombinePass = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.shaders.subsurfaceScatteringPS);
             m_SssHorizontalFilterAndCombinePass.EnableKeyword("SSS_FILTER_HORIZONTAL_AND_COMBINE");
             m_SssHorizontalFilterAndCombinePass.SetFloat(HDShaderIDs._DstBlend, (float)BlendMode.One);
             m_SssHorizontalFilterAndCombinePass.SetInt(HDShaderIDs._StencilMask, (int)HDRenderPipeline.StencilBitMask.LightingMask);
 
-            m_CopyStencilForSplitLighting = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.copyStencilBuffer);
+            m_CopyStencilForSplitLighting = CoreUtils.CreateEngineMaterial(hdAsset.renderPipelineResources.shaders.copyStencilBufferPS);
             m_CopyStencilForSplitLighting.SetInt(HDShaderIDs._StencilRef, (int)StencilLightingUsage.SplitLighting);
             m_CopyStencilForSplitLighting.SetInt(HDShaderIDs._StencilMask, (int)HDRenderPipeline.StencilBitMask.LightingMask);
         }

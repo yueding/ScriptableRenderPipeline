@@ -79,8 +79,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             atlasInit.baseInit.maxPayloadCount = 0;
             atlasInit.baseInit.shadowSupport   = ShadowmapBase.ShadowSupport.Directional | ShadowmapBase.ShadowSupport.Point | ShadowmapBase.ShadowSupport.Spot;
             atlasInit.shaderKeyword            = null;
-            atlasInit.shadowClearShader         = resources.shadowClearShader;
-            atlasInit.shadowBlurMoments         = resources.shadowBlurMoments;
+            atlasInit.shadowClearShader         = resources.shaders.shadowClearPS;
+            atlasInit.shadowBlurMoments         = resources.shaders.shadowBlurMomentsCS;
 
             /*
             // Code kept here for reference if we want to add VSM/MSM later on
@@ -386,16 +386,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         int m_densityVolumeCount = 0;
         bool m_enableBakeShadowMask = false; // Track if any light require shadow mask. In this case we will need to enable the keyword shadow mask
 
-        private ComputeShader buildScreenAABBShader { get { return m_Resources.buildScreenAABBShader; } }
-        private ComputeShader buildPerTileLightListShader { get { return m_Resources.buildPerTileLightListShader; } }
-        private ComputeShader buildPerBigTileLightListShader { get { return m_Resources.buildPerBigTileLightListShader; } }
-        private ComputeShader buildPerVoxelLightListShader { get { return m_Resources.buildPerVoxelLightListShader; } }
+        private ComputeShader buildScreenAABBShader { get { return m_Resources.shaders.buildScreenAABBCS; } }
+        private ComputeShader buildPerTileLightListShader { get { return m_Resources.shaders.buildPerTileLightListCS; } }
+        private ComputeShader buildPerBigTileLightListShader { get { return m_Resources.shaders.buildPerBigTileLightListCS; } }
+        private ComputeShader buildPerVoxelLightListShader { get { return m_Resources.shaders.buildPerVoxelLightListCS; } }
 
-        private ComputeShader buildMaterialFlagsShader { get { return m_Resources.buildMaterialFlagsShader; } }
-        private ComputeShader buildDispatchIndirectShader { get { return m_Resources.buildDispatchIndirectShader; } }
-        private ComputeShader clearDispatchIndirectShader { get { return m_Resources.clearDispatchIndirectShader; } }
-        private ComputeShader deferredComputeShader { get { return m_Resources.deferredComputeShader; } }
-        private ComputeShader screenSpaceShadowComputeShader { get { return m_Resources.screenSpaceShadowComputeShader; } }
+        private ComputeShader buildMaterialFlagsShader { get { return m_Resources.shaders.buildMaterialFlagsCS; } }
+        private ComputeShader buildDispatchIndirectShader { get { return m_Resources.shaders.buildDispatchIndirectCS; } }
+        private ComputeShader clearDispatchIndirectShader { get { return m_Resources.shaders.clearDispatchIndirectCS; } }
+        private ComputeShader deferredComputeShader { get { return m_Resources.shaders.deferredCS; } }
+        private ComputeShader screenSpaceShadowComputeShader { get { return m_Resources.shaders.screenSpaceShadowCS; } }
 
 
         static int s_GenAABBKernel;
@@ -558,10 +558,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             m_Resources = hdAsset.renderPipelineResources;
 
-            m_DebugViewTilesMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugViewTilesShader);
-            m_DebugShadowMapMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugShadowMapShader);
-            m_DebugLightVolumeMaterial = CoreUtils.CreateEngineMaterial(m_Resources.debugLightVolumeShader);
-            m_CubeToPanoMaterial = CoreUtils.CreateEngineMaterial(m_Resources.cubeToPanoShader);
+            m_DebugViewTilesMaterial = CoreUtils.CreateEngineMaterial(m_Resources.shaders.debugViewTilesPS);
+            m_DebugShadowMapMaterial = CoreUtils.CreateEngineMaterial(m_Resources.shaders.debugShadowMapPS);
+            m_DebugLightVolumeMaterial = CoreUtils.CreateEngineMaterial(m_Resources.shaders.debugLightVolumePS);
+            m_CubeToPanoMaterial = CoreUtils.CreateEngineMaterial(m_Resources.shaders.cubeToPanoPS);
 
             m_lightList = new LightList();
             m_lightList.Allocate();
@@ -647,8 +647,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         {
                             int index = GetDeferredLightingMaterialIndex(outputSplitLighting, lightLoopTilePass, shadowMask, debugDisplay);
 
-                            m_deferredLightingMaterial[index] = CoreUtils.CreateEngineMaterial(m_Resources.deferredShader);
-                            m_deferredLightingMaterial[index].name = string.Format("{0}_{1}", m_Resources.deferredShader.name, index);
+                            m_deferredLightingMaterial[index] = CoreUtils.CreateEngineMaterial(m_Resources.shaders.deferredPS);
+                            m_deferredLightingMaterial[index].name = string.Format("{0}_{1}", m_Resources.shaders.deferredPS.name, index);
                             CoreUtils.SetKeyword(m_deferredLightingMaterial[index], "OUTPUT_SPLIT_LIGHTING", outputSplitLighting == 1);
                             CoreUtils.SelectKeyword(m_deferredLightingMaterial[index], "LIGHTLOOP_TILE_PASS", "LIGHTLOOP_SINGLE_PASS", lightLoopTilePass == 1);
                             CoreUtils.SetKeyword(m_deferredLightingMaterial[index], "SHADOWS_SHADOWMASK", shadowMask == 1);
@@ -2138,7 +2138,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             var numTilesX = GetNumTileClusteredX(hdCamera);
             var numTilesY = GetNumTileClusteredY(hdCamera);
             int numEyes = m_FrameSettings.enableStereo ? 2 : 1;
-            //cmd.DispatchCompute(buildPerVoxelLightListShader, genListPerVoxelKernel, numTilesX, numTilesY, 1);
+            //cmd.DispatchCompute(buildPerVoxelLightListCS, genListPerVoxelKernel, numTilesX, numTilesY, 1);
             cmd.DispatchCompute(buildPerVoxelLightListShader, genListPerVoxelKernel, numTilesX, numTilesY, numEyes);
         }
 
