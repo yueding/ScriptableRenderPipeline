@@ -1,3 +1,4 @@
+using System;
 using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
@@ -31,6 +32,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         /// <inheritdoc/>
         public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            if (renderer == null)
+                throw new ArgumentNullException("renderer");
+            
             if (renderingData.lightData.mainLightIndex == -1)
                 return;
 
@@ -66,6 +70,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         /// <inheritdoc/>
         public override void FrameCleanup(CommandBuffer cmd)
         {
+            if (cmd == null)
+                throw new ArgumentNullException("cmd");
+            
             if (colorAttachmentHandle != RenderTargetHandle.CameraTarget)
             {
                 cmd.ReleaseTemporaryRT(colorAttachmentHandle.id);

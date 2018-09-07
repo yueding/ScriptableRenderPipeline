@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine.Experimental.GlobalIllumination;
 using UnityEngine.Rendering;
@@ -293,6 +294,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         /// <inheritdoc/>
         public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            if (renderer == null)
+                throw new ArgumentNullException("renderer");
+            
             CommandBuffer cmd = CommandBufferPool.Get(k_SetupLightConstants);
             SetupShaderLightConstants(cmd, ref renderingData.lightData);
             SetShaderKeywords(cmd, ref renderingData.cameraData, ref renderingData.lightData, ref renderingData.shadowData);

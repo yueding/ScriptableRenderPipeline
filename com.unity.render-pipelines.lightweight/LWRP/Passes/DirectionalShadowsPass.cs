@@ -1,3 +1,4 @@
+using System;
 using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
@@ -69,16 +70,22 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         /// <inheritdoc/>
         public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            if (renderingData.shadowData.renderDirectionalShadows)
-            {
-                Clear();
-                RenderDirectionalCascadeShadowmap(ref context, ref renderingData.cullResults, ref renderingData.lightData, ref renderingData.shadowData);
-            }
+            if (renderer == null)
+                throw new ArgumentNullException("renderer");
+
+            if (!renderingData.shadowData.renderDirectionalShadows) 
+                return;
+            
+            Clear();
+            RenderDirectionalCascadeShadowmap(ref context, ref renderingData.cullResults, ref renderingData.lightData, ref renderingData.shadowData);
         }
         
         /// <inheritdoc/>
         public override void FrameCleanup(CommandBuffer cmd)
         {
+            if (cmd == null)
+                throw new ArgumentNullException("cmd");
+            
             if (m_DirectionalShadowmapTexture)
             {
                 RenderTexture.ReleaseTemporary(m_DirectionalShadowmapTexture);

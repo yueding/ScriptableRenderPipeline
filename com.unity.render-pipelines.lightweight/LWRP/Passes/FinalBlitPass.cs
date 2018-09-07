@@ -1,3 +1,4 @@
+using System;
 using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
@@ -30,6 +31,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         /// <inheritdoc/>
         public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            if (renderer == null)
+                throw new ArgumentNullException("renderer");
+            
             Material material = renderingData.cameraData.isStereoEnabled ? null : renderer.GetMaterial(MaterialHandles.Blit);
             RenderTargetIdentifier sourceRT = colorAttachmentHandle.Identifier();
 
