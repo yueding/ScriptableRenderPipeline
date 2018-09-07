@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Enabled instancing on the terrain shader.
 - Sorting of opaque objects now respects camera opaqueSortMode setting.
 - Sorting of opaque objects disables front-to-back sorting flag when camera settings allow that and the GPU has hidden surface removal.
+- Added occlusion mesh rendering/hookup for VR
+
 ### Changed
 - The `RenderingData` struct is now read-only.
 - `ScriptableRenderer`always perform a Clear before calling `IRendererSetup::Setup.` 
