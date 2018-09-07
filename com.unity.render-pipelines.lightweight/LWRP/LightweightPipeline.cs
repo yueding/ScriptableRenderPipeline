@@ -7,14 +7,17 @@ using UnityEditor.Experimental.Rendering.LightweightPipeline;
 #endif
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.PostProcessing;
-using UnityEditor.Experimental.Rendering;
-using UnityEngine;
 using UnityEngine.Experimental.GlobalIllumination;
 using Lightmapping = UnityEngine.Experimental.GlobalIllumination.Lightmapping;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
-    public sealed partial class LightweightPipeline : RenderPipeline
+    public interface IBeforeCameraRender
+    {
+        void ExecuteBeforeCameraRender(LightweightRenderPipeline pipelineInstance, ScriptableRenderContext context, Camera camera);
+    }
+
+    public sealed partial class LightweightRenderPipeline : RenderPipeline
     {
         static class PerFrameBuffer
         {
@@ -29,15 +32,15 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static int _ScaledScreenParams;
         }
 
-        private static IRendererSetup m_DefaultRendererSetup;
+        private static IRendererSetup s_DefaultRendererSetup;
         private static IRendererSetup defaultRendererSetup
         {
             get
             {
-                if (m_DefaultRendererSetup == null)
-                    m_DefaultRendererSetup = new DefaultRendererSetup();
+                if (s_DefaultRendererSetup == null)
+                    s_DefaultRendererSetup = new DefaultRendererSetup();
 
-                return m_DefaultRendererSetup;
+                return s_DefaultRendererSetup;
             }
         }
 
@@ -45,9 +48,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         CullResults m_CullResults;
 
         public ScriptableRenderer renderer { get; private set; }
-        public PipelineSettings settings { get; private set; }
+        PipelineSettings settings { get; set; }
 
-        public struct PipelineSettings
+        internal struct PipelineSettings
         {
             public int msaaSampleCount { get; private set; }
             public bool supportsHDR { get; private set; }
@@ -67,7 +70,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public int directionalShadowAtlasResolution { get; private set; }
             public float cascade2Split { get; private set; }
             public Vector3 cascade4Split { get; private set; }
-            public bool supportsVertexLight { get; private set; }
             public int punctualShadowAtlasResolution { get; private set; }
             public bool supportsSoftShadows { get; private set; }
             public bool mixedLightingSupported { get; private set; }
@@ -105,7 +107,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
         }
 
-        public LightweightPipeline(LightweightPipelineAsset asset)
+        public LightweightRenderPipeline(LightweightPipelineAsset asset)
         {
             settings = PipelineSettings.Create(asset);
             renderer = new ScriptableRenderer(asset);
@@ -128,7 +130,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             Lightmapping.SetDelegate(lightsDelegate);
         }
 
-        public override void Dispose()
+        public sealed override void Dispose()
         {
             base.Dispose();
             Shader.globalRenderPipeline = "";
@@ -143,14 +145,15 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             Lightmapping.ResetDelegate();
         }
 
-        public interface IBeforeCameraRender
+        public override void Render(ScriptableRenderContext renderContext, Camera[] cameras)
         {
-            void ExecuteBeforeCameraRender(LightweightPipeline pipelineInstance, ScriptableRenderContext context, Camera camera);
-        }
+            if (cameras == null || cameras.Length == 0)
+            {
+                Debug.LogWarning("The camera list passed to the render pipeline is either null or empty.");
+                return;
+            }
 
-        public override void Render(ScriptableRenderContext context, Camera[] cameras)
-        {
-            base.Render(context, cameras);
+            base.Render(renderContext, cameras);
             BeginFrameRendering(cameras);
 
             GraphicsSettings.lightsUseLinearIntensity = true;
@@ -162,14 +165,20 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 BeginCameraRendering(camera);
 
                 foreach (var beforeCamera in camera.GetComponents<IBeforeCameraRender>())
-                    beforeCamera.ExecuteBeforeCameraRender(this, context, camera);
+                    beforeCamera.ExecuteBeforeCameraRender(this, renderContext, camera);
 
-                RenderSingleCamera(this, context, camera, ref m_CullResults, camera.GetComponent<IRendererSetup>());
+                RenderSingleCamera(this, renderContext, camera, m_CullResults, camera.GetComponent<IRendererSetup>());
             }
         }
 
-        public static void RenderSingleCamera(LightweightPipeline pipelineInstance, ScriptableRenderContext context, Camera camera, ref CullResults cullResults, IRendererSetup setup = null)
+        public static void RenderSingleCamera(LightweightRenderPipeline pipelineInstance, ScriptableRenderContext context, Camera camera, CullResults cullResults, IRendererSetup setup = null)
         {
+            if (pipelineInstance == null)
+            {
+                Debug.LogError("Trying to render a camera with an invalid render pipeline instance.");
+                return;
+            }
+
             CommandBuffer cmd = CommandBufferPool.Get(k_RenderCameraTag);
             using (new ProfilingSample(cmd, k_RenderCameraTag))
             {

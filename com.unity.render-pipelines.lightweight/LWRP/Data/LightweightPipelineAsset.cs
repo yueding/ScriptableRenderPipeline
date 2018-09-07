@@ -182,7 +182,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         protected override IRenderPipeline InternalCreatePipeline()
         {
-            return new LightweightPipeline(this);
+            return new LightweightRenderPipeline(this);
         }
 
         Material GetMaterial(DefaultMaterialType materialType)

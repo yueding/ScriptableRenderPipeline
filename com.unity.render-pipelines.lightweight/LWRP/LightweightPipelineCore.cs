@@ -97,7 +97,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         public static readonly string SoftParticles = "SOFTPARTICLES_ON";
     }
 
-    public sealed partial class LightweightPipeline
+    public sealed partial class LightweightRenderPipeline
     {
         static ShaderFeatures s_ShaderFeatures;
 
