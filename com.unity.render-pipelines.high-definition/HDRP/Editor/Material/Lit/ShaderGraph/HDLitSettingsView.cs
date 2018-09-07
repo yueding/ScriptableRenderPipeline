@@ -10,20 +10,6 @@ using UnityEngine.Experimental.Rendering.HDPipeline;
 
 namespace UnityEditor.ShaderGraph.Drawing
 {
-    // Don't support Multiply
-    public enum AlphaModeLit
-    {
-        Alpha,
-        PremultipliedAlpha,
-        Additive,
-    }
-
-    public enum ProjectionModelLit
-    {
-        Proxy = 0,
-        HiZ = 1,
-    }
-
     public class HDLitSettingsView : VisualElement
     {
         HDLitMasterNode m_Node;
@@ -50,7 +36,7 @@ namespace UnityEditor.ShaderGraph.Drawing
                 {
                     ps.Add(new PropertyRow(new Label("    Blend Mode")), (row) =>
                     {
-                        row.Add(new EnumField(AlphaModeLit.Additive), (field) =>
+                        row.Add(new EnumField(HDLitMasterNode.AlphaModeLit.Additive), (field) =>
                         {
                             field.value = GetAlphaModeLit(m_Node.alphaMode);
                             field.OnValueChanged(ChangeBlendMode);
@@ -100,9 +86,9 @@ namespace UnityEditor.ShaderGraph.Drawing
                     {
                         ps.Add(new PropertyRow(new Label("        SSRay Model")), (row) =>
                         {
-                            row.Add(new EnumField(ProjectionModelLit.Proxy), (field) =>
+                            row.Add(new EnumField(HDLitMasterNode.ProjectionModelLit.Proxy), (field) =>
                             {
-                                field.value = GetProjectionModelLit(m_Node.projectionModel);
+                                field.value = m_Node.projectionModel;
                                 field.OnValueChanged(ChangeProjectionModel);
                             });
                         });
@@ -316,13 +302,13 @@ namespace UnityEditor.ShaderGraph.Drawing
         void ChangeBlendMode(ChangeEvent<Enum> evt)
         {
             // Make sure the mapping is correct by handling each case.
-            AlphaMode alphaMode = GetAlphaMode((AlphaModeLit)evt.newValue);
+            AlphaMode alphaMode = GetAlphaMode((HDLitMasterNode.AlphaModeLit)evt.newValue);
 
             if (Equals(m_Node.alphaMode, alphaMode))
                 return;
 
-            m_Node.alphaMode = alphaMode;
             m_Node.owner.owner.RegisterCompleteObjectUndo("Alpha Mode Change");
+            m_Node.alphaMode = alphaMode;
         }
 
         void ChangeBlendPreserveSpecular(ChangeEvent<bool> evt)
@@ -360,13 +346,11 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         void ChangeProjectionModel(ChangeEvent<Enum> evt)
         {
-            ScreenSpaceLighting.ProjectionModel projectionModel = GetProjectionModel((ProjectionModelLit)evt.newValue);
-
-            if (Equals(m_Node.projectionModel, projectionModel))
+            if (Equals(m_Node.projectionModel, evt.newValue))
                 return;
 
-            m_Node.projectionModel = projectionModel;
             m_Node.owner.owner.RegisterCompleteObjectUndo("Projection Model Change");
+            m_Node.projectionModel = (HDLitMasterNode.ProjectionModelLit)evt.newValue;
         }
 
         void ChangeDistortion(ChangeEvent<bool> evt)
@@ -486,15 +470,15 @@ namespace UnityEditor.ShaderGraph.Drawing
             m_Node.specularOcclusionMode = (SpecularOcclusionMode)evt.newValue;
         }
 
-        public AlphaMode GetAlphaMode(AlphaModeLit alphaModeLit)
+        public AlphaMode GetAlphaMode(HDLitMasterNode.AlphaModeLit alphaModeLit)
         {
             switch (alphaModeLit)
             {
-                case AlphaModeLit.Alpha:
+                case HDLitMasterNode.AlphaModeLit.Alpha:
                     return AlphaMode.Alpha;
-                case AlphaModeLit.PremultipliedAlpha:
+                case HDLitMasterNode.AlphaModeLit.PremultipliedAlpha:
                     return AlphaMode.Premultiply;
-                case AlphaModeLit.Additive:
+                case HDLitMasterNode.AlphaModeLit.Additive:
                     return AlphaMode.Additive;
                 default:
                     {
@@ -505,52 +489,20 @@ namespace UnityEditor.ShaderGraph.Drawing
             }
         }
 
-        public AlphaModeLit GetAlphaModeLit(AlphaMode alphaMode)
+        public HDLitMasterNode.AlphaModeLit GetAlphaModeLit(AlphaMode alphaMode)
         {
             switch (alphaMode)
             {
                 case AlphaMode.Alpha:
-                    return AlphaModeLit.Alpha;
+                    return HDLitMasterNode.AlphaModeLit.Alpha;
                 case AlphaMode.Premultiply:
-                    return AlphaModeLit.PremultipliedAlpha;
+                    return HDLitMasterNode.AlphaModeLit.PremultipliedAlpha;
                 case AlphaMode.Additive:
-                    return AlphaModeLit.Additive;
+                    return HDLitMasterNode.AlphaModeLit.Additive;
                 default:
                     {
                         Debug.LogWarning("Not supported: " + alphaMode);
-                        return AlphaModeLit.Alpha;
-                    }                    
-            }
-        }
-
-        public ScreenSpaceLighting.ProjectionModel GetProjectionModel(ProjectionModelLit projectionModelLit)
-        {
-            switch (projectionModelLit)
-            {
-                case ProjectionModelLit.HiZ:
-                    return ScreenSpaceLighting.ProjectionModel.HiZ;
-                case ProjectionModelLit.Proxy:
-                    return ScreenSpaceLighting.ProjectionModel.Proxy;
-                default:
-                    {
-                        Debug.LogWarning("Not supported: " + projectionModelLit);
-                        return ScreenSpaceLighting.ProjectionModel.Proxy;
-                    }                    
-            }
-        }
-
-        public ProjectionModelLit GetProjectionModelLit(ScreenSpaceLighting.ProjectionModel projectionModel)
-        {
-            switch (projectionModel)
-            {
-                case ScreenSpaceLighting.ProjectionModel.HiZ:
-                    return ProjectionModelLit.HiZ;
-                case ScreenSpaceLighting.ProjectionModel.Proxy:
-                    return ProjectionModelLit.Proxy;
-                default:
-                    {
-                        Debug.LogWarning("Not supported: " + projectionModel);
-                        return ProjectionModelLit.Proxy;
+                        return HDLitMasterNode.AlphaModeLit.Alpha;
                     }                    
             }
         }

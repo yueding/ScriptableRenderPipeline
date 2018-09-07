@@ -669,11 +669,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
                 switch (masterNode.projectionModel)
                 {
-                    case ScreenSpaceLighting.ProjectionModel.Proxy:
+                    case HDLitMasterNode.ProjectionModelLit.Proxy:
                         activeFields.Add("RefractionSSRayProxy");
                         break;
 
-                    case ScreenSpaceLighting.ProjectionModel.HiZ:
+                    case HDLitMasterNode.ProjectionModelLit.HiZ:
                         activeFields.Add("RefractionSSRayHiZ");
                         break;
 

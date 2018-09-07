@@ -83,6 +83,20 @@ namespace UnityEditor.ShaderGraph
             Translucent
         }
 
+        // Don't support Multiply
+        public enum AlphaModeLit
+        {
+            Alpha,
+            PremultipliedAlpha,
+            Additive,
+        }
+
+        public enum ProjectionModelLit
+        {
+            Proxy = 0,
+            HiZ = 1,
+        }
+
         // Just for convenience of doing simple masks. We could run out of bits of course.
         [Flags]
         enum SlotMask
@@ -249,9 +263,9 @@ namespace UnityEditor.ShaderGraph
         }
 
         [SerializeField]
-        ScreenSpaceLighting.ProjectionModel m_ProjectionModel = ScreenSpaceLighting.ProjectionModel.Proxy;
+        ProjectionModelLit m_ProjectionModel = ProjectionModelLit.Proxy;
 
-        public ScreenSpaceLighting.ProjectionModel projectionModel
+        public ProjectionModelLit projectionModel
         {
             get { return m_ProjectionModel; }
             set
