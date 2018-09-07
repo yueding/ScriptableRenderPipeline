@@ -99,7 +99,7 @@ half GetPunctualLightShadowStrenth(int lightIndex)
     return _PunctualShadowStrength[lightIndex];
 }
 
-half SampleScreenSpaceShadowMap(float4 shadowCoord)
+half SampleScreenSpaceShadowmap(float4 shadowCoord)
 {
     shadowCoord.xy /= shadowCoord.w;
 
@@ -195,7 +195,7 @@ half DirectionalLightRealtimeShadow(float4 shadowCoord)
 #endif
 
 #if SHADOWS_SCREEN
-    return SampleScreenSpaceShadowMap(shadowCoord);
+    return SampleScreenSpaceShadowmap(shadowCoord);
 #else
     ShadowSamplingData shadowSamplingData = GetDirectionalLightShadowSamplingData();
     half shadowStrength = GetDirectionalLightShadowStrength();
