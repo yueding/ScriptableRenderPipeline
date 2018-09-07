@@ -120,7 +120,7 @@ public class CameraCallbackTests : MonoBehaviour
 			m_CopyResult.Setup(RenderTargetHandle.CameraTarget, afterAll);
 			m_CopyResult.Execute(renderer, context, ref renderingData);
 			
-			Material material = renderer.GetMaterial(MaterialHandles.Blit);
+			Material material = renderer.GetMaterial(MaterialHandle.Blit);
 
 			CommandBuffer cmd = CommandBufferPool.Get("Blit Pass");
 			cmd.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);

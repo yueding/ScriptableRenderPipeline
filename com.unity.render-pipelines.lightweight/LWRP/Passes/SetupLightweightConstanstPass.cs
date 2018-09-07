@@ -14,7 +14,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
     /// </summary>
     public class SetupLightweightConstanstPass : ScriptableRenderPass
     {
-        public static class LightConstantBuffer
+        static class LightConstantBuffer
         {
             public static int _MainLightPosition;
             public static int _MainLightColor;

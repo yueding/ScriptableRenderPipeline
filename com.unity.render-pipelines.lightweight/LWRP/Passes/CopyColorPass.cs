@@ -62,7 +62,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     cmd.Blit(colorRT, opaqueColorRT);
                     break;
                 case Downsampling._4xBox:
-                    Material samplingMaterial = renderer.GetMaterial(MaterialHandles.Sampling);
+                    Material samplingMaterial = renderer.GetMaterial(MaterialHandle.Sampling);
                     samplingMaterial.SetFloat(m_SampleOffsetShaderHandle, 2);
                     cmd.Blit(colorRT, opaqueColorRT, samplingMaterial, 0);
                     break;

@@ -67,8 +67,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
         Shader m_DefaultShader;
 
-        
-
         // Shader Features
         [SerializeField] bool m_DirectionalShadowsSupported = true;
         [SerializeField] RealtimeLightSupport m_PunctualLightsSupport = RealtimeLightSupport.PerPixel;
@@ -211,11 +209,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 #endif
         }
         
-        public int GetAssetVersion()
-        {
-            return k_AssetVersion;
-        }
-
         public int maxPixelLights
         {
             get { return m_MaxPixelLights; }

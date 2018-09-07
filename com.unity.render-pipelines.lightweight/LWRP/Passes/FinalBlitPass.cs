@@ -34,7 +34,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             if (renderer == null)
                 throw new ArgumentNullException("renderer");
             
-            Material material = renderingData.cameraData.isStereoEnabled ? null : renderer.GetMaterial(MaterialHandles.Blit);
+            Material material = renderingData.cameraData.isStereoEnabled ? null : renderer.GetMaterial(MaterialHandle.Blit);
             RenderTargetIdentifier sourceRT = colorAttachmentHandle.Identifier();
 
             CommandBuffer cmd = CommandBufferPool.Get(k_FinalBlitTag);

@@ -39,7 +39,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             CommandBuffer cmd = CommandBufferPool.Get(k_DepthCopyTag);
             RenderTargetIdentifier depthSurface = source.Identifier();
             RenderTargetIdentifier copyDepthSurface = destination.Identifier();
-            Material depthCopyMaterial = renderer.GetMaterial(MaterialHandles.DepthCopy);
+            Material depthCopyMaterial = renderer.GetMaterial(MaterialHandle.DepthCopy);
 
             RenderTextureDescriptor descriptor = ScriptableRenderer.CreateRenderTextureDescriptor(ref renderingData.cameraData);
             descriptor.colorFormat = RenderTextureFormat.Depth;
