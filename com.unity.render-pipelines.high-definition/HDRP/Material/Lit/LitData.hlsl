@@ -4,6 +4,7 @@
 #include "CoreRP/ShaderLibrary/Sampling/SampleUVMapping.hlsl"
 #include "HDRP/Material/MaterialUtilities.hlsl"
 #include "HDRP/Material/Decal/DecalUtilities.hlsl"
+#include "HDRP/Material/Lit/LitDecalData.hlsl"
 
 //#include "HDRP/Material/SphericalCapPivot/SPTDistribution.hlsl"
 //#define SPECULAR_OCCLUSION_USE_SPTD
@@ -164,7 +165,8 @@ void GetLayerTexCoord(FragInputs input, inout LayerTexCoord layerTexCoord)
 void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs posInput, out SurfaceData surfaceData, out BuiltinData builtinData)
 {
 #ifdef LOD_FADE_CROSSFADE // enable dithering LOD transition if user select CrossFade transition in LOD group
-    LODDitheringTransition(posInput.positionSS, unity_LODFade.x);
+    uint3 fadeMaskSeed = asuint((int3)(V * _ScreenSize.xyx)); // Quantize V to _ScreenSize values
+    LODDitheringTransition(fadeMaskSeed, unity_LODFade.x);
 #endif
 
     ApplyDoubleSidedFlipOrMirror(input); // Apply double sided flip on the vertex normal
@@ -213,7 +215,11 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
     surfaceData.tangentWS = Orthonormalize(surfaceData.tangentWS, surfaceData.normalWS);
 
 #if HAVE_DECALS
-    AddDecalContribution(posInput, surfaceData, alpha);
+    if (_EnableDecals)
+    {
+        DecalSurfaceData decalSurfaceData = GetDecalSurfaceData(posInput, alpha);
+        ApplyDecalToSurfaceData(decalSurfaceData, surfaceData);
+    }
 #endif
 
 #if defined(DEBUG_DISPLAY)

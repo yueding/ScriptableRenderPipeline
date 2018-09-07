@@ -2,14 +2,26 @@ using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
+    /// <summary>
+    /// Generate rendering attachments that can be used for rendering.
+    ///
+    /// You can use this pass to generate valid rendering targets that
+    /// the Lightweight Render Pipeline can use for rendering. For example,
+    /// when you render a frame, the LWRP renders into a valid color and
+    /// depth buffer.
+    /// </summary>
     public class CreateLightweightRenderTexturesPass : ScriptableRenderPass
     {
+        const string k_CreateRenderTexturesTag = "Create Render Textures";
         const int k_DepthStencilBufferBits = 32;
         private RenderTargetHandle colorAttachmentHandle { get; set; }
         private RenderTargetHandle depthAttachmentHandle { get; set; }
         private RenderTextureDescriptor descriptor { get; set; }
         private SampleCount samples { get; set; }
 
+        /// <summary>
+        /// Configure the pass
+        /// </summary>
         public void Setup(
             RenderTextureDescriptor baseDescriptor,
             RenderTargetHandle colorAttachmentHandle,
@@ -22,17 +34,16 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             descriptor = baseDescriptor;
         }
 
-        public override void Execute(ScriptableRenderer renderer, ref ScriptableRenderContext context,
-            ref CullResults cullResults,
-            ref RenderingData renderingData)
+        /// <inheritdoc/>
+        public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            CommandBuffer cmd = CommandBufferPool.Get("");
+            CommandBuffer cmd = CommandBufferPool.Get(k_CreateRenderTexturesTag);
             if (colorAttachmentHandle != RenderTargetHandle.CameraTarget)
             {
                 var colorDescriptor = descriptor;
                 colorDescriptor.depthBufferBits = 0;
                 colorDescriptor.sRGB = true;
-                colorDescriptor.msaaSamples = (int) samples;
+                colorDescriptor.msaaSamples = (int)samples;
                 cmd.GetTemporaryRT(colorAttachmentHandle.id, colorDescriptor, FilterMode.Bilinear);
             }
 
@@ -41,8 +52,8 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 var depthDescriptor = descriptor;
                 depthDescriptor.colorFormat = RenderTextureFormat.Depth;
                 depthDescriptor.depthBufferBits = k_DepthStencilBufferBits;
-                depthDescriptor.msaaSamples = (int) samples;
-                depthDescriptor.bindMS = (int) samples > 1;
+                depthDescriptor.msaaSamples = (int)samples;
+                depthDescriptor.bindMS = (int)samples > 1;
                 cmd.GetTemporaryRT(depthAttachmentHandle.id, depthDescriptor, FilterMode.Point);
             }
 
@@ -50,6 +61,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             CommandBufferPool.Release(cmd);
         }
 
+        /// <inheritdoc/>
         public override void FrameCleanup(CommandBuffer cmd)
         {
             if (colorAttachmentHandle != RenderTargetHandle.CameraTarget)

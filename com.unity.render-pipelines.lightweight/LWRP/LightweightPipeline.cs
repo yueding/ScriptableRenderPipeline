@@ -1,14 +1,20 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 #if UNITY_EDITOR
+using UnityEditor;
 using UnityEditor.Experimental.Rendering.LightweightPipeline;
 #endif
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.PostProcessing;
+using UnityEditor.Experimental.Rendering;
+using UnityEngine;
+using UnityEngine.Experimental.GlobalIllumination;
+using Lightmapping = UnityEngine.Experimental.GlobalIllumination.Lightmapping;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
-    public partial class LightweightPipeline : RenderPipeline
+    public sealed partial class LightweightPipeline : RenderPipeline
     {
         static class PerFrameBuffer
         {
@@ -23,9 +29,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             public static int _ScaledScreenParams;
         }
 
-        public LightweightPipelineAsset pipelineAsset { get; private set; }
-
-        
         private static IRendererSetup m_DefaultRendererSetup;
         private static IRendererSetup defaultRendererSetup
         {
@@ -38,12 +41,11 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
         }
 
-        CameraComparer m_CameraComparer = new CameraComparer();
-
-        ScriptableRenderer m_Renderer;
+        const string k_RenderCameraTag = "Render Camera";
         CullResults m_CullResults;
 
-        private PipelineSettings m_PipelineSettings;
+        public ScriptableRenderer renderer { get; private set; }
+        public PipelineSettings settings { get; private set; }
 
         public struct PipelineSettings
         {
@@ -91,29 +93,36 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 cache.supportsVertexLight = asset.supportsVertexLight;
                 cache.localShadowAtlasResolution = asset.localShadowAtlasResolution;
                 cache.supportsSoftShadows = asset.supportsSoftShadows;
+
+                cache.savedXRGraphicsConfig.renderScale = cache.renderScale;
+                cache.savedXRGraphicsConfig.viewportScale = 1.0f; // Placeholder until viewportScale is all hooked up
+                // Apply any changes to XRGConfig prior to this point
+                cache.savedXRGraphicsConfig.SetConfig();
                 return cache;
             }
         }
 
         public LightweightPipeline(LightweightPipelineAsset asset)
         {
-            m_PipelineSettings = PipelineSettings.Create(asset);
+            settings = PipelineSettings.Create(asset);
+            renderer = new ScriptableRenderer(asset);
 
             SetSupportedRenderingFeatures();
-            SetPipelineCapabilities(asset);
+            SetSupportedShaderFeatures(asset);
 
             PerFrameBuffer._GlossyEnvironmentColor = Shader.PropertyToID("_GlossyEnvironmentColor");
             PerFrameBuffer._SubtractiveShadowColor = Shader.PropertyToID("_SubtractiveShadowColor");
 
             PerCameraBuffer._InvCameraViewProj = Shader.PropertyToID("_InvCameraViewProj");
             PerCameraBuffer._ScaledScreenParams = Shader.PropertyToID("_ScaledScreenParams");
-            m_Renderer = new ScriptableRenderer(asset);
-
+            
             // Let engine know we have MSAA on for cases where we support MSAA backbuffer
-            if (QualitySettings.antiAliasing != m_PipelineSettings.msaaSampleCount)
-                QualitySettings.antiAliasing = m_PipelineSettings.msaaSampleCount;
+            if (QualitySettings.antiAliasing != settings.msaaSampleCount)
+                QualitySettings.antiAliasing = settings.msaaSampleCount;
 
             Shader.globalRenderPipeline = "LightweightPipeline";
+
+            Lightmapping.SetDelegate(lightsDelegate);
         }
 
         public override void Dispose()
@@ -126,48 +135,44 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             SceneViewDrawMode.ResetDrawMode();
 #endif
 
-            m_Renderer.Dispose();
+            renderer.Dispose();
+
+            Lightmapping.ResetDelegate();
         }
-        
+
         public interface IBeforeCameraRender
         {
-            void ExecuteBeforeCameraRender(ScriptableRenderContext context, Camera camera, PipelineSettings pipelineSettings, ScriptableRenderer renderer);
+            void ExecuteBeforeCameraRender(LightweightPipeline pipelineInstance, ScriptableRenderContext context, Camera camera);
         }
 
         public override void Render(ScriptableRenderContext context, Camera[] cameras)
         {
-            m_PipelineSettings.savedXRGraphicsConfig.renderScale = m_PipelineSettings.renderScale;
-            m_PipelineSettings.savedXRGraphicsConfig.viewportScale = 1.0f; // Placeholder until viewportScale is all hooked up
-            // Apply any changes to XRGConfig prior to this point
-            m_PipelineSettings.savedXRGraphicsConfig.SetConfig();
-
             base.Render(context, cameras);
             BeginFrameRendering(cameras);
 
             GraphicsSettings.lightsUseLinearIntensity = true;
             SetupPerFrameShaderConstants();
 
-            // Sort cameras array by camera depth
-            Array.Sort(cameras, m_CameraComparer);
-
+            SortCameras(cameras);
             foreach (Camera camera in cameras)
             {
                 BeginCameraRendering(camera);
 
                 foreach (var beforeCamera in camera.GetComponents<IBeforeCameraRender>())
-                    beforeCamera.ExecuteBeforeCameraRender(context, camera, m_PipelineSettings, m_Renderer);
+                    beforeCamera.ExecuteBeforeCameraRender(this, context, camera);
 
-                RenderSingleCamera(context, m_PipelineSettings, camera, ref m_CullResults, camera.GetComponent<IRendererSetup>(), m_Renderer);
+                RenderSingleCamera(this, context, camera, ref m_CullResults, camera.GetComponent<IRendererSetup>());
             }
         }
 
-        public static void RenderSingleCamera(ScriptableRenderContext context, PipelineSettings settings, Camera camera, ref CullResults cullResults, IRendererSetup setup, ScriptableRenderer renderer)
+        public static void RenderSingleCamera(LightweightPipeline pipelineInstance, ScriptableRenderContext context, Camera camera, ref CullResults cullResults, IRendererSetup setup = null)
         {
-            string renderCameraTag = camera.name;
-            CommandBuffer cmd = CommandBufferPool.Get(renderCameraTag);
-            using (new ProfilingSample(cmd, renderCameraTag))
+            CommandBuffer cmd = CommandBufferPool.Get(k_RenderCameraTag);
+            using (new ProfilingSample(cmd, k_RenderCameraTag))
             {
                 CameraData cameraData;
+                PipelineSettings settings = pipelineInstance.settings;
+                ScriptableRenderer renderer = pipelineInstance.renderer;
                 InitializeCameraData(settings, camera, out cameraData);
                 SetupPerCameraShaderConstants(cameraData);
 
@@ -190,24 +195,25 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                     ScriptableRenderContext.EmitWorldGeometryForSceneView(camera);
 #endif
                 CullResults.Cull(ref cullingParameters, context, ref cullResults);
-                List<VisibleLight> visibleLights = cullResults.visibleLights;
 
                 RenderingData renderingData;
-                InitializeRenderingData(settings, ref cameraData, visibleLights,
-                    renderer.maxSupportedLocalLightsPerPass, renderer.maxSupportedVertexLights,
-                    out renderingData);
+                InitializeRenderingData(settings, ref cameraData, ref cullResults,
+                    renderer.maxSupportedLocalLightsPerPass, renderer.maxSupportedVertexLights, out renderingData);
 
                 var setupToUse = setup;
                 if (setupToUse == null)
                     setupToUse = defaultRendererSetup;
 
-                setupToUse.Setup(renderer, ref context, ref cullResults, ref renderingData);
-
-                renderer.Execute(ref context, ref cullResults, ref renderingData);
+                renderer.Clear();
+                setupToUse.Setup(renderer, ref renderingData);
+                renderer.Execute(context, ref renderingData);
 
                 context.ExecuteCommandBuffer(cmd);
                 CommandBufferPool.Release(cmd);
                 context.Submit();
+#if UNITY_EDITOR
+                Handles.DrawGizmos(camera);
+#endif
             }
         }
 
@@ -257,9 +263,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
             Rect cameraRect = camera.rect;
             cameraData.isDefaultViewport = (!(Math.Abs(cameraRect.x) > 0.0f || Math.Abs(cameraRect.y) > 0.0f ||
-                                              Math.Abs(cameraRect.width) < 1.0f || Math.Abs(cameraRect.height) < 1.0f));
+                Math.Abs(cameraRect.width) < 1.0f || Math.Abs(cameraRect.height) < 1.0f));
 
-            // If XR is enabled, use XR renderScale. 
+            // If XR is enabled, use XR renderScale.
             // Discard variations lesser than kRenderScaleThreshold.
             // Scale is only enabled for gameview.
             float usedRenderScale = XRGraphicsConfig.enabled ? settings.savedXRGraphicsConfig.renderScale : settings.renderScale;
@@ -288,15 +294,22 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             }
 
             cameraData.requiresDepthTexture |= cameraData.postProcessEnabled;
+
+            var commonOpaqueFlags = SortFlags.CommonOpaque;
+            var noFrontToBackOpaqueFlags = SortFlags.SortingLayer | SortFlags.RenderQueue | SortFlags.OptimizeStateChanges | SortFlags.CanvasOrder;
+            bool hasHSRGPU = SystemInfo.hasHiddenSurfaceRemovalOnGPU;
+            bool canSkipFrontToBackSorting = (camera.opaqueSortMode == OpaqueSortMode.Default && hasHSRGPU) || camera.opaqueSortMode == OpaqueSortMode.NoDistanceSort;
+
+            cameraData.defaultOpaqueSortFlags = canSkipFrontToBackSorting ? noFrontToBackOpaqueFlags : commonOpaqueFlags;
         }
 
-        
-        static void InitializeRenderingData(PipelineSettings settings, ref CameraData cameraData,
-            List<VisibleLight> visibleLights, int maxSupportedLocalLightsPerPass, int maxSupportedVertexLights,
+        static void InitializeRenderingData(PipelineSettings settings, ref CameraData cameraData, ref CullResults cullResults,
+            int maxSupportedLocalLightsPerPass, int maxSupportedVertexLights,
             out RenderingData renderingData)
         {
+            List<VisibleLight> visibleLights = cullResults.visibleLights;
             List<int> localLightIndices = new List<int>();
-            
+
             bool hasDirectionalShadowCastingLight = false;
             bool hasLocalShadowCastingLight = false;
 
@@ -318,6 +331,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
                 }
             }
 
+            renderingData.cullResults = cullResults;
             renderingData.cameraData = cameraData;
             InitializeLightData(settings, visibleLights, maxSupportedLocalLightsPerPass, maxSupportedVertexLights, localLightIndices, out renderingData.lightData);
             InitializeShadowData(settings, hasDirectionalShadowCastingLight, hasLocalShadowCastingLight, out renderingData.shadowData);
@@ -356,9 +370,6 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             shadowData.localShadowAtlasWidth = shadowData.localShadowAtlasHeight = settings.localShadowAtlasResolution;
             shadowData.supportsSoftShadows = settings.supportsSoftShadows;
             shadowData.bufferBitCount = 16;
-
-            shadowData.renderedDirectionalShadowQuality = LightShadows.None;
-            shadowData.renderedLocalShadowQuality = LightShadows.None;
         }
 
         static void InitializeLightData(PipelineSettings settings, List<VisibleLight> visibleLights,
@@ -430,5 +441,40 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
             Matrix4x4 invViewProjMatrix = Matrix4x4.Inverse(viewProjMatrix);
             Shader.SetGlobalMatrix(PerCameraBuffer._InvCameraViewProj, invViewProjMatrix);
         }
+
+        public static Lightmapping.RequestLightsDelegate lightsDelegate = (Light[] requests, NativeArray<LightDataGI> lightsOutput) =>
+        {
+            LightDataGI lightData = new LightDataGI();
+
+            for (int i = 0; i < requests.Length; i++)
+            {
+                Light light = requests[i];
+                switch (light.type)
+                {
+                    case LightType.Directional:
+                        DirectionalLight directionalLight = new DirectionalLight();
+                        LightmapperUtils.Extract(light, ref directionalLight); lightData.Init(ref directionalLight);
+                        break;
+                    case LightType.Point:
+                        PointLight pointLight = new PointLight();
+                        LightmapperUtils.Extract(light, ref pointLight); lightData.Init(ref pointLight);
+                        break;
+                    case LightType.Spot:
+                        SpotLight spotLight = new SpotLight();
+                        LightmapperUtils.Extract(light, ref spotLight); lightData.Init(ref spotLight);
+                        break;
+                    case LightType.Area:
+                        RectangleLight rectangleLight = new RectangleLight();
+                        LightmapperUtils.Extract(light, ref rectangleLight); lightData.Init(ref rectangleLight);
+                        break;
+                    default:
+                        lightData.InitNoBake(light.GetInstanceID());
+                        break;
+                }
+
+                lightData.falloff = FalloffType.InverseSquared;
+                lightsOutput[i] = lightData;
+            }
+        };
     }
 }

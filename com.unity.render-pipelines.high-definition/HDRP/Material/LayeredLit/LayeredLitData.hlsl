@@ -642,7 +642,8 @@ float3 ComputeMainBaseColorInfluence(float influenceMask, float3 baseColor0, flo
 void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs posInput, out SurfaceData surfaceData, out BuiltinData builtinData)
 {
 #ifdef LOD_FADE_CROSSFADE // enable dithering LOD transition if user select CrossFade transition in LOD group
-    LODDitheringTransition(posInput.positionSS, unity_LODFade.x);
+    uint3 fadeMaskSeed = asuint((int3)(V * _ScreenSize.xyx)); // Quantize V to _ScreenSize values
+    LODDitheringTransition(fadeMaskSeed, unity_LODFade.x);
 #endif
 
     ApplyDoubleSidedFlipOrMirror(input); // Apply double sided flip on the vertex normal
@@ -760,7 +761,11 @@ void GetSurfaceAndBuiltinData(FragInputs input, float3 V, inout PositionInputs p
 #endif
 
 #if HAVE_DECALS
-    AddDecalContribution(posInput, surfaceData, alpha);
+    if (_EnableDecals)
+    {
+        DecalSurfaceData decalSurfaceData = GetDecalSurfaceData(posInput, alpha);
+        ApplyDecalToSurfaceData(decalSurfaceData, surfaceData);
+    }
 #endif
 
 #if defined(DEBUG_DISPLAY)

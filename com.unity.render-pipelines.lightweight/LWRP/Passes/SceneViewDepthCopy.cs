@@ -12,10 +12,9 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
         {
             this.source = source;
         }
-
-        public override void Execute(ScriptableRenderer renderer, ref ScriptableRenderContext context,
-            ref CullResults cullResults,
-            ref RenderingData renderingData)
+        
+        /// <inheritdoc/>
+        public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
             // Restore Render target for additional editor rendering.
             // Note: Scene view camera always perform depth prepass

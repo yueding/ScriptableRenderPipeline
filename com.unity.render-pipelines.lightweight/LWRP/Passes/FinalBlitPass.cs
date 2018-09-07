@@ -2,22 +2,33 @@ using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
+    /// <summary>
+    /// Copy the given color target to the current camera target
+    ///
+    /// You can use this pass to copy the result of rendering to
+    /// the camera target. The pass takes the screen viewport into
+    /// consideration.
+    /// </summary>
     public class FinalBlitPass : ScriptableRenderPass
     {
         const string k_FinalBlitTag = "Final Blit Pass";
 
         private RenderTargetHandle colorAttachmentHandle { get; set; }
         private RenderTextureDescriptor descriptor { get; set; }
-        
+
+        /// <summary>
+        /// Configure the pass
+        /// </summary>
+        /// <param name="baseDescriptor"></param>
+        /// <param name="colorAttachmentHandle"></param>
         public void Setup(RenderTextureDescriptor baseDescriptor, RenderTargetHandle colorAttachmentHandle)
         {
             this.colorAttachmentHandle = colorAttachmentHandle;
             this.descriptor = baseDescriptor;
         }
-
-        public override void Execute(ScriptableRenderer renderer, ref ScriptableRenderContext context,
-            ref CullResults cullResults,
-            ref RenderingData renderingData)
+        
+        /// <inheritdoc/>
+        public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
             Material material = renderingData.cameraData.isStereoEnabled ? null : renderer.GetMaterial(MaterialHandles.Blit);
             RenderTargetIdentifier sourceRT = colorAttachmentHandle.Identifier();
@@ -39,7 +50,7 @@ namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 
                 cmd.SetViewProjectionMatrices(Matrix4x4.identity, Matrix4x4.identity);
                 cmd.SetViewport(renderingData.cameraData.camera.pixelRect);
-                LightweightPipeline.DrawFullScreen(cmd, material);
+                ScriptableRenderer.RenderFullscreenQuad(cmd, material);
             }
             else
             {

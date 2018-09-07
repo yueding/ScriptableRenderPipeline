@@ -2,37 +2,74 @@ using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.LightweightPipeline
 {
-    public class RenderTransparentForwardPass : LightweightForwardPass
+    /// <summary>
+    /// Render all transparent forward objects into the given color and depth target 
+    ///
+    /// You can use this pass to render objects that have a material and/or shader
+    /// with the pass names LightweightForward or SRPDefaultUnlit. The pass only renders
+    /// objects in the rendering queue range of Transparent objects.
+    /// </summary>
+    public class RenderTransparentForwardPass : ScriptableRenderPass
     {
         const string k_RenderTransparentsTag = "Render Transparents";
 
-        private FilterRenderersSettings transparentFilterSettings { get; set; }
+        FilterRenderersSettings m_TransparentFilterSettings;
+
+        RenderTargetHandle colorAttachmentHandle { get; set; }
+        RenderTargetHandle depthAttachmentHandle { get; set; }
+        RenderTextureDescriptor descriptor { get; set; }
+        RendererConfiguration rendererConfiguration;
 
         public RenderTransparentForwardPass()
         {
-            transparentFilterSettings = new FilterRenderersSettings(true)
+            RegisterShaderPassName("LightweightForward");
+            RegisterShaderPassName("SRPDefaultUnlit");
+
+            m_TransparentFilterSettings = new FilterRenderersSettings(true)
             {
                 renderQueueRange = RenderQueueRange.transparent,
             };
         }
 
-        public override void Execute(ScriptableRenderer renderer, ref ScriptableRenderContext context,
-            ref CullResults cullResults,
-            ref RenderingData renderingData)
+        /// <summary>
+        /// Configure the pass before execution
+        /// </summary>
+        /// <param name="baseDescriptor">Current target descriptor</param>
+        /// <param name="colorAttachmentHandle">Color attachment to render into</param>
+        /// <param name="depthAttachmentHandle">Depth attachment to render into</param>
+        /// <param name="configuration">Specific render configuration</param>
+        public void Setup(
+            RenderTextureDescriptor baseDescriptor,
+            RenderTargetHandle colorAttachmentHandle,
+            RenderTargetHandle depthAttachmentHandle,
+            RendererConfiguration configuration)
+        {
+            this.colorAttachmentHandle = colorAttachmentHandle;
+            this.depthAttachmentHandle = depthAttachmentHandle;
+            descriptor = baseDescriptor;
+            rendererConfiguration = configuration;
+        }
+
+        /// <inheritdoc/>
+        public override void Execute(ScriptableRenderer renderer, ScriptableRenderContext context, ref RenderingData renderingData)
         {
             CommandBuffer cmd = CommandBufferPool.Get(k_RenderTransparentsTag);
             using (new ProfilingSample(cmd, k_RenderTransparentsTag))
             {
-                SetRenderTarget(cmd, RenderBufferLoadAction.Load, RenderBufferStoreAction.Store, clearFlag, CoreUtils.ConvertSRGBToActiveColorSpace(clearColor));
+                RenderBufferLoadAction loadOp = RenderBufferLoadAction.Load;
+                RenderBufferStoreAction storeOp = RenderBufferStoreAction.Store;
+                SetRenderTarget(cmd, colorAttachmentHandle.Identifier(), loadOp, storeOp,
+                    depthAttachmentHandle.Identifier(), loadOp, storeOp, ClearFlag.None, Color.black, descriptor.dimension);
+
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
                 Camera camera = renderingData.cameraData.camera;
-                var drawSettings = CreateDrawRendererSettings(camera, SortFlags.CommonTransparent, rendererConfiguration, dynamicBatching);
-                context.DrawRenderers(cullResults.visibleRenderers, ref drawSettings, transparentFilterSettings);
+                var drawSettings = CreateDrawRendererSettings(camera, SortFlags.CommonTransparent, rendererConfiguration, renderingData.supportsDynamicBatching);
+                context.DrawRenderers(renderingData.cullResults.visibleRenderers, ref drawSettings, m_TransparentFilterSettings);
 
                 // Render objects that did not match any shader pass with error shader
-                RenderObjectsWithError(renderer, ref context, ref cullResults, camera, transparentFilterSettings, SortFlags.None);
+                renderer.RenderObjectsWithError(context, ref renderingData.cullResults, camera, m_TransparentFilterSettings, SortFlags.None);
             }
 
             context.ExecuteCommandBuffer(cmd);

@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [3.4.0-preview]
 
+### Added
+- Added a new TerrainLit shader that supports rendering of Unity terrains.
+- Added controls for linear fade at the boundary of density volumes
+- Added new API to control decals without monobehaviour object
+- Improve Decal Gizmo
+- Implement Screen Space Reflections (SSR) (alpha version, highly experimental)
+
+### Changed
+- Changed the way depth & color pyramids are built to be faster and better quality, thus improving the look of distortion and refraction.
+- Stabilize the dithered LOD transition mask with respect to the camera rotation.
+
+### Fixed
+- Fixed an issue where sometimes the deferred shadow texture would not be valid, causing wrong rendering.
+- Stencil test during decals normal buffer update is now properly applied
+- Decals corectly update normal buffer in forward
+- Fixed a normalization problem in reflection probe face fading causing artefacts in some cases
+- Fix multi-selection behavior of Density Volumes overwriting the albedo value
+
 ## [3.3.0-preview]
 
 ### Added

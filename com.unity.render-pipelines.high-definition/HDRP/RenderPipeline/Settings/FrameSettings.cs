@@ -14,7 +14,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public bool enableShadow = true;
         public bool enableContactShadows = true;
         public bool enableShadowMask = true;
-        public bool enableSSR = true; // Depends on DepthPyramid
+        public bool enableSSR = false;
         public bool enableSSAO = true;
         public bool enableSubsurfaceScattering = true;
         public bool enableTransmission = true;  // Caution: this is only for debug, it doesn't save the cost of Transmission execution
@@ -40,7 +40,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public bool enableDistortion = true;
         public bool enablePostprocess = true;
 
-        public bool enableStereo = true;
+        public bool enableStereo = false;
+        public XRGraphicsConfig xrGraphicsConfig;
+
         public bool enableAsyncCompute = true;
 
         public bool enableOpaqueObjects = true;
@@ -80,6 +82,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             frameSettings.enablePostprocess = this.enablePostprocess;
 
             frameSettings.enableStereo = this.enableStereo;
+            frameSettings.xrGraphicsConfig = this.xrGraphicsConfig;
 
             frameSettings.enableOpaqueObjects = this.enableOpaqueObjects;
             frameSettings.enableTransparentObjects = this.enableTransparentObjects;
@@ -112,8 +115,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             aggregate.enableShadow = srcFrameSettings.enableShadow;
             aggregate.enableContactShadows = srcFrameSettings.enableContactShadows;
-            aggregate.enableShadowMask = srcFrameSettings.enableShadowMask && renderPipelineSettings.supportShadowMask;            
-            aggregate.enableSSR = camera.cameraType != CameraType.Reflection && srcFrameSettings.enableSSR && renderPipelineSettings.supportSSR;
+            aggregate.enableShadowMask = srcFrameSettings.enableShadowMask && renderPipelineSettings.supportShadowMask;
+            aggregate.enableSSR = camera.cameraType != CameraType.Reflection && srcFrameSettings.enableSSR && renderPipelineSettings.supportSSR; // No recursive reflections
             aggregate.enableSSAO = srcFrameSettings.enableSSAO && renderPipelineSettings.supportSSAO;
             aggregate.enableSubsurfaceScattering = camera.cameraType != CameraType.Reflection && srcFrameSettings.enableSubsurfaceScattering && renderPipelineSettings.supportSubsurfaceScattering;
             aggregate.enableTransmission = srcFrameSettings.enableTransmission;
@@ -148,6 +151,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             aggregate.enableStereo = ((camera.cameraType == CameraType.Game) || (camera.cameraType == CameraType.VR)) && srcFrameSettings.enableStereo && XRGraphicsConfig.enabled && (camera.stereoTargetEye == StereoTargetEyeMask.Both);
 
+            aggregate.xrGraphicsConfig = renderPipelineSettings.xrConfig;
+
             aggregate.enableAsyncCompute = srcFrameSettings.enableAsyncCompute && SystemInfo.supportsAsyncCompute;
 
             aggregate.enableOpaqueObjects = srcFrameSettings.enableOpaqueObjects;
@@ -176,7 +181,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 aggregate.enableTransparentPostpass = false;
                 aggregate.enableDistortion = false;
                 aggregate.enablePostprocess = false;
-                aggregate.enableStereo = false;                
+                aggregate.enableStereo = false;
             }
 
             LightLoopSettings.InitializeLightLoopSettings(camera, aggregate, renderPipelineSettings, srcFrameSettings, ref aggregate.lightLoopSettings);
