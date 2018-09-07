@@ -36,42 +36,42 @@ struct GrassVertexOutput
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
-void InitializeInputData(GrassVertexOutput IN, out InputData inputData)
+void InitializeInputData(GrassVertexOutput input, out InputData inputData)
 {
-    inputData.positionWS = IN.posWSShininess.xyz;
+    inputData.positionWS = input.posWSShininess.xyz;
 
-    half3 viewDir = IN.viewDir;
-    inputData.normalWS = FragmentNormalWS(IN.normal);
+    half3 viewDir = input.viewDir;
+    inputData.normalWS = FragmentNormalWS(input.normal);
 
     inputData.viewDirectionWS = FragmentViewDirWS(viewDir);
 #ifdef _DIRECTIONAL_SHADOWS
-    inputData.shadowCoord = IN.shadowCoord;
+    inputData.shadowCoord = input.shadowCoord;
 #else
     inputData.shadowCoord = float4(0, 0, 0, 0);
 #endif
-    inputData.fogCoord = IN.fogFactorAndVertexLight.x;
-    inputData.vertexLighting = IN.fogFactorAndVertexLight.yzw;
-    inputData.bakedGI = SAMPLE_GI(IN.lightmapUV, IN.vertexSH, inputData.normalWS);
+    inputData.fogCoord = input.fogFactorAndVertexLight.x;
+    inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
+    inputData.bakedGI = SAMPLE_GI(input.lightmapUV, input.vertexSH, inputData.normalWS);
 }
 
-void InitializeVertData(GrassVertexInput IN, inout GrassVertexOutput vertData)
+void InitializeVertData(GrassVertexInput input, inout GrassVertexOutput vertData)
 {
-    VertexPosition vertexPosition = GetVertexPosition(IN.vertex.xyz);
+    VertexPosition vertexPosition = GetVertexPosition(input.vertex.xyz);
 
-    vertData.uv = IN.texcoord;
+    vertData.uv = input.texcoord;
     vertData.posWSShininess.xyz = vertexPosition.worldSpace;
     vertData.posWSShininess.w = 32;
     vertData.clipPos = vertexPosition.hclipSpace;
 
     vertData.viewDir = VertexViewDirWS(GetCameraPositionWS() - vertexPosition.worldSpace);
     // initializes o.normal and if _NORMALMAP also o.tangent and o.binormal
-    OUTPUT_NORMAL(IN, vertData);
+    OUTPUT_NORMAL(input, vertData);
 
     // We either sample GI from lightmap or SH.
     // Lightmap UV and vertex SH coefficients use the same interpolator ("float2 lightmapUV" for lightmap or "half3 vertexSH" for SH)
     // see DECLARE_LIGHTMAP_OR_SH macro.
     // The following funcions initialize the correct variable with correct data
-    OUTPUT_LIGHTMAP_UV(IN.lightmapUV, unity_LightmapST, vertData.lightmapUV);
+    OUTPUT_LIGHTMAP_UV(input.lightmapUV, unity_LightmapST, vertData.lightmapUV);
     OUTPUT_SH(vertData.normal.xyz, vertData.vertexSH);
 
     half3 vertexLight = VertexLighting(vertexPosition.worldSpace, vertData.normal.xyz);
@@ -129,24 +129,24 @@ GrassVertexOutput WavingGrassBillboardVert(GrassVertexInput v)
 }
 
 // Used for StandardSimpleLighting shader
-half4 LitPassFragmentGrass(GrassVertexOutput IN) : SV_Target
+half4 LitPassFragmentGrass(GrassVertexOutput input) : SV_Target
 {
-    UNITY_SETUP_INSTANCE_ID(IN);
+    UNITY_SETUP_INSTANCE_ID(input);
 
-    float2 uv = IN.uv;
+    float2 uv = input.uv;
     half4 diffuseAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_PARAM(_MainTex, sampler_MainTex));
-    half3 diffuse = diffuseAlpha.rgb * IN.color.rgb;
+    half3 diffuse = diffuseAlpha.rgb * input.color.rgb;
 
     half alpha = diffuseAlpha.a;
     AlphaDiscard(alpha, _Cutoff);
-    alpha *= IN.color.a;
+    alpha *= input.color.a;
 
     half3 emission = 0;
     half4 specularGloss = 0.1;// SampleSpecularGloss(uv, diffuseAlpha.a, _SpecColor, TEXTURE2D_PARAM(_SpecGlossMap, sampler_SpecGlossMap));
-    half shininess = IN.posWSShininess.w;
+    half shininess = input.posWSShininess.w;
 
     InputData inputData;
-    InitializeInputData(IN, inputData);
+    InitializeInputData(input, inputData);
 
     half4 color = LightweightFragmentBlinnPhong(inputData, diffuse, specularGloss, shininess, emission, alpha);
     ApplyFog(color.rgb, inputData.fogCoord);
