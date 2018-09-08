@@ -148,7 +148,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 //HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = true
+            UseInPreview = false
         };
 
         Pass m_PassShadowCaster = new Pass()
@@ -178,7 +178,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = true
+            UseInPreview = false
         };
 
         Pass m_PassDepthOnly = new Pass()
@@ -244,7 +244,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 HDLitMasterNode.PositionSlotId
             },
-            UseInPreview = true
+            UseInPreview = false
         };
 
         Pass m_PassDistortion = new Pass()
@@ -356,6 +356,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 "FragInputs.worldToTangent",
                 "FragInputs.positionRWS",
+                "FragInputs.texCoord2" // lightmap
             },
             PixelShaderSlots = new List<int>()
             {
